@@ -1,0 +1,417 @@
+---
+title: "Correlation Analysis - Stations for each Analyte"
+author: "Dave Bosworth"
+date: "December 16, 2019"
+output:
+  html_document: 
+    code_folding: hide
+    toc: yes
+    toc_float:
+      collapsed: no
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(knitr.kable.NA = "")
+```
+
+# Import and Prepare Data
+
+Load R packages necessary for this analysis:
+```{r load packages, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(readxl)
+library(lubridate)
+library(ggforce)
+library(corrr)
+library(knitr)
+library(kableExtra)
+```
+
+Load common functions:
+```{r load common functions}
+# Load common functions
+source("inlet_outlet_common_functions.R")
+```
+
+Bring in and bind all concentration data:
+```{r import and clean conc data, message = FALSE, warning = FALSE}
+# Import concentration data
+conc_orig <- read_excel("../../../Data/Lab_Final/YB_Inlet-Outlet_Conc_Data.xlsx", sheet = "For R Analysis")
+
+# Clean conc_orig
+conc_clean <- conc_orig %>% 
+  # Remove samples with QualCode "R"
+  filter(is.na(QualCode) | !str_detect(QualCode, "^R")) %>%
+  mutate(SampleDate = as_date(SampleDate)) %>% 
+  mod_result() %>% 
+  # Select only necessary variables
+  select(
+    StationName,
+    SampleDate,
+    Analyte,
+    Conc
+  )
+
+# Import calculated particulate concentration data
+part_conc_orig <- read_csv("Concentrations/Particulate_Conc.csv") 
+
+# Clean part_conc_orig
+part_conc_clean <- part_conc_orig %>% 
+  select(-c(CollectionTimePST, Units))
+
+# Import Combined Parameter data
+comb_param_orig <- read_csv("Concentrations/CombinedParameters.csv")
+
+# Clean MeHg and THg on solids data
+hg_solids_clean <- comb_param_orig %>% 
+  select(-c(CollectionTimePST:SamplingEvent, Units)) %>% 
+  filter(Parameter %in% c("THg Concentration on Solids", "MeHg Concentration on Solids")) %>% 
+  rename(
+    Analyte = Parameter,
+    Conc = Value
+  )
+
+# Bind all concentration data
+all_conc <- bind_rows(conc_clean, part_conc_clean, hg_solids_clean)
+
+# Create a df of all stations to include and their shortened names
+stations <- tibble(
+  StationName = c(
+    "Cache Slough near Ryer Island",
+    "CCSB Overflow Weir- North",
+    "CCSB Overflow Weir- South",
+    "Fremont Weir- East Side",
+    "Fremont Weir- Middle",
+    "Fremont Weir- West Side",
+    "Knights Landing Ridge Cut",
+    "Liberty Cut below Stairsteps",
+    "Miner Slough near Sac River",
+    "Prospect Slough", 
+    "Putah Creek at Mace Blvd",           
+    "Shag Slough below Stairsteps",
+    "Toe Drain at 1/2 Lisbon",
+    "Toe Drain at County Road 22",
+    "Toe Drain at Interstate 80",
+    "Toe Drain at Lisbon Weir"
+  ),
+  ShortName = c(
+    "Cache",
+    "CCSB-N",
+    "CCSB-S",
+    "FrW-E",
+    "FrW-M",
+    "FrW-W",
+    "KLRC",
+    "LibCut",
+    "Miner",
+    "Prosp", 
+    "Putah",           
+    "Shag",
+    "1/2Lisb",
+    "Rd22",
+    "I-80",
+    "Lisb"
+  )
+)
+
+# Filter and Clean all Conc Data
+all_conc_clean <- all_conc %>% 
+  # Keep only necessary data
+  filter(
+    SampleDate != "2014-12-12",
+    StationName %in% stations$StationName,
+    Analyte %in% c(
+      "Chloride- filtered",
+      "DOC",
+      "Iron- filtered",
+      "Manganese- filtered",
+      "MeHg- filtered",
+      "MeHg- particulate",
+      "MeHg- total",
+      "MeHg Concentration on Solids",
+      "POC",
+      "Sulfate- filtered",
+      "THg- filtered",
+      "THg- particulate",
+      "THg- total",
+      "THg Concentration on Solids",
+      "TOC",
+      "TSS",
+      "UVA 254",
+      "VSS"
+    )
+  ) %>% 
+  # Shorten Station names
+  left_join(stations) %>% 
+  # Add variable for SamplingEvent
+  add_samplingevent() %>% 
+  # Keep only necessary variables
+  select(
+    ShortName,
+    SamplingEvent,
+    Analyte,
+    Conc
+  )
+
+# Clean up
+rm(stations)
+```
+
+Setup factor order:
+```{r set factor orders}
+# Stations
+sta_order <- c(
+  "FrW-E",
+  "FrW-M",
+  "FrW-W",
+  "CCSB-N",
+  "CCSB-S",
+  "KLRC",
+  "Putah",           
+  "Rd22",
+  "I-80",
+  "Lisb",
+  "1/2Lisb",
+  "LibCut",
+  "Shag",
+  "Prosp", 
+  "Cache",
+  "Miner"
+)
+
+# Analytes
+ana_order <- c(
+  "THg- total",
+  "THg- filtered",
+  "THg- particulate",
+  "THg Concentration on Solids",
+  "MeHg- total",
+  "MeHg- filtered",
+  "MeHg- particulate",
+  "MeHg Concentration on Solids",
+  "TSS",
+  "VSS",
+  "TOC",
+  "DOC",
+  "POC",
+  "UVA 254",
+  "Iron- filtered",
+  "Manganese- filtered",
+  "Chloride- filtered",
+  "Sulfate- filtered"
+)
+
+all_conc_clean <- all_conc_clean %>% 
+  mutate(
+    ShortName = factor(ShortName, levels = sta_order),
+    Analyte = factor(Analyte, levels = ana_order)
+  )
+
+# Clean up
+rm(ana_order, sta_order)
+```
+
+# Create Plot and Correlation Analysis Functions
+
+Function for scatterplot matrices:
+```{r function scatterplot matrix}
+plot_scatt_matrix <- function(df, PlotSubT) {
+  p <- 
+    ggplot(
+      data = df, 
+      aes(
+        x = .panel_x, 
+        y = .panel_y
+      )
+    ) +
+    geom_point(size = 0.5, na.rm = TRUE) +
+    facet_matrix(
+      vars(everything()), 
+      layer.diag = FALSE
+    ) +
+    labs(
+      title = "Scatterplot Matrix",
+      subtitle = PlotSubT
+    ) +
+    theme(axis.text.x = element_text(angle = 90))
+  
+  return(p)
+}
+```
+
+Function to create correlation matrix:
+```{r function correlation matrix}
+corr_matrix <- function(df) {
+  df_corr <- correlate(df, quiet = TRUE)
+  
+  return(df_corr)
+}
+```
+
+Function for correlation plots:
+```{r function correlation plots}
+plot_corr <- function(df_corr, PlotSubT) {
+  p <- rplot(df_corr, print_cor = TRUE) + 
+    labs(
+      title = "Correlation Plot- Pearson's correlation coefficients",
+      subtitle = PlotSubT
+    ) +
+    theme(axis.text.x = element_text(angle = 90))
+  
+  return(p)
+}
+```
+
+Function to reformat correlation matrices to publication-quality:
+```{r function reformat correlation matrix}
+reformat_corr_matrix <- function(df_corr) {
+  df_corr_reformat <- stretch(df_corr, remove.dups = TRUE, na.rm = TRUE) %>% 
+    pivot_wider(names_from = y, values_from = r)
+  
+  return(df_corr_reformat)
+}
+```
+
+Function to calculate p-values for correlation analyses:
+```{r function calc pvalues}
+calc_corr_pval <- function(df, df_corr) {
+  
+  # Calculate sample sizes of each pair
+  df_N <- crossprod(as.matrix(!is.na(df))) %>% 
+    as_tibble(rownames = "x") %>% 
+    pivot_longer(
+      cols = -x,
+      names_to = "y",
+      values_to = "Num"
+    )
+    
+  # Add sample sizes to df_corr df and calculate p-values
+  pval_matr <- df_corr %>% 
+    stretch(remove.dups = TRUE, na.rm = TRUE) %>% 
+    left_join(df_N, by = c("x", "y")) %>% 
+    mutate(
+      t_stat = r * sqrt(Num - 2)/sqrt(1 - r^2),
+      p_value = if_else(
+        t_stat >= 0,
+        2*pt(t_stat, df = Num-2, lower.tail = FALSE),
+        2*pt(t_stat, df = Num-2)
+      )
+    ) %>% 
+    select(x, y, p_value) %>%
+    pivot_wider(names_from = y, values_from = p_value) 
+
+  return(pval_matr)
+}
+```
+
+Function to apply conditional formatting to p-value matrices:
+```{r function cond format pvalues}
+cond_format_pval <- function(pval_matr) {
+  pval_matr_cond_format <- pval_matr %>% 
+    pivot_longer(
+      cols = -x, 
+      names_to = "y", 
+      values_to = "pval"
+    ) %>% 
+    filter(!is.na(pval)) %>% 
+    mutate(
+      pval = signif(pval, 2),
+      pval = cell_spec(
+        pval, 
+        "html", 
+        color = if_else(pval < 0.05, "red", "black"),
+        bold = if_else(pval < 0.05, TRUE, FALSE)
+      )
+    ) %>% 
+    pivot_wider(names_from = y, values_from = pval)
+  
+  return(pval_matr_cond_format)
+}
+```
+
+# Run Correlation Analysis for each Analyte and Create Plots
+
+Create a nested dataframe grouped by Analyte:
+```{r create nested df by Analyte}
+all_conc_nestdf_ana <- all_conc_clean %>%
+  arrange(ShortName) %>% 
+  pivot_wider(names_from = ShortName, values_from = Conc) %>% 
+  select(-SamplingEvent) %>% 
+  group_nest(Analyte)
+```
+
+Run the plot and correlation functions on nested dataframe:
+```{r apply corr and plot functions}
+all_conc_corr_analysis <- all_conc_nestdf_ana %>% 
+  mutate(
+    plots_scatt = map2(data, Analyte, .f = plot_scatt_matrix),
+    corr_matr = map(data, .f = corr_matrix),
+    plots_corr = map2(corr_matr, Analyte, .f = plot_corr),
+    corr_matr_reformat = map(corr_matr, .f = reformat_corr_matrix),
+    pval_matr = map2(data, corr_matr, .f = calc_corr_pval),
+    pval_matr_cond_format = map(pval_matr, .f = cond_format_pval)
+  )
+```
+
+# Results
+
+```{r print plots and corr matrices, echo = FALSE, message = FALSE, results = "asis", fig.height = 9, fig.width = 13}
+for (i in 1:nrow(all_conc_corr_analysis)) {
+  # Create subheadings for each Analyte
+  cat("## ", as.character(all_conc_corr_analysis$Analyte[i]), "\n\n### Plots\n\n") 
+  # Print Scatterplot Matrices
+  print(all_conc_corr_analysis$plots_scatt[[i]])
+  cat("\n\n")
+  # Print Correlation Plots
+  print(all_conc_corr_analysis$plots_corr[[i]])
+  cat("\n\n")
+  # Print Correlation Matrices
+  k1 <- 
+    kable(
+      all_conc_corr_analysis$corr_matr_reformat[[i]], 
+      digits = 2, 
+      caption = paste(
+        "Pearson's correlation coefficients:", 
+        as.character(all_conc_corr_analysis$Analyte[i])
+      )
+    ) %>% 
+    kable_styling("striped")
+  cat("### Correlation Matrix\n\n", k1, "\n\n")
+  # Print p-value Matrices
+  k2 <- 
+    kable(
+      all_conc_corr_analysis$pval_matr_cond_format[[i]],
+      format = "html",
+      escape = FALSE,
+      caption = paste(
+        "p-values for correlation coefficients:", 
+        as.character(all_conc_corr_analysis$Analyte[i])
+      )
+    ) %>%
+    kable_styling("striped")
+  cat("### P-value Matrix\n\n", k2, "\n\n")
+}
+```
+
+# Observations
+
+Significant Correlations:
+
+* TSS, VSS, TOC, DOC, and all fractions of THg were positively correlated widely across most stations, most notably for total and particulate THg.
+* The stations along the Toe Drain transect were positively correlated across most parameters.
+* To a lesser extent, the Toe Drain transect locations were positively correlated with Liberty Cut and Shag Slough particularly with total and particulate MeHg, MeHg on solids, TOC, DOC, UVA 254, filtered Fe, chloride, and sulfate. Liberty Cut was correlated with the Toe Drain transect stations more often than Shag Slough.
+
+</br>
+Insignificant Correlations:
+
+* THg on solids and filtered Mn were rarely significantly correlated between stations.
+
+</br>
+Mixed Results:
+
+* While there were positive and significant correlations between some of the inlet stations and the Toe Drain transect and outlet locations with some parameters, there were no obvious or consistent trends.
+
+

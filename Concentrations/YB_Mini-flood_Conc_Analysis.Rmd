@@ -1,0 +1,474 @@
+---
+title: "Yolo Bypass Concentration Analysis: Mini-floods"
+author: "Dave Bosworth"
+date: "December 4, 2019"
+output: 
+  html_document:
+    toc: true
+    toc_float:
+      collapsed: false
+    code_folding: hide
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(knitr.kable.NA = "")
+```
+
+# Purpose of Analysis
+
+For this analysis, I am only looking at the two sampling events without a Fremont Weir spill:
+
+  * December 22-23, 2014 which was a true mini-flood event
+  * March 15-16, 2017 which the Fremont Weir was spilling before this event, but stopped during it
+
+</br>
+The purpose of this analysis is to look for trends during these two events in the following concentration-based parameters at the inlets, outlets, and Toe Drain transect sampling locations:
+
+  * Methylmercury (MeHg) and total mercury (THg) concentrations in both the filtered and particulate fractions
+  * The percent of each fraction for MeHg and THg
+  * Total suspended solids (TSS) concentrations
+  * MeHg and THg concentrations on solids which provide estimates of the amount of mercury bound to the suspended sediment. An increasing or decreasing trend in these parameters indicate either an enrichment or reduction of mercury on suspended particles.
+  * MeHg and THg partitioning coefficients (Kd). An increasing trend in these parameters indicates greater partitioning of mercury to the solid-bound phase, and a decreasing trend indicates greater partitioning to the filtered or dissolved phase.
+  * The percent of THg that is MeHg. An increasing trend indicates more of the total mercury is methylmercury.
+
+# Import and Prepare Data
+
+Load R packages necessary for this analysis:
+```{r load packages, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(readxl)
+library(lubridate)
+library(scales)
+library(knitr)
+```
+
+Load common functions:
+```{r load common functions}
+# Load common functions
+source("inlet_outlet_common_functions.R")
+```
+
+Bring in and bind all concentration data:
+```{r import and clean conc data, message = FALSE, warning = FALSE}
+# Import concentration data
+conc_orig <- read_excel("../../../Data/Lab_Final/YB_Inlet-Outlet_Conc_Data.xlsx", sheet = "For R Analysis")
+
+# Clean conc_orig
+conc_clean <- conc_orig %>% 
+  # Remove samples with QualCode "R"
+  filter(is.na(QualCode) | !str_detect(QualCode, "^R")) %>%
+  mutate(SampleDate = as_date(SampleDate)) %>% 
+  mod_result() %>% 
+  mutate(
+    Detect = if_else(
+      ResQual == 1,
+      "Non-detect",
+      "Detect"
+    )
+  )
+
+# Import calculated particulate concentration data
+part_conc_orig <- read_csv("Concentrations/Particulate_Conc.csv") 
+
+# Clean part_conc_orig
+part_conc_clean <- part_conc_orig %>% 
+  select(-CollectionTimePST) %>% 
+  mutate(Detect = "Detect")
+
+# Import combined parameter data
+comb_param_orig <- read_csv("Concentrations/CombinedParameters.csv")
+
+# Clean comb_param_orig
+comb_param_clean <- comb_param_orig %>% 
+  select(-c(CollectionTimePST:SamplingEvent)) %>% 
+  rename(
+    Analyte = Parameter,
+    Conc = Value
+  ) %>% 
+  mutate(Detect = "Detect")
+
+# Bind all concentration data
+all_conc <- bind_rows(conc_clean, part_conc_clean, comb_param_clean)
+
+# Filter and clean concentration data
+all_conc_clean <- all_conc %>% 
+  filter(
+    !str_detect(StationName, "^YB|^Cache Slough|^Miner Slough" ),
+    SampleDate !="2014-12-12"
+  ) %>% 
+  add_samplingevent() %>% 
+  conv_fact_samplingevent() %>% 
+  add_short_sta_names() %>% 
+  conv_fact_short_sta_names() %>% 
+  mutate(ShortName = fct_drop(ShortName)) %>% 
+  select(
+    ShortName,
+    SamplingEvent,
+    Analyte,
+    Conc,
+    Detect,
+    Units
+  )
+```
+
+Prepare concentration data for parameter plots:  
+```{r prepare conc data for parameter plots}
+conc_param <- all_conc_clean %>% 
+  filter(
+    Analyte %in% c(
+      "THg Concentration on Solids",
+      "MeHg Concentration on Solids",       
+      "THg Partitioning Coefficient (Kd)",
+      "MeHg Partitioning Coefficient (Kd)", 
+      "Percent tMeHg Conc of the tTHg Conc",
+      "TSS"
+    )
+  )
+```
+
+Prepare Hg data for fraction plots:  
+```{r prepare Hg data for fraction plots}
+conc_hg <- all_conc_clean %>% 
+  filter(
+    Analyte %in% c(
+      "MeHg- filtered",
+      "MeHg- particulate",
+      "THg- filtered",
+      "THg- particulate"
+    )
+  ) %>% 
+  separate(Analyte, into = c("Hg_analyte", "Fraction"), sep = "- ") %>% 
+  mutate(Fraction = str_to_title(Fraction))
+```
+
+```{r calculate percentages of Hg fractions, echo = FALSE}
+conc_per_hg <- conc_hg %>% 
+  pivot_wider(
+    id_cols = ShortName:Hg_analyte,
+    names_from = Fraction,
+    values_from = Conc
+  ) %>% 
+  mutate(
+    Filt_per = round(Filtered/(Filtered + Particulate) * 100, 1),
+    Part_per = round(Particulate/(Filtered + Particulate) * 100, 1)
+  )
+```
+
+Bring in and clean Specific Conductance data:
+```{r import and clean SpCond data, message = FALSE}
+# Import Specific Conductance Data
+spcond_orig <- read_excel("FieldMeasurements/FieldMeasurements.xlsx")
+
+# Clean spcond_orig
+spcond_clean <- spcond_orig %>% 
+  mutate(SampleDate = as_date(Date)) %>% 
+  select(
+    StationName,
+    SampleDate,
+    "Specific Conductance"
+  ) %>% 
+  pivot_longer(
+    cols = "Specific Conductance",
+    names_to = "Analyte",
+    values_to = "Conc"
+  ) %>% 
+  mutate(
+    Detect = "Detect",
+    Units = "uS/cm"
+  ) %>% 
+  add_samplingevent() %>% 
+  conv_fact_samplingevent() %>% 
+  add_short_sta_names() %>% 
+  conv_fact_short_sta_names() %>% 
+  select(
+    ShortName,
+    SamplingEvent,
+    Analyte,
+    Conc,
+    Detect,
+    Units
+  ) %>% 
+  filter(!ShortName %in% c("Cache Sl", "Miner Sl")) %>% 
+  mutate(ShortName = fct_drop(ShortName))
+```
+
+Bind concentration and Specific Conductance data and filter for source ID plots:
+```{r bind conc and SpCond data}
+# Bind Concentration and Specific Conductance data
+conc_spcond <- bind_rows(all_conc_clean, spcond_clean)
+
+# Filter conc_spcond for plotting
+conc_spcond_filt <- conc_spcond %>% 
+  filter(
+    Analyte %in% c(
+      "Aluminum- total",
+      "Boron- total",
+      "Calcium- total",
+      "Chloride- filtered",
+      "Chromium- total",
+      "Magnesium- total",
+      "Manganese- total",
+      "Nickel- total",
+      "Sodium- total",
+      "Specific Conductance"
+    )
+  )
+```
+
+# Create Plotting Functions
+
+Function for Source ID plots:
+```{r source id plot function}
+plots_source_id <- function(df, PlotTitle) {
+  
+  p <- ggplot(
+      data = df,
+      aes(
+        x = ShortName, 
+        y = Conc,
+        color = Detect,
+        fill = Detect
+      )
+    ) +
+    geom_col() +
+    scale_color_manual(
+      name = NULL,
+      values = c("grey35", "red"),
+      aesthetics = c("color", "fill")
+    ) +
+    facet_wrap(
+      vars(Analyte, Units),
+      ncol = 3,
+      scales = "free_y"
+    ) +
+    labs(
+      title = PlotTitle,
+      x = NULL,
+      y = "Concentration"
+    ) +
+    theme(
+      axis.text.x = element_text(angle = 90, hjust = 1),  #x-axis labels at 90 degrees
+      plot.margin = margin(t = 0.5, b = 0.5, unit = "cm")
+    )
+      
+  return(p)
+  
+}
+```
+
+Function for plots showing all parameters for each sampling event:
+```{r parameter plot function all params}
+plots_param_all <- function(df, PlotTitle) {
+  
+  p <- ggplot(
+      data = df,
+      aes(
+        x = ShortName, 
+        y = Conc
+      )
+    ) +
+    geom_line(aes(group = 1)) +
+    geom_point() +
+    facet_wrap(
+      vars(Analyte, Units),
+      scales = "free_y"
+    ) +
+    labs(
+      title = PlotTitle,
+      x = "Station",
+      y = "Value"
+    ) +
+    theme(
+      axis.text.x = element_text(angle = 90, hjust = 1),  #x-axis labels at 90 degrees
+      plot.margin = margin(t = 0.5, b = 0.5, unit = "cm")
+    )
+  
+  return(p)
+  
+}
+```
+
+Function for MeHg and THg fraction plots:
+```{r Hg fraction plot function}
+plots_hg_frac <- function(df, PlotTitle) {
+  
+  p <- ggplot(
+      data = df,
+      aes(
+        x = ShortName, 
+        y = Conc,
+        fill = Fraction
+      )
+    ) +
+    geom_col() +
+    facet_wrap(
+      vars(Hg_analyte),
+      scales = "free_y"
+    ) +
+    labs(
+      title = PlotTitle,
+      x = "Station",
+      y = "Concentration (ng/L)"
+    ) +
+    theme(
+      axis.text.x = element_text(angle = 90, hjust = 1),  #x-axis labels at 90 degrees
+      plot.margin = margin(t = 0.5, b = 0.5, unit = "cm")
+    )
+  
+  return(p)
+  
+}
+```
+
+Function for MeHg and THg percent fraction plots:
+```{r Hg percent fraction plot function}
+plots_hg_per_frac <- function(df, PlotTitle) {
+  
+  p <- ggplot(
+      data = df,
+      aes(
+        x = ShortName, 
+        y = Conc,
+        fill = Fraction
+      )
+    ) +
+    geom_col(position = "fill") +
+    facet_wrap(vars(Hg_analyte)) +
+    labs(
+      title = PlotTitle,
+      x = "Station",
+      y = "Fraction Percentage"
+    ) +
+    theme(
+      axis.text.x = element_text(angle = 90, hjust = 1),  #x-axis labels at 90 degrees
+      plot.margin = margin(t = 0.5, b = 0.5, unit = "cm")
+    ) +
+    scale_y_continuous(labels = percent_format())
+  
+  return(p)
+  
+}
+```
+
+# Results
+
+## December 22-23, 2014 Event
+
+### Source ID plot
+
+```{r source id Dec 2014 event}
+conc_spcond_filt %>% 
+  filter(SamplingEvent == "Dec 22-23, 2014") %>% 
+  plots_source_id(.$SamplingEvent[1])
+```
+
+It looks like the water at the Road 22 site is mostly from KLRC. As water moved downstream in the Toe Drain, water from CCSB started to mix in causing a slight increase in the chloride concentrations and specific conductance values.
+
+### Parameter plots
+
+```{r parameter plots Dec 2014 event, fig.width = 8.5}
+conc_param %>% 
+  filter(SamplingEvent == "Dec 22-23, 2014") %>% 
+  plots_param_all(.$SamplingEvent[1])
+```
+
+```{r Hg plots Dec 2014 event}
+conc_hg %>% 
+  filter(SamplingEvent == "Dec 22-23, 2014") %>% 
+  plots_hg_frac(.$SamplingEvent[1])
+
+conc_hg %>% 
+  filter(SamplingEvent == "Dec 22-23, 2014") %>% 
+  plots_hg_per_frac(.$SamplingEvent[1])
+```
+
+```{r calculate increases in MeHg, echo = FALSE}
+# filtered MeHg
+fmehg <- conc_hg %>% 
+  filter(
+    SamplingEvent == "Dec 22-23, 2014",
+    Hg_analyte == "MeHg",
+    Fraction == "Filtered"
+  )
+
+fmehg_i80 <- as.numeric(fmehg[which(fmehg$ShortName == "Toe Dr at I-80"), "Conc"])
+
+fmehg_lisb <- as.numeric(fmehg[which(fmehg$ShortName == "Toe Dr at Lisbon"), "Conc"])
+
+inc_fmehg <- round(fmehg_lisb/fmehg_i80, 1)
+
+# MeHg on solids
+smehg <- conc_param %>% 
+  filter(
+    SamplingEvent == "Dec 22-23, 2014",
+    Analyte == "MeHg Concentration on Solids"
+  )
+
+smehg_i80 <- as.numeric(smehg[which(smehg$ShortName == "Toe Dr at I-80"), "Conc"])
+
+smehg_lisb <- as.numeric(smehg[which(smehg$ShortName == "Toe Dr at Lisbon"), "Conc"])
+
+inc_smehg <- round(smehg_lisb/smehg_i80, 1)
+
+rm(fmehg, fmehg_i80, fmehg_lisb, smehg, smehg_i80, smehg_lisb)
+```
+
+### Observations
+
+  * There were large increases in total MeHg concentrations and MeHg concentrations on solids between I-80 and Lisbon along the Toe Drain; however, the Kd values gradually decreased along the Toe Drain transect indicating slightly greater partitioning to the filtered fraction from upstream to downstream.
+  * There was a greater increase in filtered MeHg concentrations (`r inc_fmehg`X) between I-80 and Lisbon than on solids (`r inc_smehg`X) explaining the decline in MeHg Kd values along the Toe Drain transect.
+  * Since the large increases in the total MeHg concentrations and MeHg concentrations on solids along the Toe Drain transect could not be explained by mixing of the various input water masses, these could be due to processes internal to the Bypass.
+  * The percentage of MeHg of the THg also increased sharply between I-80 and Lisbon.
+  * The percentage of the filtered MeHg fraction was about 50% at all of the stations except for Road 22 which was lower at about 38%.
+  * The total THg concentrations and the THg concentrations on solids were highest at the CCSB sites. Total THg concentrations were lowest at the two other inlet sites, KLRC and Putah Creek.
+  * Total THg concentrations gradually increased from upstream to downstream along the Toe Drain transect, which could be due to CCSB water mixing in.
+  * TSS concentrations at the inlet stations were highest at the CCSB sites and lowest at Putah Creek. At the Toe Drain sites, the TSS concentration at the Rd 22 and 1/2 Lisbon stations were close to the CCSB values, and the I-80 and Lisbon concentrations were close to the KLRC value.
+
+## March 15-16, 2017 Event
+
+### Source ID plot
+
+```{r source id Mar 15-16 2017 event, fig.height = 9, fig.width = 10}
+conc_spcond_filt %>% 
+  filter(SamplingEvent == "Mar 15-16, 2017") %>% 
+  plots_source_id(.$SamplingEvent[1])
+```
+
+For most of the parameters including Al, Ca, Cl, Mn, Na, and specific conductance, the Toe Drain at Road 22 station had higher values than the other downstream stations along the Toe Drain transect. KLRC was also higher in these parameters than the other inputs further south, suggesting that Road 22 was more dominated by KLRC water and the water from CCSB and Putah Creek started to mix into the Toe Drain water further downstream. Boron concentrations suggested something similar with the Road 22 values starting out lower (similar to KLRC) and then increased to the Lisbon station as the CCSB water mixed in (CCSB had much higher concentrations of boron). Interestingly, the boron concentrations decreased in the Toe Drain after the Lisbon station which may have been due to greater influence from Putah Creek which also had lower boron values.
+
+### Parameter plots
+
+```{r parameter plots Mar 15-16 2017 event, fig.width = 8.5}
+conc_param %>% 
+  filter(SamplingEvent == "Mar 15-16, 2017") %>% 
+  plots_param_all(.$SamplingEvent[1])
+```
+
+```{r Hg plots Mar 15-16 2017 event}
+conc_hg %>% 
+  filter(SamplingEvent == "Mar 15-16, 2017") %>% 
+  plots_hg_frac(.$SamplingEvent[1])
+
+conc_hg %>% 
+  filter(SamplingEvent == "Mar 15-16, 2017") %>% 
+  plots_hg_per_frac(.$SamplingEvent[1])
+```
+
+### Observations
+
+  * The MeHg concentrations on solids gradually increased along the Toe Drain transect from upstream to downstream between Rd 22 and 1/2 Lisbon. Total MeHg concentrations were fairly consistent at these stations ranging between 0.4-0.45 ng/L with a small increase at the 1/2 Lisbon station. The percentages of the filtered MeHg fraction steadily decreased along this transect. The end result is that the partitioning coefficients increased along this transect indicating greater partitioning of MeHg to the solid-bound fraction.
+  * The percentages of MeHg of the THg were much higher at KLRC and Shag Slough which were close to 16%. Shag Slough also had the highest total MeHg concentration and MeHg concentration on solids and one of the lowest TSS concentrations.
+  * The CCSB sites had the highest THg concentrations on solids and the lowest TSS concentrations. Interestingly, the CCSB sites did not have the highest total THg concentrations as they did in the December 2014 mini-flood event.
+  * Putah Creek had the highest THg concentration, and all of the Toe Drain stations had slightly lower concentrations than Putah Creek.
+  * KLRC had the highest total MeHg concentration and the lowest THg concentration of all of the inlets.
+
+## Overall Observations
+
+For the most part, the trends in all of the THg, MeHg, and TSS parameters were very different between these two sampling events illustrating the uniqueness of each flood and sampling event and the high variability of these parameters when the Bypass is flooding. However, there were a few consistent trends between these two events:
+
+  * The CCSB sites consistently had the highest THg concentrations on solids and the lowest percent MeHg of THg.
+  * In contrast, KLRC had the lowest THg concentrations on solids and the highest percent MeHg of THg. KLRC also had the lowest total THg concentrations of all stations during both events.
+
