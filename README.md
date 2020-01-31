@@ -1,2 +1,2 @@
-# Hg-YB-Inlet-Outlet-Study
-Contains the R files used for data analysis and final report figures and tables for the Yolo Bypass mercury loading study.
+# Yolo Bypass Inlet-Outlet Mercury Study
+This repository contains the R files used for data analysis and final report figures and tables for the Yolo Bypass Inlet-Outlet study investigating mercury (Hg) and methylmercury (MeHg) loads. It is organized into folders (Concentrations, Flows, Loads, Field Measurements) based upon the type of data processed and analyzed. All data files used in the R files in this repository are stored on a DWR SharePoint site for the Open Water Final Report. Final report figures and tables are stored on the same SharePoint site.
