@@ -911,7 +911,7 @@ Loads.final <-
   arrange(SamplingEvent, LocType, StationName, Analyte)
 
 # Export Loads to be stored in a spreadsheet
-Loads.final %>% write_excel_csv("Loads/All_YB_Loads-R.csv", na = "")
+Loads.final %>% write_excel_csv("Loads/All_YB_Loads-R.csv", na = "")  # moved to SharePoint
 # This .csv will be used to create plots and summary statistics
 
 # Restructure and export Inlet loads to be placed in a summary spreadsheet

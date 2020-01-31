@@ -493,7 +493,7 @@ comb_param_clean %>%
     Value,
     Units
   ) %>% 
-  write_excel_csv("Concentrations/CombinedParameters.csv")
+  write_excel_csv("Concentrations/CombinedParameters.csv")  # moved to SharePoint site
 
 comb_param_clean %>% 
   select(
@@ -505,6 +505,4 @@ comb_param_clean %>%
   pivot_wider(names_from = ShortName, values_from = Value) %>% 
   write_excel_csv("CombinedParameters_wide.csv", na = "")
 
-# The raw data for the Combined parameters is stored in the following spreadsheet:
-  # M:\Data_Analysis\Open_Water_R\YB_Inlet_Outlet\Concentrations\CombinedParameters.csv
 
