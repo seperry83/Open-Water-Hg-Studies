@@ -1,0 +1,188 @@
+---
+title: "Testing Color Palettes"
+author: "Dave Bosworth"
+date: "12/24/2019"
+output:
+  html_document: 
+    code_folding: hide
+    toc: yes
+    toc_float:
+      collapsed: no
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Import and Prepare Data
+
+Load R packages necessary for this analysis:
+```{r load packages, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(scales)
+library(colorspace)
+```
+
+Load common functions:
+```{r load common functions}
+# Load common functions
+source("inlet_outlet_common_functions.R")
+```
+
+Import and Clean Load Data:
+```{r import and clean load data, message = FALSE, warning = FALSE}
+# Import Load Data
+loads_orig <- read_csv("Loads/All_YB_Loads-R.csv")
+
+# Clean loads_orig
+loads_clean1 <- loads_orig %>% 
+  # only include inlet stations and THg, MeHg
+  filter(
+    LocType == "Inlet",
+    str_detect(Analyte, "^THg|^MeHg")
+  ) %>% 
+  select(
+    SamplingEvent,
+    StationName,
+    Analyte,
+    Load,
+    LoadUnits
+  )
+```
+
+Sum CCSB Loads:
+```{r sum ccsb loads}
+# Sum the CCSB Loads
+ccsb <- loads_clean1 %>% 
+  filter(str_detect(StationName, "^CCSB")) %>% 
+  group_by(SamplingEvent, Analyte, LoadUnits) %>% 
+  summarize(Load = sum(Load)) %>% 
+  ungroup() %>% 
+  mutate(StationName = "CCSB")
+
+# Add back the summed CCSB loads
+loads_clean2 <- loads_clean1 %>% 
+  filter(!str_detect(StationName, "^CCSB")) %>%
+  bind_rows(ccsb)
+
+# Clean up
+rm(ccsb)
+```
+
+Prepare Inlet Load data for Example Plots:
+```{r prepare data for plots}
+loads_clean <- loads_clean2 %>% 
+  # rename a few stations and apply factor order
+   mutate(
+    StationName = case_when(
+      StationName == "Knights Landing Ridge Cut" ~ "KLRC",
+      StationName == "Putah Creek at Mace Blvd" ~ "Putah Ck",
+      StationName == "Sac River above the Sacramento Weir" ~ "Sac Weir",
+      TRUE ~ StationName
+    ),
+    StationName = factor(StationName, levels = c("KLRC", "CCSB", "Putah Ck", "Sac Weir", "Fremont Weir"))
+   ) %>% 
+  # apply factor order to SamplingEvent variable
+  conv_fact_samplingevent()
+
+# Remove intermediate df's
+rm(loads_clean1, loads_clean2)
+```
+
+
+# Create Base Plots
+
+Stacked Bar Plots:
+```{r base plot stacked}
+plot_stacked <- loads_clean %>% 
+  ggplot(
+    aes(
+      x = SamplingEvent,
+      y = Load,
+      fill = StationName
+    )
+  ) +
+  geom_col() +
+  facet_wrap(
+    vars(Analyte, LoadUnits),
+    ncol = 3, 
+    scales = "free_y",
+  ) +
+  labs(
+    title = NULL,
+    x = "Sampling Event",
+    y = "Loads"
+  ) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+Filled Bar Plots:
+```{r base plot filled}
+plot_filled <- loads_clean %>% 
+  ggplot(
+    aes(
+      x = SamplingEvent,
+      y = Load,
+      fill = StationName
+    )
+  ) +
+  geom_col(position = "fill") +
+  facet_wrap(
+    vars(Analyte, LoadUnits),
+    ncol = 3, 
+    scales = "free_y",
+  ) +
+  labs(
+    title = NULL,
+    x = "Sampling Event",
+    y = "Percentage of Total Inlet Load"
+  ) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_y_continuous(labels = percent_format())
+```
+
+
+# Example Plots
+
+## Viridis
+
+Stacked Bar Plot:
+```{r plot stacked viridis, fig.width = 10, fig.height = 6}
+plot_stacked + scale_fill_discrete_sequential(palette = "Viridis", nmax = 5)
+```
+
+Filled Bar Plot:
+```{r plot filled viridis, fig.width = 10, fig.height = 6}
+plot_filled + scale_fill_discrete_sequential(palette = "Viridis", nmax = 5)
+```
+
+
+## Yellow-Green-Blue (YlGnBu)
+
+Stacked Bar Plot:
+```{r plot stacked YlGnBu, fig.width = 10, fig.height = 6}
+plot_stacked + scale_fill_discrete_sequential(palette = "YlGnBu", nmax = 6, order = 2:6)
+```
+
+Filled Bar Plot:
+```{r plot filled YlGnBu, fig.width = 10, fig.height = 6}
+plot_filled + scale_fill_discrete_sequential(palette = "YlGnBu", nmax = 6, order = 2:6)
+```
+
+
+## Yellow-Orange-Red (YlOrRd)
+
+Stacked Bar Plot:
+```{r plot stacked YlOrRd, fig.width = 10, fig.height = 6}
+plot_stacked + scale_fill_discrete_sequential(palette = "YlOrRd", nmax = 6, order = 2:6)
+```
+
+Filled Bar Plot:
+```{r plot filled YlOrRd, fig.width = 10, fig.height = 6}
+plot_filled + scale_fill_discrete_sequential(palette = "YlOrRd", nmax = 6, order = 2:6)
+```
+
