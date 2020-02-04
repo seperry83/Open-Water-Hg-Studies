@@ -1,0 +1,330 @@
+---
+title: "Inlet Loads to the Yolo Bypass"
+author: "Dave Bosworth"
+date: "2/3/2020"
+output: 
+  html_document: 
+    code_folding: hide
+    toc: yes
+    toc_float:
+      collapsed: no
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Import and Prepare Data
+
+Load R packages necessary for this analysis:
+```{r load packages, message = FALSE, warning = FALSE}
+# Load packages
+library(tidyverse)
+library(readxl)
+library(scales)
+library(colorspace)
+```
+
+Load common functions:
+```{r load common functions}
+# Load common functions
+source("inlet_outlet_common_functions.R")
+```
+
+Import Load Data:
+```{r import load data, message = FALSE, warning = FALSE}
+# Define path on SharePoint site for data
+sharepoint_path <- normalizePath(
+  file.path(
+    Sys.getenv("USERPROFILE"),
+    "California Department of Water Resources/DWR Documents - Open Water Final Report - Documents/Technical Appendices/Inlet-Outlet/Data"
+  )
+)  
+
+# Import load data
+loads_orig <- read_csv(file = paste0(sharepoint_path, "/All_YB_Loads-R.csv"))
+```
+
+Clean the original loads dataframe for analysis:
+```{r clean load data}
+loads_inlet <- loads_orig %>% 
+  # only include a subset of the data
+  filter(
+    str_detect(Analyte, "OC$|Hg|SS$"),
+    LocType == "Inlet"
+  ) %>% 
+  # remove a few variables
+  select(-c(Year, Conc:LocType))
+
+# Sum the CCSB Loads
+ccsb_loads <- loads_inlet %>% 
+  filter(str_detect(StationName, "^CCSB")) %>% 
+  group_by(SamplingEvent, Analyte, LoadUnits) %>% 
+  summarize(TotalLoad = sum(Load)) %>% 
+  ungroup() %>% 
+  rename(Load = TotalLoad) %>% 
+  mutate(StationName = "CCSB")
+
+# Add back the summed CCSB loads and prepare data for plots
+loads_clean <- loads_inlet %>% 
+  filter(!str_detect(StationName, "^CCSB")) %>%
+  bind_rows(ccsb_loads) %>% 
+  # rename some station names and add AnalyteGroup
+  mutate(
+    StationName = case_when(
+      StationName == "Knights Landing Ridge Cut" ~ "KLRC",
+      StationName == "Putah Creek at Mace Blvd" ~ "Putah Ck",
+      StationName == "Sac River above the Sacramento Weir" ~ "Sac Weir",
+      TRUE ~ StationName
+    ),
+    AnalyteGroup = case_when(
+      str_detect(Analyte, "^MeHg") ~ "MeHg",
+      str_detect(Analyte, "^THg") ~ "Hg",
+      str_detect(Analyte, "OC$") ~ "OrgC",
+      str_detect(Analyte, "SS$") ~ "SuspSolids"
+    )
+  ) %>% 
+  # apply plot order
+  conv_fact_samplingevent() %>% 
+  mutate(
+    StationName = factor(
+      StationName,
+      levels = c(
+        "KLRC", 
+        "CCSB", 
+        "Putah Ck", 
+        "Sac Weir", 
+        "Fremont Weir"
+      )
+    )
+  )
+```
+
+Calculate total inlet loads for each analyte and sampling event:
+```{r calc total inlet loads}
+loads_total <- loads_clean %>% 
+  group_by(SamplingEvent, Analyte, LoadUnits) %>% 
+  summarize(total_load = sum(Load)) %>% 
+  ungroup()
+```
+
+# Create Plot Functions
+
+Function for facet plots for inlet loads:
+```{r fun facet plots inlets}
+plot_inlet_facet <- function(df, ncols) {
+  p <- 
+    ggplot(
+      data = df,
+      aes(
+        x = SamplingEvent,
+        y = Load
+      )
+    ) +
+    geom_col() +
+    facet_wrap(
+      vars(StationName, Analyte),
+      scales = "free_y",
+      ncol = ncols
+    ) +
+    labs(
+      title = NULL,
+      x = NULL,
+      y = paste0("Loads (", df$LoadUnits[1], ")")
+    ) +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1))
+  
+  return(p)
+}
+```
+
+Function for plots showing percentages of inlet loads:
+```{r fun plots inlet perc}
+plot_inlet_percent <- function(df) {
+  p <- 
+    ggplot(
+      data = df,
+      aes(
+        x = SamplingEvent,
+        y = Load,
+        fill = StationName
+      )
+    ) +
+    geom_col(position = "fill") +
+    facet_wrap(vars(Analyte)) +
+    labs(
+      title = NULL,
+      x = NULL,
+      y = "Percent of Inlet Load"
+    ) +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+    scale_y_continuous(labels = percent_format()) +
+    scale_fill_discrete_sequential(palette = "Viridis", nmax = 5)
+  
+  return(p)
+}
+```
+
+# Create Plots
+
+```{r create plots}
+loads_plots <- loads_clean %>% 
+  group_nest(AnalyteGroup) %>% 
+  mutate(
+    ncols = if_else(AnalyteGroup == "SuspSolids", 2, 3),
+    plots_facet = map2(data, ncols, .f = plot_inlet_facet),
+    plots_percent = map(data, .f = plot_inlet_percent)
+  )
+```
+
+## MeHg
+
+```{r mehg inlet facet plots, fig.height = 9}
+loads_plots_mehg <- filter(loads_plots, AnalyteGroup == "MeHg")
+
+loads_plots_mehg %>% pull(plots_facet) %>% chuck(1)
+```
+
+```{r mehg inlet perc plots, fig.height = 6, fig.width = 8}
+loads_plots_mehg %>% pull(plots_percent) %>% chuck(1)
+```
+
+```{r mehg total loads}
+loads_total_mehg <- filter(loads_total, Analyte %in% c("MeHg- filtered", "MeHg- particulate"))
+
+loads_total_mehg %>%  
+  ggplot(aes(x = SamplingEvent, y = total_load, fill = Analyte)) +
+  geom_col() +
+  labs(
+    title = NULL,
+    x = NULL,
+    y = "MeHg Loads (g/day)"
+  ) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+loads_total_mehg %>%  
+  ggplot(aes(x = SamplingEvent, y = total_load, fill = Analyte)) +
+  geom_col(position = "fill") +
+  labs(
+    title = NULL,
+    x = NULL,
+    y = "Percent of Inlet Load"
+  ) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_y_continuous(labels = percent_format())
+```
+
+## Hg
+
+```{r hg inlet facet plots, fig.height = 9}
+loads_plots_hg <- filter(loads_plots, AnalyteGroup == "Hg")
+
+loads_plots_hg %>% pull(plots_facet) %>% chuck(1)
+```
+
+```{r hg inlet perc plots, fig.height = 6, fig.width = 8}
+loads_plots_hg %>% pull(plots_percent) %>% chuck(1)
+```
+
+```{r hg total loads}
+loads_total_hg <- filter(loads_total, Analyte %in% c("THg- filtered", "THg- particulate"))
+
+loads_total_hg %>%  
+  ggplot(aes(x = SamplingEvent, y = total_load, fill = Analyte)) +
+  geom_col() +
+  labs(
+    title = NULL,
+    x = NULL,
+    y = "Hg Loads (g/day)"
+  ) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+loads_total_hg %>%  
+  ggplot(aes(x = SamplingEvent, y = total_load, fill = Analyte)) +
+  geom_col(position = "fill") +
+  labs(
+    title = NULL,
+    x = NULL,
+    y = "Percent of Inlet Load"
+  ) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_y_continuous(labels = percent_format())
+```
+
+## Organic Carbon
+
+```{r oc inlet facet plots, fig.height = 9}
+loads_plots_oc <- filter(loads_plots, AnalyteGroup == "OrgC")
+
+loads_plots_oc %>% pull(plots_facet) %>% chuck(1)
+```
+
+```{r oc inlet perc plots, fig.height = 6, fig.width = 8}
+loads_plots_oc %>% pull(plots_percent) %>% chuck(1)
+```
+
+```{r oc total loads}
+loads_total_oc <- filter(loads_total, Analyte %in% c("DOC", "POC"))
+
+loads_total_oc %>%  
+  ggplot(aes(x = SamplingEvent, y = total_load, fill = Analyte)) +
+  geom_col() +
+  labs(
+    title = NULL,
+    x = NULL,
+    y = "Organic Carbon Loads (1,000 kg/day)"
+  ) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+loads_total_oc %>%  
+  ggplot(aes(x = SamplingEvent, y = total_load, fill = Analyte)) +
+  geom_col(position = "fill") +
+  labs(
+    title = NULL,
+    x = NULL,
+    y = "Percent of Inlet Load"
+  ) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_y_continuous(labels = percent_format())
+```
+
+## Suspended Solids
+
+```{r ss inlet facet plots, fig.height = 9}
+loads_plots_ss <- filter(loads_plots, AnalyteGroup == "SuspSolids")
+
+loads_plots_ss %>% pull(plots_facet) %>% chuck(1)
+```
+
+```{r ss inlet perc plots}
+loads_plots_ss %>% pull(plots_percent) %>% chuck(1)
+```
+
+```{r tss total loads}
+loads_total %>% 
+  filter(Analyte == "TSS") %>% 
+  ggplot(aes(x = SamplingEvent, y = total_load)) +
+  geom_col() +
+  labs(
+    title = "TSS",
+    x = NULL,
+    y = "TSS Loads (1,000 kg/day)"
+  ) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+```{r vss total loads}
+loads_total %>% 
+  filter(Analyte == "VSS") %>% 
+  ggplot(aes(x = SamplingEvent, y = total_load)) +
+  geom_col() +
+  labs(
+    title = "VSS",
+    x = NULL,
+    y = "VSS Loads (1,000 kg/day)"
+  ) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
