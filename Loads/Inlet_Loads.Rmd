@@ -112,9 +112,9 @@ loads_total <- loads_clean %>%
 
 # Create Plot Functions
 
-Function for facet plots for inlet loads:
-```{r fun facet plots inlets}
-plot_inlet_facet <- function(df, ncols) {
+Function for facet barplots for inlet loads:
+```{r fun facet barplots inlets}
+barplot_inlet_facet <- function(df, ncols) {
   p <- 
     ggplot(
       data = df,
@@ -140,9 +140,9 @@ plot_inlet_facet <- function(df, ncols) {
 }
 ```
 
-Function for plots showing percentages of inlet loads:
-```{r fun plots inlet perc}
-plot_inlet_percent <- function(df) {
+Function for barplots showing percentages of inlet loads:
+```{r fun barplots inlet perc}
+barplot_inlet_percent <- function(df) {
   p <- 
     ggplot(
       data = df,
@@ -167,6 +167,39 @@ plot_inlet_percent <- function(df) {
 }
 ```
 
+Function for boxplots of inlet loads:
+```{r fun boxplots inlet}
+boxplot_inlet <- function(df) {
+  p <- 
+    ggplot(
+      data = df,
+      aes(
+        x = StationName,
+        y = Load
+      )
+    ) +
+    geom_boxplot(outlier.shape = NA) +
+    geom_jitter(width = 0.25) +
+    stat_summary( 
+      fun.y = "mean", #add a symbol representing the mean of each group to the plot
+      color = "red",
+      geom = "point",
+      shape = 9, #diamond cross shape
+      size = 2 
+    ) +
+    facet_wrap(vars(Analyte)) +
+    labs(
+      title = NULL,
+      caption = "Red diamond represents the average",
+      x = NULL,
+      y = paste0("Loads (", df$LoadUnits[1], ")")
+    ) +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1))
+  
+  return(p)
+}
+```
+
 # Create Plots
 
 ```{r create plots}
@@ -174,24 +207,37 @@ loads_plots <- loads_clean %>%
   group_nest(AnalyteGroup) %>% 
   mutate(
     ncols = if_else(AnalyteGroup == "SuspSolids", 2, 3),
-    plots_facet = map2(data, ncols, .f = plot_inlet_facet),
-    plots_percent = map(data, .f = plot_inlet_percent)
+    barplots_facet = map2(data, ncols, .f = barplot_inlet_facet),
+    barplots_percent = map(data, .f = barplot_inlet_percent),
+    boxplots = map(data, .f = boxplot_inlet)
   )
 ```
 
 ## MeHg
 
-```{r mehg inlet facet plots, fig.height = 9}
+### Facet Barplots
+
+```{r mehg inlet facet barplots, fig.height = 9}
 loads_plots_mehg <- filter(loads_plots, AnalyteGroup == "MeHg")
 
-loads_plots_mehg %>% pull(plots_facet) %>% chuck(1)
+loads_plots_mehg %>% pull(barplots_facet) %>% chuck(1)
 ```
 
-```{r mehg inlet perc plots, fig.height = 6, fig.width = 8}
-loads_plots_mehg %>% pull(plots_percent) %>% chuck(1)
+### Proportional Barplots
+
+```{r mehg inlet perc barplots, fig.height = 6, fig.width = 8}
+loads_plots_mehg %>% pull(barplots_percent) %>% chuck(1)
 ```
 
-```{r mehg total loads}
+### Boxplots
+
+```{r mehg inlet boxplots, fig.height = 6, fig.width = 8}
+loads_plots_mehg %>% pull(boxplots) %>% chuck(1)
+```
+
+### Total Load Barplots
+
+```{r mehg total load barplots}
 loads_total_mehg <- filter(loads_total, Analyte %in% c("MeHg- filtered", "MeHg- particulate"))
 
 loads_total_mehg %>%  
@@ -218,17 +264,29 @@ loads_total_mehg %>%
 
 ## Hg
 
-```{r hg inlet facet plots, fig.height = 9}
+### Facet Barplots
+
+```{r hg inlet facet barplots, fig.height = 9}
 loads_plots_hg <- filter(loads_plots, AnalyteGroup == "Hg")
 
-loads_plots_hg %>% pull(plots_facet) %>% chuck(1)
+loads_plots_hg %>% pull(barplots_facet) %>% chuck(1)
 ```
 
-```{r hg inlet perc plots, fig.height = 6, fig.width = 8}
-loads_plots_hg %>% pull(plots_percent) %>% chuck(1)
+### Proportional Barplots
+
+```{r hg inlet perc barplots, fig.height = 6, fig.width = 8}
+loads_plots_hg %>% pull(barplots_percent) %>% chuck(1)
 ```
 
-```{r hg total loads}
+### Boxplots
+
+```{r hg inlet boxplots, fig.height = 6, fig.width = 8}
+loads_plots_hg %>% pull(boxplots) %>% chuck(1)
+```
+
+### Total Load Barplots
+
+```{r hg total load barplots}
 loads_total_hg <- filter(loads_total, Analyte %in% c("THg- filtered", "THg- particulate"))
 
 loads_total_hg %>%  
@@ -255,17 +313,29 @@ loads_total_hg %>%
 
 ## Organic Carbon
 
-```{r oc inlet facet plots, fig.height = 9}
+### Facet Barplots
+
+```{r oc inlet facet barplots, fig.height = 9}
 loads_plots_oc <- filter(loads_plots, AnalyteGroup == "OrgC")
 
-loads_plots_oc %>% pull(plots_facet) %>% chuck(1)
+loads_plots_oc %>% pull(barplots_facet) %>% chuck(1)
 ```
 
-```{r oc inlet perc plots, fig.height = 6, fig.width = 8}
-loads_plots_oc %>% pull(plots_percent) %>% chuck(1)
+### Proportional Barplots
+
+```{r oc inlet perc barplots, fig.height = 6, fig.width = 8}
+loads_plots_oc %>% pull(barplots_percent) %>% chuck(1)
 ```
 
-```{r oc total loads}
+### Boxplots
+
+```{r oc inlet boxplots, fig.height = 6, fig.width = 8}
+loads_plots_oc %>% pull(boxplots) %>% chuck(1)
+```
+
+### Total Load Barplots
+
+```{r oc total load barplots}
 loads_total_oc <- filter(loads_total, Analyte %in% c("DOC", "POC"))
 
 loads_total_oc %>%  
@@ -292,17 +362,29 @@ loads_total_oc %>%
 
 ## Suspended Solids
 
-```{r ss inlet facet plots, fig.height = 9}
+### Facet Barplots
+
+```{r ss inlet facet barplots, fig.height = 9}
 loads_plots_ss <- filter(loads_plots, AnalyteGroup == "SuspSolids")
 
-loads_plots_ss %>% pull(plots_facet) %>% chuck(1)
+loads_plots_ss %>% pull(barplots_facet) %>% chuck(1)
 ```
 
-```{r ss inlet perc plots}
-loads_plots_ss %>% pull(plots_percent) %>% chuck(1)
+### Proportional Barplots
+
+```{r ss inlet perc barplots}
+loads_plots_ss %>% pull(barplots_percent) %>% chuck(1)
 ```
 
-```{r tss total loads}
+### Boxplots
+
+```{r ss inlet boxplots, fig.height = 6, fig.width = 8}
+loads_plots_ss %>% pull(boxplots) %>% chuck(1)
+```
+
+### Total Load Barplots
+
+```{r tss total load barplots}
 loads_total %>% 
   filter(Analyte == "TSS") %>% 
   ggplot(aes(x = SamplingEvent, y = total_load)) +
@@ -315,7 +397,7 @@ loads_total %>%
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
 
-```{r vss total loads}
+```{r vss total load barplots}
 loads_total %>% 
   filter(Analyte == "VSS") %>% 
   ggplot(aes(x = SamplingEvent, y = total_load)) +
