@@ -22,15 +22,18 @@ Load R packages necessary for this analysis:
 ```{r load packages, message = FALSE, warning = FALSE}
 # Load packages
 library(tidyverse)
+library(rlang)
 library(readxl)
 library(scales)
 library(colorspace)
+library(DT)
 ```
 
 Load common functions:
 ```{r load common functions}
 # Load common functions
 source("inlet_outlet_common_functions.R")
+source("Summary_Stats_1or2_Groups.R")
 ```
 
 Import Load Data:
@@ -102,12 +105,43 @@ loads_clean <- loads_inlet %>%
   )
 ```
 
+# Run Calculations
+
 Calculate total inlet loads for each analyte and sampling event:
 ```{r calc total inlet loads}
 loads_total <- loads_clean %>% 
   group_by(SamplingEvent, Analyte, LoadUnits) %>% 
   summarize(total_load = sum(Load)) %>% 
   ungroup()
+```
+
+Calculate the inlet load percentages:
+```{r calc perc inlet loads}
+loads_clean_perc <- loads_clean %>% 
+  left_join(loads_total, by = c("SamplingEvent", "Analyte", "LoadUnits")) %>% 
+  mutate(percent_load = Load/total_load) %>% 
+  select(-c(Load:total_load)) %>% 
+  arrange(SamplingEvent, StationName)
+
+loads_clean_perc_wide <- loads_clean_perc %>% 
+  pivot_wider(
+    names_from = StationName,
+    values_from = percent_load
+  ) %>% 
+  replace_na(list("Fremont Weir" = 0, "Sac Weir" = 0))
+```
+
+Calculate summary statistics of loads for each inlet:
+```{r calc summ stats inlet loads}
+loads_clean_summ <- loads_clean %>% 
+  SummStat(Load, StationName, Analyte) %>% 
+  mutate_at(vars(Mean:IQR), signif, digits = 3)
+```
+
+Calculate summary statistics of inlet load percentages:
+```{r calc summ stats perc inlet loads}
+loads_clean_perc_summ <- loads_clean_perc %>% 
+  SummStat(percent_load, StationName, Analyte)
 ```
 
 # Create Plot Functions
@@ -213,6 +247,8 @@ loads_plots <- loads_clean %>%
   )
 ```
 
+# Plots and Summary Statistics
+
 ## MeHg
 
 ### Facet Barplots
@@ -260,6 +296,32 @@ loads_total_mehg %>%
   ) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   scale_y_continuous(labels = percent_format())
+```
+
+### Summary Statistics of each Inlet
+
+```{r mehg summ stats inlets}
+loads_clean_summ %>% 
+  filter(str_detect(Analyte, "^MeHg")) %>% 
+  datatable(rownames = FALSE)
+```
+
+### % of total inlet load for each inlet
+
+```{r mehg perc load inlets}
+loads_clean_perc_wide %>% 
+  filter(str_detect(Analyte, "^MeHg")) %>% 
+  datatable(rownames = FALSE) %>% 
+  formatPercentage(3:7, digits = 1)
+```
+
+### Summary Statistics of % loads
+
+```{r mehg summ stats perc inlets}
+loads_clean_perc_summ %>% 
+  filter(str_detect(Analyte, "^MeHg")) %>% 
+  datatable(rownames = FALSE) %>% 
+  formatPercentage(4:11, digits = 1)
 ```
 
 ## Hg
@@ -311,6 +373,32 @@ loads_total_hg %>%
   scale_y_continuous(labels = percent_format())
 ```
 
+### Summary Statistics of each Inlet
+
+```{r hg summ stats inlets}
+loads_clean_summ %>% 
+  filter(str_detect(Analyte, "^THg")) %>% 
+  datatable(rownames = FALSE)
+```
+
+### % of total inlet load for each inlet
+
+```{r hg perc load inlets}
+loads_clean_perc_wide %>% 
+  filter(str_detect(Analyte, "^THg")) %>% 
+  datatable(rownames = FALSE) %>% 
+  formatPercentage(3:7, digits = 1)
+```
+
+### Summary Statistics of % loads
+
+```{r hg summ stats perc inlets}
+loads_clean_perc_summ %>% 
+  filter(str_detect(Analyte, "^THg")) %>% 
+  datatable(rownames = FALSE) %>% 
+  formatPercentage(4:11, digits = 1)
+```
+
 ## Organic Carbon
 
 ### Facet Barplots
@@ -358,6 +446,32 @@ loads_total_oc %>%
   ) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   scale_y_continuous(labels = percent_format())
+```
+
+### Summary Statistics of each Inlet
+
+```{r oc summ stats inlets}
+loads_clean_summ %>% 
+  filter(str_detect(Analyte, "OC$")) %>% 
+  datatable(rownames = FALSE)
+```
+
+### % of total inlet load for each inlet
+
+```{r oc perc load inlets}
+loads_clean_perc_wide %>% 
+  filter(str_detect(Analyte, "OC$")) %>% 
+  datatable(rownames = FALSE) %>% 
+  formatPercentage(3:7, digits = 1)
+```
+
+### Summary Statistics of % loads
+
+```{r oc summ stats perc inlets}
+loads_clean_perc_summ %>% 
+  filter(str_detect(Analyte, "OC$")) %>% 
+  datatable(rownames = FALSE) %>% 
+  formatPercentage(4:11, digits = 1)
 ```
 
 ## Suspended Solids
@@ -408,5 +522,31 @@ loads_total %>%
     y = "VSS Loads (1,000 kg/day)"
   ) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+### Summary Statistics of each Inlet
+
+```{r ss summ stats inlets}
+loads_clean_summ %>% 
+  filter(str_detect(Analyte, "SS$")) %>% 
+  datatable(rownames = FALSE)
+```
+
+### % of total inlet load for each inlet
+
+```{r ss perc load inlets}
+loads_clean_perc_wide %>% 
+  filter(str_detect(Analyte, "SS$")) %>% 
+  datatable(rownames = FALSE) %>% 
+  formatPercentage(3:7, digits = 1)
+```
+
+### Summary Statistics of % loads
+
+```{r ss summ stats perc inlets}
+loads_clean_perc_summ %>% 
+  filter(str_detect(Analyte, "SS$")) %>% 
+  datatable(rownames = FALSE) %>% 
+  formatPercentage(4:11, digits = 1)
 ```
 
