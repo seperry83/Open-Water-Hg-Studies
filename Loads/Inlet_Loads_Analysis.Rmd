@@ -226,11 +226,10 @@ boxplot_inlet <- function(df) {
       title = NULL,
       caption = "Red diamond represents the average",
       x = NULL,
-      y = paste0("Loads (", df$LoadUnits[1], ") - log10 scale")
+      y = paste0("Loads (", df$LoadUnits[1], ")")
     ) +
-    theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-    scale_y_log10()
-  
+    theme(axis.text.x = element_text(angle = 90, hjust = 1))
+    
   return(p)
 }
 ```
