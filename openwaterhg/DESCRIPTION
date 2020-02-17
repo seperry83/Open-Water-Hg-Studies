@@ -15,5 +15,6 @@ LazyData: true
 Imports: 
     assertthat,
     dplyr,
-    rlang
+    rlang,
+    tibble
 RoxygenNote: 7.0.2

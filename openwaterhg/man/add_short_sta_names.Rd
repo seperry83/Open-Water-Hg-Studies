@@ -2,16 +2,20 @@
 % Please edit documentation in R/modify_dataframes.R
 \name{add_short_sta_names}
 \alias{add_short_sta_names}
-\title{Title}
+\title{Create a Variable of Short Station Names}
 \usage{
 add_short_sta_names(df)
 }
 \arguments{
-\item{df}{}
+\item{df}{The dataframe to add the \code{ShortName} variable to. Dataframe
+must have a character variable named \code{StationName}.}
 }
 \value{
-
+A new character variable named \code{ShortName}, which contains
+    shortened station names of the \code{StationName} variable.
 }
 \description{
-Title
+Creates a new variable named \code{ShortName}, which contains
+    shortened station names of the \code{StationName} variable. These
+    short station names will be used in plots of the data.
 }

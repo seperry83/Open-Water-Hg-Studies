@@ -2,16 +2,23 @@
 % Please edit documentation in R/modify_dataframes.R
 \name{add_samplingevent}
 \alias{add_samplingevent}
-\title{Title}
+\title{Create a Variable of Sampling Events}
 \usage{
 add_samplingevent(df)
 }
 \arguments{
-\item{df}{}
+\item{df}{The dataframe to add the \code{SamplingEvent} variable to.
+Dataframe must have a variable named \code{SampleDate}. \code{SampleDate}
+must be "date" class.}
 }
 \value{
-
+A new character variable named \code{SamplingEvent}, which contains
+    standardized sampling event names derived from the \code{SampleDate}
+    variable.
 }
 \description{
-Title
+Creates a new variable named \code{SamplingEvent}, which
+    contains standardized sampling event names. This variable is derived
+    from the \code{SampleDate} variable. These sampling event names will
+    be used in plots of the data.
 }

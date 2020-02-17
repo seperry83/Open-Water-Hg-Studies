@@ -1,20 +1,23 @@
-#' @title Create a New Variable \code{Conc}
+#' @title Create a Numeric Results Variable
 #' @description Creates a new variable named \code{Conc}, which is a clone
-#'     of the \code{Result} variable converted to "numeric" type. This
+#'     of the \code{Result} variable converted to "numeric" class. This
 #'     function substitutes the Method Detection Limit (MDL) or Reporting
 #'     Limit (RL) for the non-detect values contained in the \code{Result}
 #'     variable.
 #'
 #' @param df The dataframe to add the \code{Conc} variable to. Dataframe
 #'     must have variables named \code{Result}, \code{MDL}, and \code{RL}.
+#'     The character \code{Result} variable must have non-detect values
+#'     identified as either "< RL" or "< MDL". \code{MDL} and \code{RL}
+#'     must be "numeric" class.
 #'
 #' @return A new variable named \code{Conc}, which is a clone of the
-#'     \code{Result} variable converted to "numeric" type.
+#'     \code{Result} variable converted to "numeric" class.
 #' @export
 #' @importFrom assertthat assert_that
 #' @importFrom dplyr mutate
 #' @importFrom dplyr case_when
-mod_result <- function(df) {
+add_num_result <- function(df) {
 
   # Make sure all necessary variables exist in df
   assertthat::assert_that(
@@ -46,15 +49,21 @@ mod_result <- function(df) {
 }
 
 
-# Add ShortName variable with shortened Station Names of all standard stations for plotting
-#' Title
+#' @title Create a Variable of Short Station Names
+#' @description Creates a new variable named \code{ShortName}, which contains
+#'     shortened station names of the \code{StationName} variable. These
+#'     short station names will be used in plots of the data.
 #'
-#' @param df
+#' @param df The dataframe to add the \code{ShortName} variable to. Dataframe
+#'     must have a character variable named \code{StationName}.
 #'
-#' @return
+#' @return A new character variable named \code{ShortName}, which contains
+#'     shortened station names of the \code{StationName} variable.
 #' @export
-#'
-#' @examples
+#' @importFrom assertthat assert_that
+#' @importFrom assertthat noNA
+#' @importFrom tibble tibble
+#' @importFrom dpylr left_join
 add_short_sta_names <- function(df) {
 
   # Make sure StationName variable exists in df
@@ -65,7 +74,7 @@ add_short_sta_names <- function(df) {
 
   # Run function if StationName variable exists in df
   # Create a df of all stations and their shortened names
-  station_key <- tibble(
+  station_key <- tibble::tibble(
     StationName = c(
       "Cache Slough near Ryer Island",
       "CCSB- Low Flow Channel",
@@ -109,7 +118,7 @@ add_short_sta_names <- function(df) {
   )
 
   # left join station_key to df
-  df1 <- left_join(df, station_key)
+  df1 <-dplyr::left_join(df, station_key)
 
   # Stop function and notify if any NA values exist in ShortName variable
   assertthat::assert_that(
@@ -121,15 +130,25 @@ add_short_sta_names <- function(df) {
 }
 
 
-# Add SamplingEvent variable
-#' Title
+#' @title Create a Variable of Sampling Events
+#' @description Creates a new variable named \code{SamplingEvent}, which
+#'     contains standardized sampling event names. This variable is derived
+#'     from the \code{SampleDate} variable. These sampling event names will
+#'     be used in plots of the data.
 #'
-#' @param df
+#' @param df The dataframe to add the \code{SamplingEvent} variable to.
+#'     Dataframe must have a variable named \code{SampleDate}. \code{SampleDate}
+#'     must be "date" class.
 #'
-#' @return
+#' @return A new character variable named \code{SamplingEvent}, which contains
+#'     standardized sampling event names derived from the \code{SampleDate}
+#'     variable.
 #' @export
-#'
-#' @examples
+#' @importFrom assertthat assert_that
+#' @importFrom assertthat is.date
+#' @importFrom assertthat noNA
+#' @importFrom tibble tibble
+#' @importFrom dplyr left_join
 add_samplingevent <- function(df) {
 
   # Make sure SampleDate variable exists in df
@@ -146,7 +165,7 @@ add_samplingevent <- function(df) {
 
   # Run function if no errors exist
   # Create a df of all SampleDates and their associated Sampling events
-  samplingevent_key <- tibble(
+  samplingevent_key <- tibble::tibble(
     SampleDate = as_date(c(
       "2014-12-22",
       "2014-12-23",
@@ -198,7 +217,7 @@ add_samplingevent <- function(df) {
   )
 
   # left join samplingevent_key to df
-  df1 <- left_join(df, samplingevent_key)
+  df1 <- dplyr::left_join(df, samplingevent_key)
 
   # Stop function and notify if any NA values exist in SamplingEvent variable
   assertthat::assert_that(
