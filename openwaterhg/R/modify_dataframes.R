@@ -63,7 +63,7 @@ add_num_result <- function(df) {
 #' @importFrom assertthat assert_that
 #' @importFrom assertthat noNA
 #' @importFrom tibble tibble
-#' @importFrom dpylr left_join
+#' @importFrom dplyr left_join
 add_short_sta_names <- function(df) {
 
   # Make sure StationName variable exists in df
