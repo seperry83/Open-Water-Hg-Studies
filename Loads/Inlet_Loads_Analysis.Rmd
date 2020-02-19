@@ -27,6 +27,7 @@ library(readxl)
 library(scales)
 library(colorspace)
 library(DT)
+library(plotly)
 ```
 
 Load common functions:
@@ -144,6 +145,24 @@ loads_clean_perc_summ <- loads_clean_perc %>%
   SummStat(percent_load, StationName, Analyte)
 ```
 
+Calculate %MeHg of Hg loads for all fractions:
+```{r calc perc mehg inlet loads}
+loads_clean_perc_mehg <- loads_clean %>% 
+  filter(str_detect(AnalyteGroup, "Hg$")) %>% 
+  separate(Analyte, into = c("Analyte", "Fraction")) %>% 
+  select(-c(LoadUnits, AnalyteGroup)) %>% 
+  pivot_wider(
+    names_from = Analyte,
+    values_from = Load
+  ) %>% 
+  mutate(
+    per_mehg = signif(MeHg/THg, 3) * 100,
+    Fraction = str_to_title(Fraction)
+  ) %>% 
+  select(-c(MeHg, THg))
+```
+
+
 # Create Plot Functions
 
 Function for facet barplots for inlet loads:
@@ -223,16 +242,40 @@ boxplot_inlet <- function(df) {
     ) +
     facet_wrap(vars(Analyte)) +
     labs(
-      title = NULL,
-      caption = "Red diamond represents the average",
+      title = paste0("Loads (", df$LoadUnits[1], ")"),
       x = NULL,
-      y = paste0("Loads (", df$LoadUnits[1], ")")
+      y = NULL
     ) +
     theme(axis.text.x = element_text(angle = 90, hjust = 1))
     
   return(p)
 }
 ```
+
+Function for barplots showing %MeHg of Hg loads:
+```{r fun parplots perc mehg}
+barplot_perc_mehg <- function(df) {
+  p <- 
+    ggplot(
+      data = df,
+      aes(
+        x = SamplingEvent,
+        y = per_mehg
+      )
+    ) +
+    geom_col() +
+    facet_grid(rows = vars(StationName)) +
+    labs(
+      title = "Percent MeHg of Hg",
+      x = NULL,
+      y = NULL
+    ) +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1))
+  
+  return(p)
+}
+```
+
 
 # Create Plots
 
@@ -267,16 +310,18 @@ loads_plots_mehg %>% pull(barplots_percent) %>% chuck(1)
 
 ### Boxplots
 
+Red diamond represents the average
 ```{r mehg inlet boxplots, fig.height = 6, fig.width = 8}
-loads_plots_mehg %>% pull(boxplots) %>% chuck(1)
+loads_plots_mehg %>% pull(boxplots) %>% chuck(1) %>% ggplotly()
 ```
+
 
 ### Total Load Barplots
 
 ```{r mehg total load barplots}
 loads_total_mehg <- filter(loads_total, Analyte %in% c("MeHg- filtered", "MeHg- particulate"))
 
-loads_total_mehg %>%  
+p <- loads_total_mehg %>%  
   ggplot(aes(x = SamplingEvent, y = total_load, fill = Analyte)) +
   geom_col() +
   labs(
@@ -285,6 +330,8 @@ loads_total_mehg %>%
     y = "MeHg Loads (g/day)"
   ) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+ggplotly(p)
 
 loads_total_mehg %>%  
   ggplot(aes(x = SamplingEvent, y = total_load, fill = Analyte)) +
@@ -342,16 +389,18 @@ loads_plots_hg %>% pull(barplots_percent) %>% chuck(1)
 
 ### Boxplots
 
+Red diamond represents the average
 ```{r hg inlet boxplots, fig.height = 6, fig.width = 8}
-loads_plots_hg %>% pull(boxplots) %>% chuck(1)
+loads_plots_hg %>% pull(boxplots) %>% chuck(1) %>% ggplotly()
 ```
+
 
 ### Total Load Barplots
 
 ```{r hg total load barplots}
 loads_total_hg <- filter(loads_total, Analyte %in% c("THg- filtered", "THg- particulate"))
 
-loads_total_hg %>%  
+p <- loads_total_hg %>%  
   ggplot(aes(x = SamplingEvent, y = total_load, fill = Analyte)) +
   geom_col() +
   labs(
@@ -360,6 +409,8 @@ loads_total_hg %>%
     y = "Hg Loads (g/day)"
   ) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+ggplotly(p)
 
 loads_total_hg %>%  
   ggplot(aes(x = SamplingEvent, y = total_load, fill = Analyte)) +
@@ -399,6 +450,44 @@ loads_clean_perc_summ %>%
   formatPercentage(4:11, digits = 1)
 ```
 
+## Percent MeHg of Hg loads
+
+```{r create perc mehg plots}
+loads_plots_perc_mehg <- loads_clean_perc_mehg %>% 
+  group_nest(Fraction) %>% 
+  mutate(plots = map(data, .f = barplot_perc_mehg))
+```
+
+### Filtered Fraction
+
+```{r perc mehg barplot filtered, fig.height = 7, fig.width = 9}
+loads_plots_perc_mehg %>% 
+  filter(Fraction == "Filtered") %>% 
+  pull(plots) %>% 
+  chuck(1) %>% 
+  ggplotly()
+```
+
+### Particulate Fraction
+
+```{r perc mehg barplot particulate, fig.height = 7, fig.width = 9}
+loads_plots_perc_mehg %>% 
+  filter(Fraction == "Particulate") %>% 
+  pull(plots) %>% 
+  chuck(1) %>% 
+  ggplotly()
+```
+
+### All Fractions
+
+```{r perc mehg barplot total, fig.height = 7, fig.width = 9}
+loads_plots_perc_mehg %>% 
+  filter(Fraction == "Total") %>% 
+  pull(plots) %>% 
+  chuck(1) %>% 
+  ggplotly()
+```
+
 ## Organic Carbon
 
 ### Facet Barplots
@@ -417,8 +506,9 @@ loads_plots_oc %>% pull(barplots_percent) %>% chuck(1)
 
 ### Boxplots
 
+Red diamond represents the average
 ```{r oc inlet boxplots, fig.height = 6, fig.width = 8}
-loads_plots_oc %>% pull(boxplots) %>% chuck(1)
+loads_plots_oc %>% pull(boxplots) %>% chuck(1) %>% ggplotly()
 ```
 
 ### Total Load Barplots
@@ -426,7 +516,7 @@ loads_plots_oc %>% pull(boxplots) %>% chuck(1)
 ```{r oc total load barplots}
 loads_total_oc <- filter(loads_total, Analyte %in% c("DOC", "POC"))
 
-loads_total_oc %>%  
+p <- loads_total_oc %>%  
   ggplot(aes(x = SamplingEvent, y = total_load, fill = Analyte)) +
   geom_col() +
   labs(
@@ -435,6 +525,8 @@ loads_total_oc %>%
     y = "Organic Carbon Loads (1,000 kg/day)"
   ) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+ggplotly(p)
 
 loads_total_oc %>%  
   ggplot(aes(x = SamplingEvent, y = total_load, fill = Analyte)) +
@@ -492,14 +584,15 @@ loads_plots_ss %>% pull(barplots_percent) %>% chuck(1)
 
 ### Boxplots
 
+Red diamond represents the average
 ```{r ss inlet boxplots, fig.height = 6, fig.width = 8}
-loads_plots_ss %>% pull(boxplots) %>% chuck(1)
+loads_plots_ss %>% pull(boxplots) %>% chuck(1) %>% ggplotly()
 ```
 
 ### Total Load Barplots
 
 ```{r tss total load barplots}
-loads_total %>% 
+p <- loads_total %>% 
   filter(Analyte == "TSS") %>% 
   ggplot(aes(x = SamplingEvent, y = total_load)) +
   geom_col() +
@@ -509,10 +602,12 @@ loads_total %>%
     y = "TSS Loads (1,000 kg/day)"
   ) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+ggplotly(p)
 ```
 
 ```{r vss total load barplots}
-loads_total %>% 
+p <- loads_total %>% 
   filter(Analyte == "VSS") %>% 
   ggplot(aes(x = SamplingEvent, y = total_load)) +
   geom_col() +
@@ -522,6 +617,8 @@ loads_total %>%
     y = "VSS Loads (1,000 kg/day)"
   ) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+ggplotly(p)
 ```
 
 ### Summary Statistics of each Inlet
