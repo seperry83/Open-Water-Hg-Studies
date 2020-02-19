@@ -27,7 +27,6 @@ library(readxl)
 library(scales)
 library(colorspace)
 library(DT)
-library(plotly)
 ```
 
 Load common functions:
@@ -312,7 +311,7 @@ loads_plots_mehg %>% pull(barplots_percent) %>% chuck(1)
 
 Red diamond represents the average
 ```{r mehg inlet boxplots, fig.height = 6, fig.width = 8}
-loads_plots_mehg %>% pull(boxplots) %>% chuck(1) %>% ggplotly()
+loads_plots_mehg %>% pull(boxplots) %>% chuck(1) %>% plotly::ggplotly()
 ```
 
 
@@ -331,7 +330,7 @@ p <- loads_total_mehg %>%
   ) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
-ggplotly(p)
+plotly::ggplotly(p)
 
 loads_total_mehg %>%  
   ggplot(aes(x = SamplingEvent, y = total_load, fill = Analyte)) +
@@ -391,7 +390,7 @@ loads_plots_hg %>% pull(barplots_percent) %>% chuck(1)
 
 Red diamond represents the average
 ```{r hg inlet boxplots, fig.height = 6, fig.width = 8}
-loads_plots_hg %>% pull(boxplots) %>% chuck(1) %>% ggplotly()
+loads_plots_hg %>% pull(boxplots) %>% chuck(1) %>% plotly::ggplotly()
 ```
 
 
@@ -410,7 +409,7 @@ p <- loads_total_hg %>%
   ) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
-ggplotly(p)
+plotly::ggplotly(p)
 
 loads_total_hg %>%  
   ggplot(aes(x = SamplingEvent, y = total_load, fill = Analyte)) +
@@ -465,7 +464,7 @@ loads_plots_perc_mehg %>%
   filter(Fraction == "Filtered") %>% 
   pull(plots) %>% 
   chuck(1) %>% 
-  ggplotly()
+  plotly::ggplotly()
 ```
 
 ### Particulate Fraction
@@ -475,7 +474,7 @@ loads_plots_perc_mehg %>%
   filter(Fraction == "Particulate") %>% 
   pull(plots) %>% 
   chuck(1) %>% 
-  ggplotly()
+  plotly::ggplotly()
 ```
 
 ### All Fractions
@@ -485,7 +484,7 @@ loads_plots_perc_mehg %>%
   filter(Fraction == "Total") %>% 
   pull(plots) %>% 
   chuck(1) %>% 
-  ggplotly()
+ plotly::ggplotly()
 ```
 
 ## Organic Carbon
@@ -508,7 +507,7 @@ loads_plots_oc %>% pull(barplots_percent) %>% chuck(1)
 
 Red diamond represents the average
 ```{r oc inlet boxplots, fig.height = 6, fig.width = 8}
-loads_plots_oc %>% pull(boxplots) %>% chuck(1) %>% ggplotly()
+loads_plots_oc %>% pull(boxplots) %>% chuck(1) %>% plotly::ggplotly()
 ```
 
 ### Total Load Barplots
@@ -526,7 +525,7 @@ p <- loads_total_oc %>%
   ) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
-ggplotly(p)
+plotly::ggplotly(p)
 
 loads_total_oc %>%  
   ggplot(aes(x = SamplingEvent, y = total_load, fill = Analyte)) +
@@ -586,7 +585,7 @@ loads_plots_ss %>% pull(barplots_percent) %>% chuck(1)
 
 Red diamond represents the average
 ```{r ss inlet boxplots, fig.height = 6, fig.width = 8}
-loads_plots_ss %>% pull(boxplots) %>% chuck(1) %>% ggplotly()
+loads_plots_ss %>% pull(boxplots) %>% chuck(1) %>% plotly::ggplotly()
 ```
 
 ### Total Load Barplots
@@ -603,7 +602,7 @@ p <- loads_total %>%
   ) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
-ggplotly(p)
+plotly::ggplotly(p)
 ```
 
 ```{r vss total load barplots}
@@ -618,7 +617,7 @@ p <- loads_total %>%
   ) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
-ggplotly(p)
+plotly::ggplotly(p)
 ```
 
 ### Summary Statistics of each Inlet
