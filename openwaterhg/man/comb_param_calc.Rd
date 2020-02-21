@@ -11,7 +11,7 @@
 \item{CollectionTimePST}{The collection time in PST}
 \item{Year}{The year of the sampling date}
 \item{SamplingEvent}{The sampling event}
-\item{Parameter}{The parameter name}
+\item{Parameter}{The name of the calculated parameter}
 \item{Value}{Calculated value}
 \item{Units}{The units of the value}
 }}

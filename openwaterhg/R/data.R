@@ -71,7 +71,8 @@
 #'     in analyses. "BD" indicates that there was a detection in a blank sample
 #'     associated with the sample. "FV" indicates that there was a RPD value greater
 #'     than its acceptable limit in a field duplicate pair associated with the
-#'     sample.}
+#'     sample, which could be due to variablity in the sampling method or the
+#'     water being sampled.}
 #' }
 #'
 "conc_data"
@@ -201,4 +202,99 @@
 "part_conc_calc"
 
 
+#' @title Field and Filter Blanks Collected in Association with \code{conc_data}
+#' @description Contains all field and filter blank data collected for the Yolo
+#'     Bypass Mass Balance Study. Field and filter blanks were collected each
+#'     day water samples were collected to test for possible contamination from
+#'     sampling techniques, sample bottles, or filtering equipment. These blanks
+#'     were separated from the raw data files in the "Compile_and_Clean_Conc_Data.R"
+#'     script file.
+#'
+#' @format data frame with 524 rows and 14 columns
+#' \describe{
+#' \item{SampleCode}{The unique identifier for each field or filter blank sample
+#'     produced by Bryte Lab}
+#' \item{StationName}{The name of the blank sample, either Field Blank or Filter
+#'     Blank}
+#' \item{SampleDate}{The collection date of the blank sample}
+#' \item{CollectionTimePST}{The collection time of the blank sample in PST}
+#' \item{Analyte}{The analytical parameter measured}
+#' \item{Result}{The analytical result}
+#' \item{RL}{The analytical reporting limit of the sample}
+#' \item{MDL}{The analytical method detection limit of the sample}
+#' \item{Units}{The units of the result}
+#' \item{LabComments}{Comments provided by the analytical laboratory}
+#' \item{MME_Comments}{Comments provided by staff from the Mercury Monitoring and
+#'     Evaluation section}
+#' \item{AmbSampConc}{The concentration of the ambient or environmental sample
+#'     collected at the same station and date as the blank sample. This value is
+#'     only provided for blanks that had a detected value.}
+#' \item{Perc_BlankConc_AmbConc}{The ratio of the blank sample concentration to the
+#'     \code{AmbSampConc} value expressed as a percent. Samples with percentages
+#'     of 20% and below were not flagged as a blank detection. If this percentage
+#'     was greater than 20%, all samples collected on the same day were flagged as
+#'     "BD" in \code{QualCode}.}
+#' \item{QualCode}{Qualification code(s) for the sample. "J" indicates that there
+#'     was an issue with the sample, but it is still being used in analyses. "R"
+#'     indicates that there was an issue with the sample, and it is not being used
+#'     in analyses. "BD" indicates that there was a detection in a blank sample
+#'     associated with the sample. "FV" indicates that there was a RPD value greater
+#'     than its acceptable limit in a field duplicate pair associated with the
+#'     sample.}
+#' }
+#'
+"qa_field_blanks"
 
+
+#' @title Field Duplicates Collected in Association with \code{conc_data}
+#' @description Contains all field duplicate data collected for the Yolo Bypass
+#'     Mass Balance Study. Field duplicates were collected each day water samples
+#'     were collected to test for sample reproducibility and field variability.
+#'     The duplicates and their associated parent samples were separated from
+#'     the raw data files in the "Compile_and_Clean_Conc_Data.R" script file.
+#'
+#' @format data frame with 513 rows and 17 columns
+#' \describe{
+#' \item{SampleCode_PS}{The unique identifier for the associated parent sample
+#'     produced by Bryte Lab}
+#' \item{SampleCode_FD}{The unique identifier for the field duplicate sample
+#'     produced by Bryte Lab}
+#' \item{StationName}{The name of the station where the field duplicate was
+#'     collected}
+#' \item{SampleDate}{The collection date of the field duplicate and parent
+#'     samples}
+#' \item{CollectionTimePST_PS}{The collection time of the associated parent
+#'     sample in PST}
+#' \item{CollectionTimePST_FD}{The collection time of the field duplicate
+#'     sample in PST}
+#' \item{Analyte}{The analytical parameter measured}
+#' \item{Result_PS}{The analytical result of the associated parent sample}
+#' \item{Result_FD}{The analytical result of the field duplicate sample}
+#' \item{RPD}{The relative percent difference between the field duplicate sample
+#'     and the associated parent sample. This was calculated as the absolute
+#'     diference between the two values divided by their average and expressed as
+#'     a percent. RPD's greater than their Measurement Quality Objectives were
+#'     flagged as "FV" in \code{QualCode}. This only applied to duplicate pairs
+#'     where at least one value was greater than ten times the Reporting Limit.}
+#' \item{ResQual}{A numeric variable that represents whether either of the results
+#'     were below the detection limit (RL or MDL). A value of "0" indicates that
+#'     the results of both samples were detected, a value of "1" indicates that
+#'     both samples were below the detection limit, and a value of "0.5" indicates
+#'     that either the field duplicate or parent sample was below the detection
+#'     limit.}
+#' \item{RL}{The analytical reporting limit of the sample}
+#' \item{MDL}{The analytical method detection limit of the sample}
+#' \item{Units}{The units of the result}
+#' \item{LabComments}{Comments provided by the analytical laboratory}
+#' \item{MME_Comments}{Comments provided by staff from the Mercury Monitoring and
+#'     Evaluation section}
+#' \item{QualCode}{Qualification code(s) for the sample. "J" indicates that there
+#'     was an issue with the sample, but it is still being used in analyses. "R"
+#'     indicates that there was an issue with the sample, and it is not being used
+#'     in analyses. "BD" indicates that there was a detection in a blank sample
+#'     associated with the sample. "FV" indicates that there was a RPD value greater
+#'     than its acceptable limit in a field duplicate pair associated with the
+#'     sample.}
+#' }
+#'
+"qa_field_dups"
