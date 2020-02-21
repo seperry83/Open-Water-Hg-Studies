@@ -1,12 +1,18 @@
-# Convert StationName variable to factor to apply plotting order
-#' Title
+#' @title Convert \code{StationName} Variable to a Factor
+#' @description Converts the \code{StationName} variable from a character
+#'     variable to a factor variable to apply a consistent order in
+#'     plots of the data. The \code{StationName} variable contains a
+#'     standardized set of longer station names.
 #'
-#' @param df
+#' @param df The dataframe to apply the function to. Dataframe must have
+#'     a character variable named \code{StationName}.
 #'
-#' @return
+#' @return A dataframe with the \code{StationName} variable converted to
+#'     a factor
 #' @export
-#'
-#' @examples
+#' @importFrom assertthat assert_that
+#' @importFrom assertthat noNA
+#' @importFrom dplyr mutate
 conv_fact_long_sta_names <- function(df) {
 
   # Make sure StationName variable exists in df
@@ -40,27 +46,33 @@ conv_fact_long_sta_names <- function(df) {
 
   # Mutate StationName variable to a factor
   df1 <- df %>%
-    mutate(StationName = factor(StationName, levels = stationname_levels))
+    dplyr::mutate(StationName = factor(StationName, levels = stationname_levels))
 
   # Stop function and notify if any NA values exist in StationName variable
   assertthat::assert_that(
     assertthat::noNA(df1$StationName),
-    msg = "Not all station names present; NA values in 'StationName' variable after converting to factor."
+    msg = "NA values in 'StationName' variable after converting to factor."
   )
 
   return(df1)
 }
 
 
-# Convert ShortName variable to factor to apply plotting order
-#' Title
+#' @title Convert \code{ShortName} Variable to a Factor
+#' @description Converts the \code{ShortName} variable from a character
+#'     variable to a factor variable to apply a consistent order in
+#'     plots of the data. The \code{ShortName} variable contains a
+#'     standardized set of shorter station names.
 #'
-#' @param df
+#' @param df The dataframe to apply the function to. Dataframe must have
+#'     a character variable named \code{ShortName}.
 #'
-#' @return
+#' @return A dataframe with the \code{ShortName} variable converted to
+#'     a factor
 #' @export
-#'
-#' @examples
+#' @importFrom assertthat assert_that
+#' @importFrom assertthat noNA
+#' @importFrom dplyr mutate
 conv_fact_short_sta_names <- function(df) {
 
   # Make sure ShortName variable exists in df
@@ -94,12 +106,12 @@ conv_fact_short_sta_names <- function(df) {
 
   # Mutate ShortName variable to a factor
   df1 <- df %>%
-    mutate(ShortName = factor(ShortName, levels = shortname_levels))
+    dplyr::mutate(ShortName = factor(ShortName, levels = shortname_levels))
 
   # Stop function and notify if any NA values exist in ShortName variable
   assertthat::assert_that(
     assertthat::noNA(df1$ShortName),
-    msg = "Not all station names present; NA values in 'ShortName' variable after converting to factor."
+    msg = "NA values in 'ShortName' variable after converting to factor."
   )
 
   return(df1)
@@ -141,12 +153,12 @@ conv_fact_samplingevent <- function(df) {
 
   # Mutate SamplingEvent variable to a factor
   df1 <- df %>%
-    mutate(SamplingEvent = factor(SamplingEvent, levels = samplingevent_levels))
+    dplyr::mutate(SamplingEvent = factor(SamplingEvent, levels = samplingevent_levels))
 
   # Stop function and notify if any NA values exist in SamplingEvent variable
   assertthat::assert_that(
     assertthat::noNA(df1$SamplingEvent),
-    msg = "Not all sampling events present; NA values in 'SamplingEvent' variable after converting to factor."
+    msg = "NA values in 'SamplingEvent' variable after converting to factor. Each observation within the 'SamplingEvent' variable must have one of the following values: Dec 22-23, 2014, Mar 15-16, 2016, Jan 11-12, 2017, Jan 24-25, 2017, Jan 31-Feb 1, 2017, Feb 14-15, 2017, Mar 1-2, 2017, Mar 15-16, 2017, Mar 28-29, 2017, Apr 11-12, 2017, Apr 25-26, 2017"
   )
 
   return(df1)
