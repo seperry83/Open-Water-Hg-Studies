@@ -1,66 +1,72 @@
-# Generate a table of descriptive summary statistics for one or two grouping variables
-
-library(rlang)
-
-# INPUT:
-# df is the dataframe to run the summary statistics on
-# data is the variable in the df that contains the numerical data to summarize
-# g1 is the first grouping variable in the df
-# g2 is an optional argument to add a second grouping variable from the df
-
-# OUTPUT:
-# a tibble of the following summary statistics for either one or two grouping variables:
-# sample size, mean, standard deviation, minimum value, Q1 (25% quantile), median,
-# Q3 (75% quantile), maximum value, and the Interquartile Range (IQR = Q3 - Q1)
-
-#' Title
+#' @title Calculate Descriptive Summary Statistics
+#' @description Calculates descriptive summary statistics for one or two
+#'     grouping variables.
 #'
-#' @param df
-#' @param data
-#' @param g1
-#' @param g2
+#' @param df The dataframe with the data to calculate summary statistics on
+#' @param data_var The variable in \code{df} that contains the numerical
+#'     data to summarize. Must be "numeric" class.
+#' @param group_var1 The mandatory first (or only) grouping variable in
+#'     \code{df}.
+#' @param group_var2 The optional second grouping variable in \code{df}.
 #'
-#' @return
+#' @return A dataframe with the following summary statistics for either
+#'     one (\code{group_var1}) or two (\code{group_var1} and
+#'     \code{group_var2}) grouping variables:
+#' \itemize{
+#' \item "N" - Sample Size
+#' \item "Mean" - Average Value
+#' \item "StDev" - Standard Deviation
+#' \item "Minimum" - Minimum Value
+#' \item "Q1" - 25% quantile
+#' \item "Median" - Median Value
+#' \item "Q3" - 75% quantile
+#' \item "Maximum" - Maximum Value
+#' \item "IQR" - Interquartile Range (Q3 - Q1)
+#' }
 #' @export
-#'
-#' @examples
-SummStat <- function(df, data, g1, g2) {
-  Data.quo <- enquo(data)
-  g1.quo <- enquo(g1)
+#' @importFrom rlang enquo
+#' @importFrom dplyr group_by
+#' @importFrom dplyr summarize
+#' @importFrom dplyr ungroup
+summ_stat <- function(df, data_var, group_var1, group_var2 = NULL) {
+  data_var_enquo <- rlang::enquo(data_var)
+  group_var1_enquo <- rlang::enquo(group_var1)
 
   # if there are 2 grouping variables
-  if (!missing(g2)) {
-    g2.quo <- enquo(g2)
+  if (!missing(group_var2)) {
+    group_var2_enquo <- rlang::enquo(group_var2)
 
     df2 <- df %>%
-      group_by(!!g1.quo, !!g2.quo) %>%
-      summarize(
+      dplyr::group_by(!!group_var1_enquo, !!group_var2_enquo) %>%
+      dplyr::summarize(
         N = n(),
-        Mean = mean(!!Data.quo),
-        StDev = sd(!!Data.quo),
-        Minimum = min(!!Data.quo),
-        Q1 = quantile(!!Data.quo, 0.25),
-        Median = median(!!Data.quo),
-        Q3 = quantile(!!Data.quo, 0.75),
-        Maximum = max(!!Data.quo),
-        IQR = IQR(!!Data.quo)
-      )
+        Mean = mean(!!data_var_enquo),
+        StDev = sd(!!data_var_enquo),
+        Minimum = min(!!data_var_enquo),
+        Q1 = quantile(!!data_var_enquo, 0.25),
+        Median = median(!!data_var_enquo),
+        Q3 = quantile(!!data_var_enquo, 0.75),
+        Maximum = max(!!data_var_enquo),
+        IQR = IQR(!!data_var_enquo)
+      ) %>%
+      dplyr::ungroup()
   }
   # if there is only one grouping variable
   else {
     df2 <- df %>%
-      group_by(!!g1.quo) %>%
-      summarize(
+      dplyr::group_by(!!group_var1_enquo) %>%
+      dplyr::summarize(
         N = n(),
-        Mean = mean(!!Data.quo),
-        StDev = sd(!!Data.quo),
-        Minimum = min(!!Data.quo),
-        Q1 = quantile(!!Data.quo, 0.25),
-        Median = median(!!Data.quo),
-        Q3 = quantile(!!Data.quo, 0.75),
-        Maximum = max(!!Data.quo),
-        IQR = IQR(!!Data.quo)
-      )
+        Mean = mean(!!data_var_enquo),
+        StDev = sd(!!data_var_enquo),
+        Minimum = min(!!data_var_enquo),
+        Q1 = quantile(!!data_var_enquo, 0.25),
+        Median = median(!!data_var_enquo),
+        Q3 = quantile(!!data_var_enquo, 0.75),
+        Maximum = max(!!data_var_enquo),
+        IQR = IQR(!!data_var_enquo)
+      ) %>%
+      dplyr::ungroup()
   }
 
   return(df2)
