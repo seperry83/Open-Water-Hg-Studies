@@ -22,17 +22,17 @@ add_num_result <- function(df) {
   # Make sure all necessary variables exist in df
   assertthat::assert_that(
     "Result" %in% names(df),
-    msg = "Dataframe doesn't have 'Result' variable."
+    msg = "add_num_result function\nDataframe doesn't have 'Result' variable."
   )
 
   assertthat::assert_that(
     "RL" %in% names(df),
-    msg = "Dataframe doesn't have 'RL' variable."
+    msg = "add_num_result function\nDataframe doesn't have 'RL' variable."
   )
 
   assertthat::assert_that(
     "MDL" %in% names(df),
-    msg = "Dataframe doesn't have 'MDL' variable."
+    msg = "add_num_result function\nDataframe doesn't have 'MDL' variable."
   )
 
   # Run function if all variables exist in df
@@ -69,7 +69,7 @@ add_short_sta_names <- function(df) {
   # Make sure StationName variable exists in df
   assertthat::assert_that(
     "StationName" %in% names(df),
-    msg = "Dataframe doesn't have 'StationName' variable."
+    msg = "add_short_sta_names function\nDataframe doesn't have 'StationName' variable."
   )
 
   # Run function if StationName variable exists in df
@@ -123,7 +123,25 @@ add_short_sta_names <- function(df) {
   # Stop function and notify if any NA values exist in ShortName variable
   assertthat::assert_that(
     assertthat::noNA(df1$ShortName),
-    msg = "Not all station names match; NA values in 'ShortName' variable."
+    msg = "add_short_sta_names function\nNA values in 'ShortName' variable.\nEach observation under the 'StationName' variable must have one of the following values:
+    Cache Slough near Ryer Island
+    CCSB- Low Flow Channel
+    CCSB Overflow Weir- North
+    CCSB Overflow Weir- South
+    Fremont Weir- East Side
+    Fremont Weir- Middle
+    Fremont Weir- West Side
+    Knights Landing Ridge Cut
+    Liberty Cut below Stairsteps
+    Miner Slough near Sac River
+    Prospect Slough
+    Putah Creek at Mace Blvd
+    Sac River above the Sacramento Weir
+    Shag Slough below Stairsteps
+    Toe Drain at 1/2 Lisbon
+    Toe Drain at County Road 22
+    Toe Drain at Interstate 80
+    Toe Drain at Lisbon Weir"
   )
 
   return(df1)
@@ -154,13 +172,13 @@ add_samplingevent <- function(df) {
   # Make sure SampleDate variable exists in df
   assertthat::assert_that(
     "SampleDate" %in% names(df),
-    msg = "Dataframe doesn't have 'SampleDate' variable."
+    msg = "add_samplingevent function\nDataframe doesn't have 'SampleDate' variable."
   )
 
   # Make sure SampleDate is a date object
   assertthat::assert_that(
     assertthat::is.date(df$SampleDate),
-    msg = "'SampleDate' is not a Date object."
+    msg = "add_samplingevent function\n'SampleDate' is not a Date object."
   )
 
   # Run function if no errors exist
@@ -222,7 +240,29 @@ add_samplingevent <- function(df) {
   # Stop function and notify if any NA values exist in SamplingEvent variable
   assertthat::assert_that(
     assertthat::noNA(df1$SamplingEvent),
-    msg = "Not all Sample Dates match; NA values in 'SamplingEvent' variable."
+    msg = "add_samplingevent function\nNA values in 'SamplingEvent' variable.\nEach observation under the 'SampleDate' variable must have one of the following values:
+    2014-12-22
+    2014-12-23
+    2016-03-15
+    2016-03-16
+    2017-01-11
+    2017-01-12
+    2017-01-24
+    2017-01-25
+    2017-01-31
+    2017-02-01
+    2017-02-14
+    2017-02-16
+    2017-03-01
+    2017-03-02
+    2017-03-15
+    2017-03-16
+    2017-03-28
+    2017-03-29
+    2017-04-11
+    2017-04-12
+    2017-04-25
+    2017-04-26"
   )
 
   return(df1)
