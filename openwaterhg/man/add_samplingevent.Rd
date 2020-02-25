@@ -8,8 +8,33 @@ add_samplingevent(df)
 }
 \arguments{
 \item{df}{The dataframe to add the \code{SamplingEvent} variable to.
-Dataframe must have a variable named \code{SampleDate}. \code{SampleDate}
-must be "date" class.}
+    Dataframe must have a variable named \code{SampleDate}. \code{SampleDate}
+    must be "date" class. Each observation under the \code{SampleDate}
+    variable must have one of the following values:
+\itemize{
+\item 2014-12-22
+\item 2014-12-23
+\item 2016-03-15
+\item 2016-03-16
+\item 2017-01-11
+\item 2017-01-12
+\item 2017-01-24
+\item 2017-01-25
+\item 2017-01-31
+\item 2017-02-01
+\item 2017-02-14
+\item 2017-02-16
+\item 2017-03-01
+\item 2017-03-02
+\item 2017-03-15
+\item 2017-03-16
+\item 2017-03-28
+\item 2017-03-29
+\item 2017-04-11
+\item 2017-04-12
+\item 2017-04-25
+\item 2017-04-26
+}}
 }
 \value{
 A new character variable named \code{SamplingEvent}, which contains

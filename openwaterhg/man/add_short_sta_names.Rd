@@ -8,7 +8,29 @@ add_short_sta_names(df)
 }
 \arguments{
 \item{df}{The dataframe to add the \code{ShortName} variable to. Dataframe
-must have a character variable named \code{StationName}.}
+    must have a character variable named \code{StationName}. Each
+    observation under the \code{StationName} variable must have one of the
+    following values:
+\itemize{
+\item Cache Slough near Ryer Island
+\item CCSB- Low Flow Channel
+\item CCSB Overflow Weir- North
+\item CCSB Overflow Weir- South
+\item Fremont Weir- East Side
+\item Fremont Weir- Middle
+\item Fremont Weir- West Side
+\item Knights Landing Ridge Cut
+\item Liberty Cut below Stairsteps
+\item Miner Slough near Sac River
+\item Prospect Slough
+\item Putah Creek at Mace Blvd
+\item Sac River above the Sacramento Weir
+\item Shag Slough below Stairsteps
+\item Toe Drain at 1/2 Lisbon
+\item Toe Drain at County Road 22
+\item Toe Drain at Interstate 80
+\item Toe Drain at Lisbon Weir
+}}
 }
 \value{
 A new character variable named \code{ShortName}, which contains
