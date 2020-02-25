@@ -10,3 +10,18 @@ This study investigates mercury (Hg) and methylmercury (MeHg) loads entering and
 
 ## Vegetation Senescence studies
 These are a group of three studies investigating the effect of flooded vegetation on the MeHg concentrations in the overlying water. Two of these studies used a mesocosm design to simulate flooded pasture land in the Yolo Bypass under various types of land use practices (ungrazed, grazed, and disked). The third study was a lab study comparing treatments with varying amounts of vegetation, sediment, and manure.
+
+# openwaterhg Package
+This repository also contains the openwaterhg R package. This R package has commonly-used functions and datasets that are used in the R files in the Open-Water-Hg-Studies repository. You can install the development version of the openwaterhg R package from GitHub using the following instructions:
+
+1. Install the R package `devtools`:
+
+```
+install.packages("devtools")
+```
+
+2. Install the development version from Github:
+
+```
+devtools::install_github("mountaindboz/Open-Water-Hg-Studies/openwaterhg")
+```
