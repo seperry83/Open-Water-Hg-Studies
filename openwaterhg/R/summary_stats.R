@@ -28,6 +28,12 @@
 #' @importFrom dplyr group_by
 #' @importFrom dplyr summarize
 #' @importFrom dplyr ungroup
+#' @importFrom dplyr n
+#' @importFrom magrittr %>%
+#' @importFrom stats sd
+#' @importFrom stats quantile
+#' @importFrom stats median
+#' @importFrom stats IQR
 summ_stat <- function(df, data_var, group_var1, group_var2 = NULL) {
   data_var_enquo <- rlang::enquo(data_var)
   group_var1_enquo <- rlang::enquo(group_var1)
@@ -39,15 +45,15 @@ summ_stat <- function(df, data_var, group_var1, group_var2 = NULL) {
     df2 <- df %>%
       dplyr::group_by(!!group_var1_enquo, !!group_var2_enquo) %>%
       dplyr::summarize(
-        N = n(),
+        N = dplyr::n(),
         Mean = mean(!!data_var_enquo),
-        StDev = sd(!!data_var_enquo),
+        StDev = stats::sd(!!data_var_enquo),
         Minimum = min(!!data_var_enquo),
-        Q1 = quantile(!!data_var_enquo, 0.25),
-        Median = median(!!data_var_enquo),
-        Q3 = quantile(!!data_var_enquo, 0.75),
+        Q1 = stats::quantile(!!data_var_enquo, 0.25),
+        Median = stats::median(!!data_var_enquo),
+        Q3 = stats::quantile(!!data_var_enquo, 0.75),
         Maximum = max(!!data_var_enquo),
-        IQR = IQR(!!data_var_enquo)
+        IQR = stats::IQR(!!data_var_enquo)
       ) %>%
       dplyr::ungroup()
   }
@@ -56,15 +62,15 @@ summ_stat <- function(df, data_var, group_var1, group_var2 = NULL) {
     df2 <- df %>%
       dplyr::group_by(!!group_var1_enquo) %>%
       dplyr::summarize(
-        N = n(),
+        N = dplyr::n(),
         Mean = mean(!!data_var_enquo),
-        StDev = sd(!!data_var_enquo),
+        StDev = stats::sd(!!data_var_enquo),
         Minimum = min(!!data_var_enquo),
-        Q1 = quantile(!!data_var_enquo, 0.25),
-        Median = median(!!data_var_enquo),
-        Q3 = quantile(!!data_var_enquo, 0.75),
+        Q1 = stats::quantile(!!data_var_enquo, 0.25),
+        Median = stats::median(!!data_var_enquo),
+        Q3 = stats::quantile(!!data_var_enquo, 0.75),
         Maximum = max(!!data_var_enquo),
-        IQR = IQR(!!data_var_enquo)
+        IQR = stats::IQR(!!data_var_enquo)
       ) %>%
       dplyr::ungroup()
   }

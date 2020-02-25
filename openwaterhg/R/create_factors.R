@@ -35,6 +35,8 @@
 #' @importFrom assertthat assert_that
 #' @importFrom assertthat noNA
 #' @importFrom dplyr mutate
+#' @importFrom magrittr %>%
+#' @importFrom rlang .data
 conv_fact_long_sta_names <- function(df) {
 
   # Make sure StationName variable exists in df
@@ -68,7 +70,7 @@ conv_fact_long_sta_names <- function(df) {
 
   # Mutate StationName variable to a factor
   df1 <- df %>%
-    dplyr::mutate(StationName = factor(StationName, levels = stationname_levels))
+    dplyr::mutate(StationName = factor(.data$StationName, levels = stationname_levels))
 
   # Stop function and notify if any NA values exist in StationName variable
   assertthat::assert_that(
@@ -135,6 +137,8 @@ conv_fact_long_sta_names <- function(df) {
 #' @importFrom assertthat assert_that
 #' @importFrom assertthat noNA
 #' @importFrom dplyr mutate
+#' @importFrom magrittr %>%
+#' @importFrom rlang .data
 conv_fact_short_sta_names <- function(df) {
 
   # Make sure ShortName variable exists in df
@@ -168,7 +172,7 @@ conv_fact_short_sta_names <- function(df) {
 
   # Mutate ShortName variable to a factor
   df1 <- df %>%
-    dplyr::mutate(ShortName = factor(ShortName, levels = shortname_levels))
+    dplyr::mutate(ShortName = factor(.data$ShortName, levels = shortname_levels))
 
   # Stop function and notify if any NA values exist in ShortName variable
   assertthat::assert_that(
@@ -222,6 +226,8 @@ conv_fact_short_sta_names <- function(df) {
 #' @importFrom assertthat assert_that
 #' @importFrom assertthat noNA
 #' @importFrom dplyr mutate
+#' @importFrom magrittr %>%
+#' @importFrom rlang .data
 conv_fact_inlet_names <- function(df) {
 
   # Make sure StationName variable exists in df
@@ -242,7 +248,7 @@ conv_fact_inlet_names <- function(df) {
 
   # Mutate StationName variable to a factor
   df1 <- df %>%
-    dplyr::mutate(StationName = factor(StationName, levels = inlet_levels))
+    dplyr::mutate(StationName = factor(.data$StationName, levels = inlet_levels))
 
   # Stop function and notify if any NA values exist in StationName variable
   assertthat::assert_that(
@@ -289,6 +295,8 @@ conv_fact_inlet_names <- function(df) {
 #' @importFrom assertthat assert_that
 #' @importFrom assertthat noNA
 #' @importFrom dplyr mutate
+#' @importFrom magrittr %>%
+#' @importFrom rlang .data
 conv_fact_samplingevent <- function(df) {
 
   # Make sure StationName variable exists in df
@@ -315,7 +323,7 @@ conv_fact_samplingevent <- function(df) {
 
   # Mutate SamplingEvent variable to a factor
   df1 <- df %>%
-    dplyr::mutate(SamplingEvent = factor(SamplingEvent, levels = samplingevent_levels))
+    dplyr::mutate(SamplingEvent = factor(.data$SamplingEvent, levels = samplingevent_levels))
 
   # Stop function and notify if any NA values exist in SamplingEvent variable
   assertthat::assert_that(

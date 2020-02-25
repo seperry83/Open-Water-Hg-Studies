@@ -17,6 +17,7 @@
 #' @importFrom assertthat assert_that
 #' @importFrom dplyr mutate
 #' @importFrom dplyr case_when
+#' @importFrom magrittr %>%
 add_num_result <- function(df) {
 
   # Make sure all necessary variables exist in df
@@ -214,6 +215,7 @@ add_short_sta_names <- function(df) {
 #' @importFrom assertthat noNA
 #' @importFrom tibble tibble
 #' @importFrom dplyr left_join
+#' @importFrom lubridate as_date
 add_samplingevent <- function(df) {
 
   # Make sure SampleDate variable exists in df
@@ -231,30 +233,32 @@ add_samplingevent <- function(df) {
   # Run function if no errors exist
   # Create a df of all SampleDates and their associated Sampling events
   samplingevent_key <- tibble::tibble(
-    SampleDate = as_date(c(
-      "2014-12-22",
-      "2014-12-23",
-      "2016-03-15",
-      "2016-03-16",
-      "2017-01-11",
-      "2017-01-12",
-      "2017-01-24",
-      "2017-01-25",
-      "2017-01-31",
-      "2017-02-01",
-      "2017-02-14",
-      "2017-02-16",
-      "2017-03-01",
-      "2017-03-02",
-      "2017-03-15",
-      "2017-03-16",
-      "2017-03-28",
-      "2017-03-29",
-      "2017-04-11",
-      "2017-04-12",
-      "2017-04-25",
-      "2017-04-26"
-    )),
+    SampleDate = lubridate::as_date(
+      c(
+        "2014-12-22",
+        "2014-12-23",
+        "2016-03-15",
+        "2016-03-16",
+        "2017-01-11",
+        "2017-01-12",
+        "2017-01-24",
+        "2017-01-25",
+        "2017-01-31",
+        "2017-02-01",
+        "2017-02-14",
+        "2017-02-16",
+        "2017-03-01",
+        "2017-03-02",
+        "2017-03-15",
+        "2017-03-16",
+        "2017-03-28",
+        "2017-03-29",
+        "2017-04-11",
+        "2017-04-12",
+        "2017-04-25",
+        "2017-04-26"
+      )
+    ),
     SamplingEvent = c(
       "Dec 22-23, 2014",
       "Dec 22-23, 2014",

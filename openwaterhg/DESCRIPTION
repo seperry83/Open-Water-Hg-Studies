@@ -16,5 +16,9 @@ Imports:
     assertthat,
     dplyr,
     rlang,
-    tibble
+    tibble,
+    magrittr,
+    lubridate,
+    stats,
+    colorspace
 RoxygenNote: 7.0.2
