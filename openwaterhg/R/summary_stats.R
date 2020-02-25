@@ -17,9 +17,9 @@
 #' \item "Mean" - Average Value
 #' \item "StDev" - Standard Deviation
 #' \item "Minimum" - Minimum Value
-#' \item "Q1" - 25% quantile
+#' \item "Q1" - 25 percent quantile
 #' \item "Median" - Median Value
-#' \item "Q3" - 75% quantile
+#' \item "Q3" - 75 percent quantile
 #' \item "Maximum" - Maximum Value
 #' \item "IQR" - Interquartile Range (Q3 - Q1)
 #' }
