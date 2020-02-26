@@ -1,0 +1,122 @@
+---
+title: "Testing Color Palettes for 2-5 groups"
+author: "Dave Bosworth"
+date: "2/26/2020"
+output:
+  html_document: 
+    code_folding: hide
+    toc: yes
+    toc_float:
+      collapsed: no
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Create Palettes
+
+Load R packages necessary for this document:
+```{r load packages, message = FALSE, warning = FALSE}
+library(colorspace)
+```
+
+Define palettes for 2-5 colors:
+```{r define palettes}
+pal_two <- c("#00588B", "#F69422")
+pal_three <- sequential_hcl(3, palette = "Viridis")
+pal_four <- sequential_hcl(4, palette = "Viridis")
+pal_five <- sequential_hcl(5, palette = "Viridis")
+```
+
+# Example Plots for all Palettes
+
+## Two Colors
+
+Actual color Palette:
+```{r two colors actual}
+demoplot(pal_two, "spine")
+title(main = "Two-color Palette")
+```
+
+Color vision deficiency simulations:
+```{r two colors cvd simul}
+col_pal <- pal_two
+par(mfrow = c(2, 2))
+demoplot(desaturate(col_pal), "spine")
+title(main = "Desaturated")
+demoplot(deutan(col_pal), "spine")
+title(main = "Deuteranope")
+demoplot(protan(col_pal), "spine")
+title(main = "Protanope")
+demoplot(tritan(col_pal), "spine")
+title(main = "Tritanope")
+```
+
+## Three Colors
+
+Actual color Palette:
+```{r three colors actual}
+demoplot(pal_three, "spine")
+title(main = "Three-color Palette")
+```
+
+Color vision deficiency simulations:
+```{r three colors cvd simul}
+col_pal <- pal_three
+par(mfrow = c(2, 2))
+demoplot(desaturate(col_pal), "spine")
+title(main = "Desaturated")
+demoplot(deutan(col_pal), "spine")
+title(main = "Deuteranope")
+demoplot(protan(col_pal), "spine")
+title(main = "Protanope")
+demoplot(tritan(col_pal), "spine")
+title(main = "Tritanope")
+```
+
+## Four Colors
+
+Actual color Palette:
+```{r four colors actual}
+demoplot(pal_four, "spine")
+title(main = "Four-color Palette")
+```
+
+Color vision deficiency simulations:
+```{r four colors cvd simul}
+col_pal <- pal_four
+par(mfrow = c(2, 2))
+demoplot(desaturate(col_pal), "spine")
+title(main = "Desaturated")
+demoplot(deutan(col_pal), "spine")
+title(main = "Deuteranope")
+demoplot(protan(col_pal), "spine")
+title(main = "Protanope")
+demoplot(tritan(col_pal), "spine")
+title(main = "Tritanope")
+```
+
+## Five Colors
+
+Actual color Palette:
+```{r five colors actual}
+demoplot(pal_five, "spine")
+title(main = "Five-color Palette")
+```
+
+Color vision deficiency simulations:
+```{r five colors cvd simul}
+col_pal <- pal_five
+par(mfrow = c(2, 2))
+demoplot(desaturate(col_pal), "spine")
+title(main = "Desaturated")
+demoplot(deutan(col_pal), "spine")
+title(main = "Deuteranope")
+demoplot(protan(col_pal), "spine")
+title(main = "Protanope")
+demoplot(tritan(col_pal), "spine")
+title(main = "Tritanope")
+```
+
+
