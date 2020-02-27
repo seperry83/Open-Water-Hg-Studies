@@ -21,25 +21,25 @@
 add_num_result <- function(df) {
 
   # Make sure all necessary variables exist in df
-  assertthat::assert_that(
+  assert_that(
     "Result" %in% names(df),
     msg = "add_num_result function\nDataframe doesn't have 'Result' variable."
   )
 
-  assertthat::assert_that(
+  assert_that(
     "RL" %in% names(df),
     msg = "add_num_result function\nDataframe doesn't have 'RL' variable."
   )
 
-  assertthat::assert_that(
+  assert_that(
     "MDL" %in% names(df),
     msg = "add_num_result function\nDataframe doesn't have 'MDL' variable."
   )
 
   # Run function if all variables exist in df
   df1 <- df %>%
-    dplyr::mutate(
-      Conc = dplyr::case_when(
+    mutate(
+      Conc = case_when(
         Result == "< RL"  ~ RL,
         Result == "< MDL" ~ MDL,
         TRUE              ~ as.numeric(Result)
@@ -90,14 +90,14 @@ add_num_result <- function(df) {
 add_short_sta_names <- function(df) {
 
   # Make sure StationName variable exists in df
-  assertthat::assert_that(
+  assert_that(
     "StationName" %in% names(df),
     msg = "add_short_sta_names function\nDataframe doesn't have 'StationName' variable."
   )
 
   # Run function if StationName variable exists in df
   # Create a df of all stations and their shortened names
-  station_key <- tibble::tibble(
+  station_key <- tibble(
     StationName = c(
       "Cache Slough near Ryer Island",
       "CCSB- Low Flow Channel",
@@ -141,11 +141,11 @@ add_short_sta_names <- function(df) {
   )
 
   # left join station_key to df
-  df1 <-dplyr::left_join(df, station_key)
+  df1 <- left_join(df, station_key)
 
   # Stop function and notify if any NA values exist in ShortName variable
-  assertthat::assert_that(
-    assertthat::noNA(df1$ShortName),
+  assert_that(
+    noNA(df1$ShortName),
     msg = "add_short_sta_names function\nNA values in 'ShortName' variable.\nEach observation under the 'StationName' variable must have one of the following values:
     Cache Slough near Ryer Island
     CCSB- Low Flow Channel
@@ -219,21 +219,21 @@ add_short_sta_names <- function(df) {
 add_samplingevent <- function(df) {
 
   # Make sure SampleDate variable exists in df
-  assertthat::assert_that(
+  assert_that(
     "SampleDate" %in% names(df),
     msg = "add_samplingevent function\nDataframe doesn't have 'SampleDate' variable."
   )
 
   # Make sure SampleDate is a date object
-  assertthat::assert_that(
-    assertthat::is.date(df$SampleDate),
+  assert_that(
+    is.date(df$SampleDate),
     msg = "add_samplingevent function\n'SampleDate' is not a Date object."
   )
 
   # Run function if no errors exist
   # Create a df of all SampleDates and their associated Sampling events
-  samplingevent_key <- tibble::tibble(
-    SampleDate = lubridate::as_date(
+  samplingevent_key <- tibble(
+    SampleDate = as_date(
       c(
         "2014-12-22",
         "2014-12-23",
@@ -286,11 +286,11 @@ add_samplingevent <- function(df) {
   )
 
   # left join samplingevent_key to df
-  df1 <- dplyr::left_join(df, samplingevent_key)
+  df1 <- left_join(df, samplingevent_key)
 
   # Stop function and notify if any NA values exist in SamplingEvent variable
-  assertthat::assert_that(
-    assertthat::noNA(df1$SamplingEvent),
+  assert_that(
+    noNA(df1$SamplingEvent),
     msg = "add_samplingevent function\nNA values in 'SamplingEvent' variable.\nEach observation under the 'SampleDate' variable must have one of the following values:
     2014-12-22
     2014-12-23

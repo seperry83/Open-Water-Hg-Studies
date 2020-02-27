@@ -40,7 +40,7 @@
 conv_fact_long_sta_names <- function(df) {
 
   # Make sure StationName variable exists in df
-  assertthat::assert_that(
+  assert_that(
     "StationName" %in% names(df),
     msg = "conv_fact_long_sta_names function\nDataframe doesn't have 'StationName' variable."
   )
@@ -70,11 +70,11 @@ conv_fact_long_sta_names <- function(df) {
 
   # Mutate StationName variable to a factor
   df1 <- df %>%
-    dplyr::mutate(StationName = factor(.data$StationName, levels = stationname_levels))
+    mutate(StationName = factor(.data$StationName, levels = stationname_levels))
 
   # Stop function and notify if any NA values exist in StationName variable
-  assertthat::assert_that(
-    assertthat::noNA(df1$StationName),
+  assert_that(
+    noNA(df1$StationName),
     msg = "conv_fact_long_sta_names function\nNA values in 'StationName' variable after converting to factor.\nEach observation under the 'StationName' variable must have one of the following values:
     Cache Slough near Ryer Island
     CCSB- Low Flow Channel
@@ -142,7 +142,7 @@ conv_fact_long_sta_names <- function(df) {
 conv_fact_short_sta_names <- function(df) {
 
   # Make sure ShortName variable exists in df
-  assertthat::assert_that(
+  assert_that(
     "ShortName" %in% names(df),
     msg = "conv_fact_short_sta_names function\nDataframe doesn't have 'ShortName' variable."
   )
@@ -172,11 +172,11 @@ conv_fact_short_sta_names <- function(df) {
 
   # Mutate ShortName variable to a factor
   df1 <- df %>%
-    dplyr::mutate(ShortName = factor(.data$ShortName, levels = shortname_levels))
+    mutate(ShortName = factor(.data$ShortName, levels = shortname_levels))
 
   # Stop function and notify if any NA values exist in ShortName variable
-  assertthat::assert_that(
-    assertthat::noNA(df1$ShortName),
+  assert_that(
+    noNA(df1$ShortName),
     msg = "conv_fact_short_sta_names function\nNA values in 'ShortName' variable after converting to factor.\nEach observation under the 'ShortName' variable must have one of the following values:
     Cache Sl
     CCSB- LFC
@@ -231,7 +231,7 @@ conv_fact_short_sta_names <- function(df) {
 conv_fact_inlet_names <- function(df) {
 
   # Make sure StationName variable exists in df
-  assertthat::assert_that(
+  assert_that(
     "StationName" %in% names(df),
     msg = "conv_fact_inlet_names function\nDataframe doesn't have 'StationName' variable."
   )
@@ -248,11 +248,11 @@ conv_fact_inlet_names <- function(df) {
 
   # Mutate StationName variable to a factor
   df1 <- df %>%
-    dplyr::mutate(StationName = factor(.data$StationName, levels = inlet_levels))
+    mutate(StationName = factor(.data$StationName, levels = inlet_levels))
 
   # Stop function and notify if any NA values exist in StationName variable
-  assertthat::assert_that(
-    assertthat::noNA(df1$StationName),
+  assert_that(
+    noNA(df1$StationName),
     msg = "conv_fact_inlet_names function\nNA values in 'StationName' variable after converting to factor.\nEach observation under the 'StationName' variable must have one of the following values:
     CCSB
     Fremont Weir
@@ -300,7 +300,7 @@ conv_fact_inlet_names <- function(df) {
 conv_fact_samplingevent <- function(df) {
 
   # Make sure StationName variable exists in df
-  assertthat::assert_that(
+  assert_that(
     "SamplingEvent" %in% names(df),
     msg = "conv_fact_samplingevent function\nDataframe doesn't have 'SamplingEvent' variable."
   )
@@ -323,11 +323,11 @@ conv_fact_samplingevent <- function(df) {
 
   # Mutate SamplingEvent variable to a factor
   df1 <- df %>%
-    dplyr::mutate(SamplingEvent = factor(.data$SamplingEvent, levels = samplingevent_levels))
+    mutate(SamplingEvent = factor(.data$SamplingEvent, levels = samplingevent_levels))
 
   # Stop function and notify if any NA values exist in SamplingEvent variable
-  assertthat::assert_that(
-    assertthat::noNA(df1$SamplingEvent),
+  assert_that(
+    noNA(df1$SamplingEvent),
     msg = "conv_fact_samplingevent function\nNA values in 'SamplingEvent' variable after converting to factor.\nEach observation under the 'SamplingEvent' variable must have one of the following values:
     Dec 22-23, 2014
     Mar 15-16, 2016
