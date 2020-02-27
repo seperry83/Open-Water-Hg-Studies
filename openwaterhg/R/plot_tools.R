@@ -51,3 +51,51 @@ add_gen_color_pal <- function(num_colors = c(2:4),
     }
   }
 }
+
+
+#' @title Custom Color Palette for Inlet Stations
+#' @description Applies a custom color palette for the five inlet stations
+#'     to be used in figures in the final report for the Open Water Mercury
+#'     studies. The palette is based on the Viridis palette. Function is to
+#'     be used on ggplot objects. Each observation under the inlet grouping
+#'     variable used in the ggplot must have one of the following values:
+#' \itemize{
+#' \item KLRC
+#' \item CCSB
+#' \item Putah Creek
+#' \item Sacramento Weir
+#' \item Fremont Weir
+#' }
+#' This function works best if the inlet grouping variable is a factor in
+#' above order.
+#'
+#' @param aes_type The aesthetic type to apply the palette to. Must be
+#'     either \code{"fill"} or \code{"color"}.
+#' @param legend_title An optional argument used to provide a title for the
+#'     legend of the color palette. Default is \code{NULL}.
+#'
+#' @return A ggplot object with the custom color palette for the inlets applied
+#'     to it.
+#' @export
+#' @import ggplot2
+add_inlet_color_pal <- function(aes_type = c("fill", "color"), legend_title = NULL) {
+  # evaluate choices for aes_type
+  aes_type <- match.arg(aes_type, c("fill", "color"))
+
+  # define color palette for inlets
+  pal_inlet <- c(
+    "KLRC" = "#FDE333",
+    "CCSB" = "#53CC67",
+    "Putah Creek" = "#009B95",
+    "Sacramento Weir" = "#00588B",
+    "Fremont Weir" = "#4B0055"
+  )
+
+  # apply palette based on aes_type
+  if (aes_type == "fill") {
+    scale_fill_manual(name = legend_title, values = pal_inlet)
+  } else {
+    scale_color_manual(name = legend_title, values = pal_inlet)
+  }
+}
+
