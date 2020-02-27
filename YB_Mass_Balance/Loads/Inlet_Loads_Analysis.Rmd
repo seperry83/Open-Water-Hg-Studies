@@ -25,34 +25,13 @@ library(tidyverse)
 library(rlang)
 library(readxl)
 library(scales)
-library(colorspace)
 library(DT)
+library(openwaterhg)
 ```
 
-Load common functions:
-```{r load common functions}
-# Load common functions
-source("inlet_outlet_common_functions.R")
-source("Summary_Stats_1or2_Groups.R")
-```
-
-Import Load Data:
-```{r import load data, message = FALSE, warning = FALSE}
-# Define path on SharePoint site for data
-sharepoint_path <- normalizePath(
-  file.path(
-    Sys.getenv("USERPROFILE"),
-    "California Department of Water Resources/DWR Documents - Open Water Final Report - Documents/Technical Appendices/Inlet-Outlet/Data"
-  )
-)  
-
-# Import load data
-loads_orig <- read_csv(file = paste0(sharepoint_path, "/All_YB_Loads-R.csv"))
-```
-
-Clean the original loads dataframe for analysis:
-```{r clean load data}
-loads_inlet <- loads_orig %>% 
+Clean the original loads_calc dataframe for analysis:
+```{r clean load data, message = FALSE}
+loads_inlet <- loads_calc %>% 
   # only include a subset of the data
   filter(
     str_detect(Analyte, "OC$|Hg|SS$"),
@@ -62,8 +41,9 @@ loads_inlet <- loads_orig %>%
   select(-c(Year, Conc:LocType))
 
 # Sum the CCSB Loads
-ccsb_loads <- loads_inlet %>% 
-  filter(str_detect(StationName, "^CCSB")) %>% 
+ccsb_loads <- filter(loads_inlet, str_detect(StationName, "^CCSB"))
+
+ccsb_loads_sum <- ccsb_loads %>%                      
   group_by(SamplingEvent, Analyte, LoadUnits) %>% 
   summarize(TotalLoad = sum(Load)) %>% 
   ungroup() %>% 
@@ -72,14 +52,14 @@ ccsb_loads <- loads_inlet %>%
 
 # Add back the summed CCSB loads and prepare data for plots
 loads_clean <- loads_inlet %>% 
-  filter(!str_detect(StationName, "^CCSB")) %>%
-  bind_rows(ccsb_loads) %>% 
+  anti_join(ccsb_loads) %>% 
+  bind_rows(ccsb_loads_sum) %>% 
   # rename some station names and add AnalyteGroup
   mutate(
     StationName = case_when(
       StationName == "Knights Landing Ridge Cut" ~ "KLRC",
-      StationName == "Putah Creek at Mace Blvd" ~ "Putah Ck",
-      StationName == "Sac River above the Sacramento Weir" ~ "Sac Weir",
+      StationName == "Putah Creek at Mace Blvd" ~ "Putah Creek",
+      StationName == "Sac River above the Sacramento Weir" ~ "Sacramento Weir",
       TRUE ~ StationName
     ),
     AnalyteGroup = case_when(
@@ -91,18 +71,7 @@ loads_clean <- loads_inlet %>%
   ) %>% 
   # apply plot order
   conv_fact_samplingevent() %>% 
-  mutate(
-    StationName = factor(
-      StationName,
-      levels = c(
-        "KLRC", 
-        "CCSB", 
-        "Putah Ck", 
-        "Sac Weir", 
-        "Fremont Weir"
-      )
-    )
-  )
+  conv_fact_inlet_names()
 ```
 
 # Run Calculations
@@ -134,14 +103,14 @@ loads_clean_perc_wide <- loads_clean_perc %>%
 Calculate summary statistics of loads for each inlet:
 ```{r calc summ stats inlet loads}
 loads_clean_summ <- loads_clean %>% 
-  SummStat(Load, StationName, Analyte) %>% 
+  summ_stat(Load, StationName, Analyte) %>% 
   mutate_at(vars(Mean:IQR), signif, digits = 3)
 ```
 
 Calculate summary statistics of inlet load percentages:
 ```{r calc summ stats perc inlet loads}
 loads_clean_perc_summ <- loads_clean_perc %>% 
-  SummStat(percent_load, StationName, Analyte)
+  summ_stat(percent_load, StationName, Analyte)
 ```
 
 Calculate %MeHg of Hg loads for all fractions:
@@ -213,7 +182,7 @@ barplot_inlet_percent <- function(df) {
     ) +
     theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
     scale_y_continuous(labels = percent_format()) +
-    scale_fill_discrete_sequential(palette = "Viridis", nmax = 5)
+    add_inlet_color_pal("fill", "Inlet")
   
   return(p)
 }
@@ -328,7 +297,8 @@ p <- loads_total_mehg %>%
     x = NULL,
     y = "MeHg Loads (g/day)"
   ) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  add_gen_color_pal(2, "fill", "Analyte")
 
 plotly::ggplotly(p)
 
@@ -341,7 +311,8 @@ loads_total_mehg %>%
     y = "Percent of Inlet Load"
   ) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  scale_y_continuous(labels = percent_format())
+  scale_y_continuous(labels = percent_format()) +
+  add_gen_color_pal(2, "fill", "Analyte")
 ```
 
 ### Summary Statistics of each Inlet
@@ -407,7 +378,8 @@ p <- loads_total_hg %>%
     x = NULL,
     y = "Hg Loads (g/day)"
   ) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  add_gen_color_pal(2, "fill", "Analyte")
 
 plotly::ggplotly(p)
 
@@ -420,7 +392,8 @@ loads_total_hg %>%
     y = "Percent of Inlet Load"
   ) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  scale_y_continuous(labels = percent_format())
+  scale_y_continuous(labels = percent_format()) +
+  add_gen_color_pal(2, "fill", "Analyte")
 ```
 
 ### Summary Statistics of each Inlet
@@ -523,7 +496,8 @@ p <- loads_total_oc %>%
     x = NULL,
     y = "Organic Carbon Loads (1,000 kg/day)"
   ) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  add_gen_color_pal(2, "fill", "Analyte")
 
 plotly::ggplotly(p)
 
@@ -536,7 +510,8 @@ loads_total_oc %>%
     y = "Percent of Inlet Load"
   ) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  scale_y_continuous(labels = percent_format())
+  scale_y_continuous(labels = percent_format()) +
+  add_gen_color_pal(2, "fill", "Analyte")
 ```
 
 ### Summary Statistics of each Inlet
