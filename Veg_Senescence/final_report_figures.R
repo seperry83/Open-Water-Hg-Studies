@@ -75,12 +75,10 @@ vss_pilot2015_fig3 <- vss_pilot2015_clean %>%
     )
   ) +
   labs(
-    caption = "Letters indicate statistical significance from Tukey-HSD analysis.\nStatistics were run on values that were transformed to natural log.",
     x = NULL,
-    y = "fMeHg (ng/12 days) +/- SD"
+    y = "fMeHg (ng) +/- SD"
   ) +
   theme_light() +
-  theme(plot.caption = element_text(size = 8)) +
   geom_text(
     data = vss_pilot2015_text,
     aes(
