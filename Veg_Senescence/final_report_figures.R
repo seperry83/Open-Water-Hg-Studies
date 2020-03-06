@@ -169,3 +169,74 @@ ggsave(
   height = 4, 
   units = "in"
 )
+
+
+# Figure 10 ---------------------------------------------------------------
+# 2019 Vegetation Senescence Study
+# Bar plot of means of 3 groups with error bars indicating their standard deviations
+# Means are the concentration in ng/L/day of filtered MeHg in the overlying water
+# Facets for each Week of sample collection
+
+# Import Data
+vss_2019_orig <- read_excel(path = paste0(sharepoint_path, "/VegSens_Feb2019_Conc_Data.xlsx"), sheet = "Normal Water Data- R")
+
+# Prepare data for figure
+vss_2019_clean <- vss_2019_orig %>% 
+  # Extract date from dttm variable
+  mutate(SampleDate = as_date(SampleDate)) %>%
+  # Remove Ice Chest Blanks and only keep MeHg- filtered data  
+  filter(
+    !str_detect(StationName, "Blank"),
+    Analyte == "MeHg- filtered"
+  ) %>% 
+  # Create a new variable Conc, which is a numeric version of Result with the MDL and RL for the ND values
+  add_num_result() %>% 
+  # Divide Conc by 4 to convert to ng/L/day
+  mutate(Conc = signif(Conc/4, 2)) %>% 
+  # Create Treatment and Week variables
+  mutate(
+    Treatment = str_sub(StationName, end = -3),
+    Week = case_when(
+      SampleDate == "2019-02-19" ~ "Week 2",
+      SampleDate == "2019-03-05" ~ "Week 4"
+    )
+  ) %>%
+  # Calculate means and standard deviations
+  group_by(Treatment, Week) %>% 
+  summarize(
+    avg = signif(mean(Conc), 2),
+    stdev = signif(sd(Conc), 2)
+  ) %>% 
+  ungroup()
+
+# Create figure
+vss_2019_fig10 <- vss_2019_clean %>% 
+  ggplot(aes(x = Treatment, y = avg, fill = Treatment)) +
+  geom_col() +
+  geom_errorbar(
+    aes(
+      ymin = avg - stdev, 
+      ymax = avg + stdev, 
+      width = 0.25
+    )
+  ) +
+  labs(
+    x = NULL,
+    y = "fMeHg (ng/L/day) +/- SD"
+  ) +
+  facet_wrap(vars(Week)) +
+  add_gen_color_pal(3, "fill") +
+  theme_light() +
+  theme(strip.text = element_text(color = "black")) +
+  guides(fill = "none")
+
+# Export figure
+ggsave(
+  "VSS_final_report_fig10.jpg", 
+  plot = vss_2019_fig10,
+  dpi = 300,
+  width = 5, 
+  height = 2.5, 
+  units = "in"
+)
+
