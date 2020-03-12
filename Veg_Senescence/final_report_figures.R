@@ -460,3 +460,56 @@ ggsave(
   height = 5, 
   units = "in"
 )
+
+
+# Figure 17 ---------------------------------------------------------------
+# 2018 Vegetation Senescence Lab Study
+# Bar plot of means of Disked and Ungrazed (low, medium, high) treatments with error bars 
+  # indicating their standard deviations
+# Means are the concentration in ng/L/day of filtered MeHg in the overlying water
+# Facets for each Week of sample collection
+
+# Modify df for figure 17
+vss_2018_clean17 <- vss_2018_clean %>% 
+  filter(str_detect(Treatment, "Disked$|Ungrazed$")) %>%
+  mutate(
+    Treatment = str_sub(Treatment, start = 8),
+    biomass = case_when(
+      Group == "Veg L" ~ "Low",
+      Group == "Veg M" ~ "Medium",
+      Group == "Veg H" ~ "High"
+    ),
+    biomass = factor(biomass, levels = c("Low", "Medium", "High"))
+  )
+  
+# Create figure 17
+vss_2018_fig17 <- vss_2018_clean17 %>% 
+  ggplot(aes(x = biomass, y = avg, fill = Treatment)) +
+  geom_col(position = "dodge") +
+  geom_errorbar(
+    aes(
+      ymin = avg - stdev, 
+      ymax = avg + stdev 
+    ),
+    width = 0.3,
+    position = position_dodge(width = 0.9)
+  ) +
+  labs(
+    x = NULL,
+    y = "fMeHg (ng/L/day) +/- SD"
+  ) +
+  facet_grid(cols = vars(Week)) +
+  theme_owhg(x_axis_v = TRUE) +
+  theme(legend.position = c(0.14, 0.83)) +
+  add_gen_color_pal(2)
+
+# Export figure 17
+ggsave(
+  "VSS_final_report_fig17.jpg", 
+  vss_2018_fig17,
+  dpi = 300,
+  width = 6, 
+  height = 5, 
+  units = "in"
+)
+
