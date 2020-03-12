@@ -79,7 +79,7 @@ vss_pilot2015_fig3 <- vss_pilot2015_clean %>%
     x = NULL,
     y = "fMeHg (ng) +/- SD"
   ) +
-  theme_light() +
+  theme_owhg() +
   geom_text(
     data = vss_pilot2015_text,
     aes(
@@ -157,8 +157,7 @@ vss_2017_fig8 <- vss_2017_clean %>%
   ) +
   facet_wrap(vars(Week)) +
   add_gen_color_pal(3, "fill") +
-  theme_light() +
-  theme(strip.text = element_text(color = "black")) +
+  theme_owhg() +
   guides(fill = "none")
 
 # Export figure 8
@@ -227,8 +226,7 @@ vss_2019_fig10 <- vss_2019_clean %>%
   ) +
   facet_wrap(vars(Week)) +
   add_gen_color_pal(3, "fill") +
-  theme_light() +
-  theme(strip.text = element_text(color = "black")) +
+  theme_owhg() +
   guides(fill = "none")
 
 # Export figure 10
@@ -380,12 +378,8 @@ barplot_vss_2018 <- function(df) {
       x = NULL,
       y = "fMeHg (ng/L/day) +/- SD"
     ) +
-    theme_light() +
-    theme(
-      strip.text = element_text(color = "black"),
-      axis.text.x = element_text(angle = 90, hjust = 1),
-      legend.position = c(0.18, 0.7)
-    ) +
+    theme_owhg(x_axis_v = TRUE) +
+    theme(legend.position = c(0.18, 0.7)) +
     scale_fill_manual(
       name = NULL,
       values = group_colors
