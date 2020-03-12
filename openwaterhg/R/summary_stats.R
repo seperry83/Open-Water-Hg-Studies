@@ -25,15 +25,9 @@
 #' }
 #' @export
 #' @importFrom rlang enquo
-#' @importFrom dplyr group_by
-#' @importFrom dplyr summarize
-#' @importFrom dplyr ungroup
-#' @importFrom dplyr n
+#' @importFrom dplyr group_by summarize ungroup n
 #' @importFrom magrittr %>%
-#' @importFrom stats sd
-#' @importFrom stats quantile
-#' @importFrom stats median
-#' @importFrom stats IQR
+#' @importFrom stats sd quantile median IQR
 summ_stat <- function(df, data_var, group_var1, group_var2 = NULL) {
   data_var_enquo <- enquo(data_var)
   group_var1_enquo <- enquo(group_var1)

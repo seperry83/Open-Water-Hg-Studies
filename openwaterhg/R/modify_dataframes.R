@@ -15,8 +15,7 @@
 #'     \code{Result} variable converted to "numeric" class.
 #' @export
 #' @importFrom assertthat assert_that
-#' @importFrom dplyr mutate
-#' @importFrom dplyr case_when
+#' @importFrom dplyr mutate case_when
 #' @importFrom magrittr %>%
 add_num_result <- function(df) {
 
@@ -83,8 +82,7 @@ add_num_result <- function(df) {
 #' @return A new character variable named \code{ShortName}, which contains
 #'     shortened station names of the \code{StationName} variable.
 #' @export
-#' @importFrom assertthat assert_that
-#' @importFrom assertthat noNA
+#' @importFrom assertthat assert_that noNA
 #' @importFrom tibble tibble
 #' @importFrom dplyr left_join
 add_short_sta_names <- function(df) {
@@ -210,9 +208,7 @@ add_short_sta_names <- function(df) {
 #'     standardized sampling event names derived from the \code{SampleDate}
 #'     variable.
 #' @export
-#' @importFrom assertthat assert_that
-#' @importFrom assertthat is.date
-#' @importFrom assertthat noNA
+#' @importFrom assertthat assert_that is.date noNA
 #' @importFrom tibble tibble
 #' @importFrom dplyr left_join
 #' @importFrom lubridate as_date

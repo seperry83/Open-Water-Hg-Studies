@@ -32,8 +32,7 @@
 #' @return A dataframe with the \code{StationName} variable converted to
 #'     a factor
 #' @export
-#' @importFrom assertthat assert_that
-#' @importFrom assertthat noNA
+#' @importFrom assertthat assert_that noNA
 #' @importFrom dplyr mutate
 #' @importFrom magrittr %>%
 #' @importFrom rlang .data
@@ -134,8 +133,7 @@ conv_fact_long_sta_names <- function(df) {
 #' @return A dataframe with the \code{ShortName} variable converted to
 #'     a factor
 #' @export
-#' @importFrom assertthat assert_that
-#' @importFrom assertthat noNA
+#' @importFrom assertthat assert_that noNA
 #' @importFrom dplyr mutate
 #' @importFrom magrittr %>%
 #' @importFrom rlang .data
@@ -223,8 +221,7 @@ conv_fact_short_sta_names <- function(df) {
 #' @return A dataframe with the \code{StationName} variable converted to
 #'     a factor
 #' @export
-#' @importFrom assertthat assert_that
-#' @importFrom assertthat noNA
+#' @importFrom assertthat assert_that noNA
 #' @importFrom dplyr mutate
 #' @importFrom magrittr %>%
 #' @importFrom rlang .data
@@ -292,8 +289,7 @@ conv_fact_inlet_names <- function(df) {
 #' @return A dataframe with the \code{SamplingEvent} variable converted
 #'     to a factor
 #' @export
-#' @importFrom assertthat assert_that
-#' @importFrom assertthat noNA
+#' @importFrom assertthat assert_that noNA
 #' @importFrom dplyr mutate
 #' @importFrom magrittr %>%
 #' @importFrom rlang .data
