@@ -4,7 +4,8 @@
 \name{qa_field_blanks}
 \alias{qa_field_blanks}
 \title{Field and Filter Blanks Collected in Association with \code{conc_data}}
-\format{data frame with 524 rows and 14 columns
+\format{
+data frame with 524 rows and 14 columns
 \describe{
 \item{SampleCode}{The unique identifier for each field or filter blank sample
     produced by Bryte Lab}
@@ -35,7 +36,8 @@
     associated with the sample. "FV" indicates that there was a RPD value greater
     than its acceptable limit in a field duplicate pair associated with the
     sample.}
-}}
+}
+}
 \usage{
 qa_field_blanks
 }

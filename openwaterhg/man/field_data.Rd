@@ -4,7 +4,8 @@
 \name{field_data}
 \alias{field_data}
 \title{Field Measurements}
-\format{data frame with 165 rows and 7 columns
+\format{
+data frame with 165 rows and 7 columns
 \describe{
 \item{StationName}{The station name where the measurement was collected}
 \item{SampleDate}{The sampling date of the field measurement}
@@ -13,7 +14,8 @@
 \item{SpCond}{The specific conductance in uS/cm}
 \item{DissOxy}{The dissolved oxygen concentration in mg/L}
 \item{Turbidity}{The turbidity in NTU}
-}}
+}
+}
 \usage{
 field_data
 }

@@ -4,7 +4,8 @@
 \name{qa_field_dups}
 \alias{qa_field_dups}
 \title{Field Duplicates Collected in Association with \code{conc_data}}
-\format{data frame with 513 rows and 17 columns
+\format{
+data frame with 513 rows and 17 columns
 \describe{
 \item{SampleCode_PS}{The unique identifier for the associated parent sample
     produced by Bryte Lab}
@@ -46,7 +47,8 @@
     associated with the sample. "FV" indicates that there was a RPD value greater
     than its acceptable limit in a field duplicate pair associated with the
     sample.}
-}}
+}
+}
 \usage{
 qa_field_dups
 }

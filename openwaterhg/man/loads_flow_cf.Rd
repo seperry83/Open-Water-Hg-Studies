@@ -4,7 +4,8 @@
 \name{loads_flow_cf}
 \alias{loads_flow_cf}
 \title{Flow and Mass Load Data from the CALFED 2008 report}
-\format{data frame with 14 rows and 7 columns
+\format{
+data frame with 14 rows and 7 columns
 \describe{
 \item{SampleDate}{The date of the total inflow and net load values}
 \item{Year}{The year of the flood}
@@ -13,7 +14,8 @@
 \item{LoadUnits}{The units of the net load value}
 \item{NetLoad}{The net load value}
 \item{TotalInputFlow}{The total daily inflow value in cubic feet per second}
-}}
+}
+}
 \usage{
 loads_flow_cf
 }

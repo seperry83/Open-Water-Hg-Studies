@@ -4,7 +4,8 @@
 \name{loads_calc}
 \alias{loads_calc}
 \title{Calculated Mass Loads}
-\format{data frame with 1,460 rows and 10 columns
+\format{
+data frame with 1,460 rows and 10 columns
 \describe{
 \item{SamplingEvent}{The sampling event for the mass load value}
 \item{Year}{The year of the flood}
@@ -18,7 +19,8 @@
     inlet, outlet, or Below Liberty Island location}
 \item{Load}{The calculated mass load value}
 \item{LoadUnits}{The units of the load value}
-}}
+}
+}
 \usage{
 loads_calc
 }

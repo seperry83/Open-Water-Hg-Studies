@@ -4,7 +4,8 @@
 \name{conc_data}
 \alias{conc_data}
 \title{Concentration Data in Water}
-\format{data frame with 3,582 rows and 13 columns
+\format{
+data frame with 3,582 rows and 13 columns
 \describe{
 \item{SampleCode}{The unique identifier for each sample produced by Bryte Lab}
 \item{StationName}{The station name where the water samples were collected}
@@ -31,7 +32,8 @@
     than its acceptable limit in a field duplicate pair associated with the
     sample, which could be due to variablity in the sampling method or the
     water being sampled.}
-}}
+}
+}
 \usage{
 conc_data
 }

@@ -4,7 +4,8 @@
 \name{daily_flow_data_all}
 \alias{daily_flow_data_all}
 \title{Daily Average Flow Data for the 2014, 2016, and 2017 Floods}
-\format{data frame with 1,900 rows and 5 columns
+\format{
+data frame with 1,900 rows and 5 columns
 \describe{
 \item{Date}{The date for the daily average flow data}
 \item{Year}{The year of the flood}
@@ -12,7 +13,8 @@
 \item{LocType}{A categorical variable indicating whether the station was an
     inlet, outlet, or Below Liberty Island location}
 \item{Flow}{The daily average flow value in cubic feet per second}
-}}
+}
+}
 \usage{
 daily_flow_data_all
 }

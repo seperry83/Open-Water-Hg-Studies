@@ -4,7 +4,8 @@
 \name{comb_param_calc}
 \alias{comb_param_calc}
 \title{Combined Parameter Data}
-\format{data frame with 2,487 rows and 8 columns
+\format{
+data frame with 2,487 rows and 8 columns
 \describe{
 \item{StationName}{The station name}
 \item{SampleDate}{The sampling date}
@@ -14,7 +15,8 @@
 \item{Parameter}{The name of the calculated parameter}
 \item{Value}{Calculated value}
 \item{Units}{The units of the value}
-}}
+}
+}
 \usage{
 comb_param_calc
 }
