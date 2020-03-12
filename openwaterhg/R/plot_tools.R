@@ -99,3 +99,18 @@ add_inlet_color_pal <- function(aes_type = c("fill", "color"), legend_title = NU
   }
 }
 
+#' @title Open Water Hg Report Plot Theme
+#' @description This custom theme is the standardized theme used in plots
+#'     within the final report for the Open Water Mercury studies. It builds
+#'     off of the \code{theme_light()} ggplot theme and changes the facet
+#'     label text color to black.
+#'
+#' @return A ggplot layer that applies a custom theme as described above.
+#' @import ggplot2
+#' @export
+theme_owhg <- function() {
+  theme_light() +
+  # change facet label text color to black
+  theme(strip.text = element_text(color = "black"))
+}
+

@@ -15,7 +15,7 @@ legend of the color palette. Default is \code{NULL}.}
 }
 \value{
 A ggplot object with the custom color palette for the inlets applied
-    to it
+    to it.
 }
 \description{
 Applies a custom color palette for the five inlet stations
