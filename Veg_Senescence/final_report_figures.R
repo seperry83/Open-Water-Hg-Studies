@@ -240,11 +240,7 @@ ggsave(
 )
 
 
-# Figures 12 and 13 -------------------------------------------------------
-# 2018 Vegetation Senescence Lab Study
-# Bar plot of means of each treatment with error bars indicating their standard deviations
-# Means are the concentration in ng/L/day of filtered MeHg in the overlying water
-# Figure 12 is for Week 4 results, and Figure 13 is for Week 8
+# Process 2018 VSS Lab Study data -----------------------------------------
 
 # Import Data
 vss_2018_orig <- read_excel(path = paste0(sharepoint_path, "/VegSensLab_Oct2018_Conc_Data.xlsx"), sheet = "Normal Water Data- R")
@@ -259,13 +255,14 @@ vss_2018_clean <- vss_2018_orig %>%
   # Create Week variable and shorten StationName
   mutate(
     Week = case_when(
+      SampleDate == "2018-10-30" ~ "Week 2",
       SampleDate == "2018-11-13" ~ "Week 4",
       SampleDate == "2018-12-11" ~ "Week 8",
       TRUE ~ "other"
     ),
     StationName = str_replace_all(StationName, sn_repl)
   ) %>% 
-  # Only keep MeHg- filtered and Weeks 4 and 8 data
+  # Only keep MeHg- filtered and Weeks 2, 4 and 8 data
   filter(
     Analyte == "MeHg- filtered",
     Week != "other"
@@ -305,6 +302,13 @@ vss_2018_clean <- vss_2018_orig %>%
     stdev = signif(sd(Conc), 2)
   ) %>% 
   ungroup()
+
+
+# Figures 12 and 13 -------------------------------------------------------
+# 2018 Vegetation Senescence Lab Study
+# Bar plot of means of each treatment with error bars indicating their standard deviations
+# Means are the concentration in ng/L/day of filtered MeHg in the overlying water
+# Figure 12 is for Week 4 results, and Figure 13 is for Week 8
 
 # Define custom order for figures
   # Group order
@@ -390,6 +394,7 @@ barplot_vss_2018 <- function(df) {
 
 # Create figures 12 and 13
 vss_2018_fig12_13 <- vss_2018_clean %>% 
+  filter(Week != "Week 2") %>% 
   group_nest(Week) %>% 
   mutate(figures = map(data, .f = barplot_vss_2018))
 
@@ -414,3 +419,43 @@ ggsave(
 )
 
 
+# Figure 16 ---------------------------------------------------------------
+# 2018 Vegetation Senescence Lab Study
+# Bar plot of means of Sediment Only and Vegetation Only (low, medium, high) treatments with error bars 
+  # indicating their standard deviations
+# Means are the concentration in ng/L/day of filtered MeHg in the overlying water
+# Facets for each Week of sample collection
+
+# Create figure 16
+vss_2018_fig16 <- vss_2018_clean %>% 
+  filter(str_detect(Treatment, "^Sieved|No Sed$")) %>% 
+  ggplot(aes(x = Treatment, y = avg, fill = Group)) +
+  geom_col() +
+  geom_errorbar(
+    aes(
+      ymin = avg - stdev, 
+      ymax = avg + stdev, 
+      width = 0.25
+    )
+  ) +
+  labs(
+    x = NULL,
+    y = "fMeHg (ng/L/day) +/- SD"
+  ) +
+  facet_grid(cols = vars(Week)) +
+  theme_owhg(x_axis_v = TRUE) +
+  theme(legend.position = c(0.15, 0.8)) +
+  scale_fill_manual(
+    name = NULL,
+    values = group_colors
+  )
+
+# Export figure 16
+ggsave(
+  "VSS_final_report_fig16.jpg", 
+  vss_2018_fig16,
+  dpi = 300,
+  width = 6, 
+  height = 5, 
+  units = "in"
+)
