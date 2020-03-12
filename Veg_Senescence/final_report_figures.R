@@ -444,11 +444,12 @@ vss_2018_fig16 <- vss_2018_clean %>%
   ) +
   facet_grid(cols = vars(Week)) +
   theme_owhg(x_axis_v = TRUE) +
-  theme(legend.position = c(0.15, 0.8)) +
+  theme(legend.position = c(0.15, 0.78)) +
   scale_fill_manual(
     name = NULL,
     values = group_colors
-  )
+  ) +
+  scale_y_continuous(breaks = seq(0, 0.5, by = 0.1))
 
 # Export figure 16
 ggsave(
