@@ -105,12 +105,24 @@ add_inlet_color_pal <- function(aes_type = c("fill", "color"), legend_title = NU
 #'     off of the \code{theme_light()} ggplot theme and changes the facet
 #'     label text color to black.
 #'
+#' @param x_axis_v Makes the tick labels for the x-axis vertical if
+#'     \code{x_axis_v = TRUE}. Default is \code{FALSE}.
+#'
 #' @return A ggplot layer that applies a custom theme as described above.
 #' @import ggplot2
 #' @export
-theme_owhg <- function() {
-  theme_light() +
-  # change facet label text color to black
-  theme(strip.text = element_text(color = "black"))
+theme_owhg <- function(x_axis_v = FALSE) {
+  t <- list(
+    theme_light(),
+    # change facet label text color to black
+    theme(strip.text = element_text(color = "black"))
+  )
+
+  # make x axis tick labels vertical if x_axis_v = TRUE
+  if (x_axis_v == TRUE) {
+    t <- append(t, list(theme(axis.text.x = element_text(angle = 90, hjust = 1))))
+  }
+
+  return(t)
 }
 

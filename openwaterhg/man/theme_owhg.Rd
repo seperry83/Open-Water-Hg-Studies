@@ -4,7 +4,11 @@
 \alias{theme_owhg}
 \title{Open Water Hg Report Plot Theme}
 \usage{
-theme_owhg()
+theme_owhg(x_axis_v = FALSE)
+}
+\arguments{
+\item{x_axis_v}{Makes the tick labels for the x-axis vertical if
+\code{x_axis_v = TRUE}. Default is \code{FALSE}.}
 }
 \value{
 A ggplot layer that applies a custom theme as described above.
