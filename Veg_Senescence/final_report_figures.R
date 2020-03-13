@@ -72,8 +72,8 @@ vss_pilot2015_fig3 <- vss_pilot2015_clean %>%
     aes(
       ymin = avg - stdev, 
       ymax = avg + stdev, 
-      width = 0.25
-    )
+    ),
+    width = 0.25
   ) +
   labs(
     x = NULL,
@@ -148,8 +148,8 @@ vss_2017_fig8 <- vss_2017_clean %>%
     aes(
       ymin = avg - stdev, 
       ymax = avg + stdev, 
-      width = 0.25
-    )
+    ),
+    width = 0.25
   ) +
   labs(
     x = NULL,
@@ -217,8 +217,8 @@ vss_2019_fig10 <- vss_2019_clean %>%
     aes(
       ymin = avg - stdev, 
       ymax = avg + stdev, 
-      width = 0.25
-    )
+    ),
+    width = 0.25
   ) +
   labs(
     x = NULL,
@@ -303,13 +303,6 @@ vss_2018_clean <- vss_2018_orig %>%
   ) %>% 
   ungroup()
 
-
-# Figures 12 and 13 -------------------------------------------------------
-# 2018 Vegetation Senescence Lab Study
-# Bar plot of means of each treatment with error bars indicating their standard deviations
-# Means are the concentration in ng/L/day of filtered MeHg in the overlying water
-# Figure 12 is for Week 4 results, and Figure 13 is for Week 8
-
 # Define custom order for figures
   # Group order
   group_order <- c(
@@ -341,13 +334,13 @@ vss_2018_clean <- vss_2018_orig %>%
     "Veg H, Grazed", 
     "Veg H, Ungrazed"
   )
-  
-  # Apply factor order to vss_2018_clean
-  vss_2018_clean <- vss_2018_clean %>% 
-    mutate(
-      Group = factor(Group, group_order),
-      Treatment = factor(Treatment, treatment_order)
-    )
+
+# Apply factor order to vss_2018_clean
+vss_2018_clean <- vss_2018_clean %>% 
+  mutate(
+    Group = factor(Group, group_order),
+    Treatment = factor(Treatment, treatment_order)
+  )
 
 # Define custom colors for each Group in the figures
 group_colors <- c(
@@ -358,6 +351,12 @@ group_colors <- c(
   "Veg M" = brewer.pal(9,"Greens")[6],
   "Veg H" = brewer.pal(9,"Greens")[8]
 )
+
+# Figures 12 and 13 -------------------------------------------------------
+# 2018 Vegetation Senescence Lab Study
+# Bar plot of means of each treatment with error bars indicating their standard deviations
+# Means are the concentration in ng/L/day of filtered MeHg in the overlying water
+# Figure 12 is for Week 4 results, and Figure 13 is for Week 8
 
 # Create function for figures 12 and 13
 barplot_vss_2018 <- function(df) {
@@ -375,8 +374,8 @@ barplot_vss_2018 <- function(df) {
       aes(
         ymin = avg - stdev, 
         ymax = avg + stdev, 
-        width = 0.25
-      )
+      ),
+      width = 0.25
     ) +
     labs(
       x = NULL,
@@ -435,8 +434,8 @@ vss_2018_fig16 <- vss_2018_clean %>%
     aes(
       ymin = avg - stdev, 
       ymax = avg + stdev, 
-      width = 0.25
-    )
+    ),
+    width = 0.25
   ) +
   labs(
     x = NULL,
