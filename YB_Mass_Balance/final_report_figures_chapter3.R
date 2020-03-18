@@ -103,7 +103,67 @@ ggsave(
 # Filled bar plot showing percentage of total inflow for each inlet
 # 2017 sampling events only
 
-daily_flow_data_se
+# Filter sampling event flow data to only include inlet stations and 2017 data
+se_flow_clean1 <- daily_flow_data_se %>% 
+  filter(
+    LocType == "Inlet",
+    Year == 2017
+  )
+
+# Create a df of CCSB data
+se_ccsb <- filter(se_flow_clean1, str_detect(StationName, "^CCSB"))
+
+# Sum the CCSB flows
+se_ccsb_total <- se_ccsb %>% 
+  group_by(SamplingEvent) %>% 
+  summarize(Flow = sum(Flow)) %>% 
+  mutate(StationName = "CCSB")
+
+# Add the summed CCSB flows to the daily flow df and prepare for plotting
+se_flow_clean <- se_flow_clean1 %>% 
+  anti_join(se_ccsb, by = c("SamplingEvent", "StationName")) %>% 
+  bind_rows(se_ccsb_total) %>% 
+  # change some of the station names
+  mutate(
+    StationName = case_when(
+      StationName == "Knights Landing Ridge Cut" ~ "KLRC",
+      StationName == "Putah Creek at Mace Blvd" ~ "Putah Creek",
+      StationName == "Sac River above the Sacramento Weir" ~ "Sacramento Weir",
+      TRUE ~ StationName
+    )
+  ) %>% 
+  # convert variables to factors to apply plot order
+  conv_fact_inlet_names() %>% 
+  conv_fact_samplingevent() %>% 
+  select(SamplingEvent, StationName, Flow)
+
+# Clean up
+rm(se_flow_clean1, se_ccsb, se_ccsb_total)
+
+# Create Figure 3-6
+figure_3_6 <- se_flow_clean %>% 
+  ggplot(aes(x = SamplingEvent, y = Flow, fill = StationName)) +
+  geom_col(
+    color = "gray30",
+    position = "fill"
+  ) +
+  labs(
+    x = NULL,
+    y = "Percentage of Total Inflow"
+  ) +
+  add_inlet_color_pal("fill", legend_title = "Inlet") +
+  theme_owhg(x_axis_v = TRUE) +
+  scale_y_continuous(labels = percent_format())
+
+# Export figure 3-6
+ggsave(
+  "Ch3_final_report_fig3-6.jpg", 
+  plot = figure_3_6,
+  dpi = 300,
+  width = 6, 
+  height = 4.5, 
+  units = "in"
+)
 
 
 # Figure 3-8 --------------------------------------------------------------
