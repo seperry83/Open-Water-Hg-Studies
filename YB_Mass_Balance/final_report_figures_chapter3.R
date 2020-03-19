@@ -22,23 +22,23 @@ daily_flow_clean1 <- daily_flow_data_all %>%
     str_detect(StationName, "^CCSB|^Fremont")
   )
 
-# Create a df of CCSB data
-ccsb <- filter(daily_flow_clean1, str_detect(StationName, "^CCSB"))
+# Create a df of CCSB flow data
+ccsb_flow <- filter(daily_flow_clean1, str_detect(StationName, "^CCSB"))
 
 # Sum the CCSB flows
-ccsb_total <- ccsb %>% 
+ccsb_flow_total <- ccsb_flow %>% 
   group_by(Date) %>% 
   summarize(Flow = sum(Flow)) %>% 
   mutate(StationName = "Cache Creek Settling Basin")
 
 # Add the summed CCSB flows to the daily flow df
 daily_flow_clean <- daily_flow_clean1 %>% 
-  anti_join(ccsb, by = c("Date", "StationName")) %>% 
-  bind_rows(ccsb_total) %>% 
+  anti_join(ccsb_flow, by = "StationName") %>% 
+  bind_rows(ccsb_flow_total) %>% 
   select(Date, StationName, Flow)
 
 # Clean up
-rm(daily_flow_clean1, ccsb, ccsb_total)
+rm(daily_flow_clean1, ccsb_flow, ccsb_flow_total)
 
 # Create a df of sampling events to mark these on the hydrographs
 se_dates <- tibble(
@@ -69,13 +69,13 @@ figure_3_5 <- daily_flow_clean %>%
     color = "red",
     size = 2
   ) +
-  labs(
-    x = NULL,
-    y = "Daily Average Flow (cfs)"
-  ) +
   facet_wrap(
     vars(StationName),
     scales = "free_y"
+  ) +
+  labs(
+    x = NULL,
+    y = "Daily Average Flow (cfs)"
   ) +
   scale_x_date(
     breaks = breaks_pretty(10),
@@ -110,19 +110,19 @@ se_flow_clean1 <- daily_flow_data_se %>%
     Year == 2017
   )
 
-# Create a df of CCSB data
-se_ccsb <- filter(se_flow_clean1, str_detect(StationName, "^CCSB"))
+# Create a df of CCSB flow data
+se_ccsb_flow <- filter(se_flow_clean1, str_detect(StationName, "^CCSB"))
 
 # Sum the CCSB flows
-se_ccsb_total <- se_ccsb %>% 
+se_ccsb_flow_total <- se_ccsb_flow %>% 
   group_by(SamplingEvent) %>% 
   summarize(Flow = sum(Flow)) %>% 
   mutate(StationName = "CCSB")
 
-# Add the summed CCSB flows to the daily flow df and prepare for plotting
+# Add the summed CCSB flows to the se_flow df and prepare for plotting
 se_flow_clean <- se_flow_clean1 %>% 
-  anti_join(se_ccsb, by = c("SamplingEvent", "StationName")) %>% 
-  bind_rows(se_ccsb_total) %>% 
+  anti_join(se_ccsb_flow, by = "StationName") %>% 
+  bind_rows(se_ccsb_flow_total) %>% 
   # change some of the station names
   mutate(
     StationName = case_when(
@@ -138,7 +138,7 @@ se_flow_clean <- se_flow_clean1 %>%
   select(SamplingEvent, StationName, Flow)
 
 # Clean up
-rm(se_flow_clean1, se_ccsb, se_ccsb_total)
+rm(se_flow_clean1, se_ccsb_flow, se_ccsb_flow_total)
 
 # Create Figure 3-6
 figure_3_6 <- se_flow_clean %>% 
@@ -166,11 +166,104 @@ ggsave(
 )
 
 
+# Process Load Data for Figures 3-8 and 3-10 ------------------------------
+
+# Filter load data to only include inlet stations, 2017 data, and necessary parameters
+in_loads_clean1 <- loads_calc %>% 
+  filter(
+    LocType == "Inlet",
+    Year == 2017,
+    str_detect(Analyte, "^MeHg|^THg|OC$|^TSS")
+  )
+
+# Create a df of CCSB load data
+ccsb_loads <- filter(in_loads_clean1, str_detect(StationName, "^CCSB"))
+
+# Sum the CCSB loads
+ccsb_loads_total <- ccsb_loads %>% 
+  group_by(SamplingEvent, Analyte, LoadUnits) %>% 
+  summarize(Load = sum(Load)) %>% 
+  mutate(StationName = "CCSB")
+
+# Add the summed CCSB loads to the inlet loads df and prepare for plotting
+in_loads_clean <- in_loads_clean1 %>% 
+  anti_join(ccsb_loads, by = "StationName") %>% 
+  bind_rows(ccsb_loads_total) %>% 
+  # change some of the station names
+  mutate(
+    StationName = case_when(
+      StationName == "Knights Landing Ridge Cut" ~ "KLRC",
+      StationName == "Putah Creek at Mace Blvd" ~ "Putah Creek",
+      StationName == "Sac River above the Sacramento Weir" ~ "Sacramento Weir",
+      TRUE ~ StationName
+    )
+  ) %>% 
+  # convert variables to factors to apply plot order
+  conv_fact_inlet_names() %>% 
+  conv_fact_samplingevent() %>% 
+  select(SamplingEvent, StationName, Analyte, Load, LoadUnits)
+
+# Clean up
+rm(in_loads_clean1, ccsb_loads, ccsb_loads_total)
+
+
 # Figure 3-8 --------------------------------------------------------------
 # Filled bar plot showing percentage of total input load for each inlet
 # 2017 sampling events only
 
-loads_calc
+# Prepare in_loads_clean df for figure 3-8
+in_loads_clean_all1 <- in_loads_clean %>% 
+  # change some of the analyte names
+  mutate(
+    Analyte = case_when(
+      str_detect(Analyte, "OC$|^TSS") ~ paste0(Analyte, " (", LoadUnits, ")"),
+      Analyte == "MeHg- filtered" ~ paste0("fMeHg (", LoadUnits, ")"),
+      Analyte == "MeHg- particulate" ~ paste0("pMeHg (", LoadUnits, ")"),
+      Analyte == "MeHg- total" ~ paste0("uMeHg (", LoadUnits, ")"),
+      Analyte == "THg- filtered" ~ paste0("fHg (", LoadUnits, ")"),
+      Analyte == "THg- particulate" ~ paste0("pHg (", LoadUnits, ")"),
+      Analyte == "THg- total" ~ paste0("uHg (", LoadUnits, ")")
+    )
+  )
+
+# Convert Analyte variable to a factor to apply plot order
+analytes <- sort(unique(in_loads_clean_all1$Analyte))
+analytes_order <- analytes[c(2,4,9,3,5,10,1,6:8)]
+in_loads_clean_all <- mutate(in_loads_clean_all1, Analyte = factor(Analyte, levels = analytes_order))
+
+# Clean up
+rm(in_loads_clean_all1, analytes, analytes_order)
+
+# Create Figure 3-8
+figure_3_8 <- in_loads_clean_all %>% 
+  ggplot(aes(x = SamplingEvent, y = Load, fill = StationName)) +
+  geom_col(
+    color = "gray30",
+    position = "fill"
+  ) +
+  facet_wrap(
+    vars(Analyte),
+    ncol = 3,
+    scales = "free_y"
+  ) +
+  labs(
+    x = NULL,
+    y = "Percentage of Total Inlet Load"
+  ) +
+  add_inlet_color_pal("fill") +
+  theme_owhg(x_axis_v = TRUE) +
+  theme(legend.position = "bottom") +
+  scale_y_continuous(labels = percent_format())
+
+# Export figure 3-8
+ggsave(
+  "Ch3_final_report_fig3-8.jpg", 
+  plot = figure_3_8,
+  dpi = 300,
+  width = 6.5, 
+  height = 8.5, 
+  units = "in"
+)
 
 
 # Figure 3-10 -------------------------------------------------------------
