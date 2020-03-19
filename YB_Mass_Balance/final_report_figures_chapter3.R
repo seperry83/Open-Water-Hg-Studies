@@ -271,7 +271,71 @@ ggsave(
 # Facets for each inlet
 # 2017 sampling events only
 
-loads_calc
+# Prepare in_loads_clean df for figures 3-9 and 3-10
+in_loads_clean_hg <- in_loads_clean %>% 
+  filter(str_detect(Analyte, "filtered|particulate")) %>% 
+  separate(Analyte, into = c("Analyte", "Fraction"), sep = "- ") %>% 
+  mutate(Fraction = str_to_title(Fraction)) %>% 
+  group_nest(Analyte) %>% 
+  mutate(Analyte = if_else(Analyte == "THg", "Hg", Analyte))
+
+# Create function for figures 3-9 and 3-10
+plot_per_frac <- function(df, param) { 
+  p <- 
+    ggplot(
+      data = df,
+      aes(
+        x = SamplingEvent, 
+        y = Load, 
+        fill = Fraction
+      )
+    ) +
+    geom_col(
+      color = "gray30",
+      position = "fill"
+    ) +
+    facet_wrap(
+      vars(StationName),
+      ncol = 3
+    ) +
+    labs(
+      x = NULL,
+      y = paste0("Percentage of each ", param, " Fraction")
+    ) +
+    add_gen_color_pal(2) +
+    theme_owhg(x_axis_v = TRUE) +
+    theme(
+      legend.margin = margin(0, 0, 0, 0),
+      legend.position = c(0.85, -0.1)
+    ) +
+    scale_y_continuous(labels = percent_format())
+  
+  return(p)  
+}
+
+# Create Figures 3-9 and 3-10
+in_loads_clean_hg_figs <- in_loads_clean_hg %>% 
+  mutate(figures = map2(data, Analyte, .f = plot_per_frac))
+
+# Export figure 3-9
+ggsave(
+  "Ch3_final_report_fig3-9.jpg", 
+  plot = in_loads_clean_hg_figs$figures[[2]],
+  dpi = 300,
+  width = 5.75, 
+  height = 4, 
+  units = "in"
+)
+
+# Export figure 3-10
+ggsave(
+  "Ch3_final_report_fig3-10.jpg", 
+  plot = in_loads_clean_hg_figs$figures[[1]],
+  dpi = 300,
+  width = 5.75, 
+  height = 4, 
+  units = "in"
+)
 
 
 # Figure 3-12 -------------------------------------------------------------
