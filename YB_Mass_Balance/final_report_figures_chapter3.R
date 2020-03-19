@@ -143,10 +143,7 @@ rm(se_flow_clean1, se_ccsb_flow, se_ccsb_flow_total)
 # Create Figure 3-6
 figure_3_6 <- se_flow_clean %>% 
   ggplot(aes(x = SamplingEvent, y = Flow, fill = StationName)) +
-  geom_col(
-    color = "gray30",
-    position = "fill"
-  ) +
+  geom_col(position = "fill") +
   labs(
     x = NULL,
     y = "Percentage of Total Inflow"
@@ -209,6 +206,7 @@ rm(in_loads_clean1, ccsb_loads, ccsb_loads_total)
 
 # Figure 3-8 --------------------------------------------------------------
 # Filled bar plot showing percentage of total input load for each inlet
+# Facets for each Analyte
 # 2017 sampling events only
 
 # Prepare in_loads_clean df for figure 3-8
@@ -237,14 +235,10 @@ rm(in_loads_clean_all1, analytes, analytes_order)
 # Create Figure 3-8
 figure_3_8 <- in_loads_clean_all %>% 
   ggplot(aes(x = SamplingEvent, y = Load, fill = StationName)) +
-  geom_col(
-    color = "gray30",
-    position = "fill"
-  ) +
+  geom_col(position = "fill") +
   facet_wrap(
     vars(Analyte),
-    ncol = 3,
-    scales = "free_y"
+    ncol = 3
   ) +
   labs(
     x = NULL,
