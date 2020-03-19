@@ -94,7 +94,7 @@ ggsave(
   plot = figure_3_5,
   dpi = 300,
   width = 6.5, 
-  height = 4, 
+  height = 3.5, 
   units = "in"
 )
   
@@ -160,8 +160,8 @@ ggsave(
   "Ch3_final_report_fig3-6.jpg", 
   plot = figure_3_6,
   dpi = 300,
-  width = 6, 
-  height = 4.5, 
+  width = 5.5, 
+  height = 4, 
   units = "in"
 )
 
