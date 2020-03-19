@@ -163,7 +163,7 @@ ggsave(
 )
 
 
-# Process Load Data for Figures 3-8 and 3-10 ------------------------------
+# Process Load Data for Figures 3-8 through 3-10 ------------------------------
 
 # Filter load data to only include inlet stations, 2017 data, and necessary parameters
 in_loads_clean1 <- loads_calc %>% 
@@ -246,7 +246,11 @@ figure_3_8 <- in_loads_clean_all %>%
   ) +
   add_inlet_color_pal("fill") +
   theme_owhg(x_axis_v = TRUE) +
-  theme(legend.position = "bottom") +
+  theme(
+    legend.margin = margin(0, 0, 0, 0),
+    legend.position = c(0.65, -0.1)
+  ) +
+  guides(fill = guide_legend(keyheight = 0.95)) +
   scale_y_continuous(labels = percent_format())
 
 # Export figure 3-8
@@ -254,14 +258,16 @@ ggsave(
   "Ch3_final_report_fig3-8.jpg", 
   plot = figure_3_8,
   dpi = 300,
-  width = 6.5, 
-  height = 8.5, 
+  width = 5.75, 
+  height = 6.5, 
   units = "in"
 )
 
 
-# Figure 3-10 -------------------------------------------------------------
-# Filled bar plot showing percentage of filtered and particulate MeHg fractions
+# Figures 3-9 and 3-10 -------------------------------------------------------------
+# Filled bar plots showing percentage of filtered and particulate fractions of:
+  # Hg - Figure 3-9
+  # MeHg - Figure 3-10
 # Facets for each inlet
 # 2017 sampling events only
 
