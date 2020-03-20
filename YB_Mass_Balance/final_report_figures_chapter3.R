@@ -59,7 +59,6 @@ se_dates <- tibble(
 # Join se_dates df to daily_flow_clean to pull out data for just the sampling events
 se_flows <- inner_join(daily_flow_clean, se_dates)
 
-
 # Create Figure 3-5
 figure_3_5 <- daily_flow_clean %>% 
   ggplot(aes(x = Date, y = Flow)) +
@@ -343,8 +342,66 @@ ggsave(
 # Facets for each analyte/parameter
 # 2017 sampling events only
 
-loads_calc
+# Prepare data for figure
+out_loads_clean1 <- loads_calc %>% 
+  # filter data
+  filter(
+    LocType == "Outlet",
+    Year == 2017,
+    str_detect(Analyte, "^MeHg|^THg|OC$|^TSS")
+  ) %>% 
+  # sum export loads at the Stairsteps
+  group_by(SamplingEvent, Analyte, LoadUnits) %>% 
+  summarize(Load = sum(Load)) %>% 
+  ungroup() %>% 
+  # change some of the analyte names
+  mutate(
+    Analyte = case_when(
+      str_detect(Analyte, "OC$|^TSS") ~ paste0(Analyte, " (", LoadUnits, ")"),
+      Analyte == "MeHg- filtered" ~ paste0("fMeHg (", LoadUnits, ")"),
+      Analyte == "MeHg- particulate" ~ paste0("pMeHg (", LoadUnits, ")"),
+      Analyte == "MeHg- total" ~ paste0("uMeHg (", LoadUnits, ")"),
+      Analyte == "THg- filtered" ~ paste0("fHg (", LoadUnits, ")"),
+      Analyte == "THg- particulate" ~ paste0("pHg (", LoadUnits, ")"),
+      Analyte == "THg- total" ~ paste0("uHg (", LoadUnits, ")")
+    )
+  ) %>% 
+  # convert SamplingEvent variable to factor to apply plot order
+  conv_fact_samplingevent()
 
+# Convert Analyte variable to a factor to apply plot order
+analytes <- sort(unique(out_loads_clean$Analyte))
+analytes_order <- analytes[c(2,4,9,3,5,10,1,6:8)]
+out_loads_clean <- mutate(out_loads_clean1, Analyte = factor(Analyte, levels = analytes_order))
+
+# Clean up
+rm(out_loads_clean1, analytes, analytes_order)
+
+# Create Figure 3-12
+figure_3_12 <- out_loads_clean %>% 
+  ggplot(aes(x = SamplingEvent, y = Load)) +
+  geom_col() +
+  facet_wrap(
+    vars(Analyte),
+    ncol = 3,
+    scales = "free_y"
+  ) +
+  labs(
+    x = NULL,
+    y = NULL
+  ) +
+  theme_owhg(x_axis_v = TRUE)
+
+# Export figure 3-12
+ggsave(
+  "Ch3_final_report_fig3-12.jpg", 
+  plot = figure_3_12,
+  dpi = 300,
+  width = 6.5,
+  height = 6.5,
+  units = "in"
+)
+  
 
 # Figure 3-13 -------------------------------------------------------------
 # Bar plots showing net loads of the upper and lower reaches
