@@ -370,7 +370,7 @@ out_loads_clean1 <- loads_calc %>%
   conv_fact_samplingevent()
 
 # Convert Analyte variable to a factor to apply plot order
-analytes <- sort(unique(out_loads_clean$Analyte))
+analytes <- sort(unique(out_loads_clean1$Analyte))
 analytes_order <- analytes[c(2,4,9,3,5,10,1,6:8)]
 out_loads_clean <- mutate(out_loads_clean1, Analyte = factor(Analyte, levels = analytes_order))
 
