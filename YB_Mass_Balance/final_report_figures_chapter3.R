@@ -162,56 +162,36 @@ ggsave(
 )
 
 
-# Process Load Data for Figures 3-8 through 3-10 ------------------------------
+# Process Load Data for Figures 3-8 through 3-13 ------------------------------
 
-# Filter load data to only include inlet stations, 2017 data, and necessary parameters
-in_loads_clean1 <- loads_calc %>% 
+# Filter load data to only include 2017 data and necessary parameters
+loads_clean1 <- loads_calc %>% 
   filter(
-    LocType == "Inlet",
     Year == 2017,
     str_detect(Analyte, "^MeHg|^THg|OC$|^TSS")
   )
 
 # Create a df of CCSB load data
-ccsb_loads <- filter(in_loads_clean1, str_detect(StationName, "^CCSB"))
+ccsb_loads <- filter(loads_clean1, str_detect(StationName, "^CCSB"))
 
 # Sum the CCSB loads
 ccsb_loads_total <- ccsb_loads %>% 
-  group_by(SamplingEvent, Analyte, LoadUnits) %>% 
+  group_by(SamplingEvent, Analyte, LoadUnits, LocType) %>% 
   summarize(Load = sum(Load)) %>% 
   mutate(StationName = "CCSB")
 
-# Add the summed CCSB loads to the inlet loads df and prepare for plotting
-in_loads_clean <- in_loads_clean1 %>% 
+# Add the summed CCSB loads to the all loads df and prepare for plotting
+loads_clean2 <- loads_clean1 %>% 
   anti_join(ccsb_loads, by = "StationName") %>% 
   bind_rows(ccsb_loads_total) %>% 
-  # change some of the station names
+  # change some of the station and analyte names
   mutate(
     StationName = case_when(
       StationName == "Knights Landing Ridge Cut" ~ "KLRC",
       StationName == "Putah Creek at Mace Blvd" ~ "Putah Creek",
       StationName == "Sac River above the Sacramento Weir" ~ "Sacramento Weir",
       TRUE ~ StationName
-    )
-  ) %>% 
-  # convert variables to factors to apply plot order
-  conv_fact_inlet_names() %>% 
-  conv_fact_samplingevent() %>% 
-  select(SamplingEvent, StationName, Analyte, Load, LoadUnits)
-
-# Clean up
-rm(in_loads_clean1, ccsb_loads, ccsb_loads_total)
-
-
-# Figure 3-8 --------------------------------------------------------------
-# Filled bar plot showing percentage of total input load for each inlet
-# Facets for each Analyte
-# 2017 sampling events only
-
-# Prepare in_loads_clean df for figure 3-8
-in_loads_clean_all1 <- in_loads_clean %>% 
-  # change some of the analyte names
-  mutate(
+    ),
     Analyte = case_when(
       str_detect(Analyte, "OC$|^TSS") ~ paste0(Analyte, " (", LoadUnits, ")"),
       Analyte == "MeHg- filtered" ~ paste0("fMeHg (", LoadUnits, ")"),
@@ -221,15 +201,31 @@ in_loads_clean_all1 <- in_loads_clean %>%
       Analyte == "THg- particulate" ~ paste0("pHg (", LoadUnits, ")"),
       Analyte == "THg- total" ~ paste0("uHg (", LoadUnits, ")")
     )
-  )
+  ) %>% 
+  select(SamplingEvent, StationName, Analyte, LocType, Load)
 
-# Convert Analyte variable to a factor to apply plot order
-analytes <- sort(unique(in_loads_clean_all1$Analyte))
+# Define plotting order for the Analyte variable
+analytes <- sort(unique(loads_clean2$Analyte))
 analytes_order <- analytes[c(2,4,9,3,5,10,1,6:8)]
-in_loads_clean_all <- mutate(in_loads_clean_all1, Analyte = factor(Analyte, levels = analytes_order))
+
+# Convert variables to factors to apply plot order
+loads_clean <- loads_clean2 %>% 
+  mutate(Analyte = factor(Analyte, levels = analytes_order)) %>% 
+  conv_fact_samplingevent()
 
 # Clean up
-rm(in_loads_clean_all1, analytes, analytes_order)
+rm(loads_clean1, loads_clean2, ccsb_loads, ccsb_loads_total, analytes, analytes_order)
+
+
+# Figure 3-8 --------------------------------------------------------------
+# Filled bar plot showing percentage of total input load for each inlet
+# Facets for each Analyte
+# 2017 sampling events only
+
+# Prepare loads_clean df for figure 3-8
+in_loads_clean_all <- loads_clean %>% 
+  filter(LocType == "Inlet") %>% 
+  conv_fact_inlet_names()
 
 # Create Figure 3-8
 figure_3_8 <- in_loads_clean_all %>% 
@@ -271,12 +267,30 @@ ggsave(
 # 2017 sampling events only
 
 # Prepare in_loads_clean df for figures 3-9 and 3-10
-in_loads_clean_hg <- in_loads_clean %>% 
-  filter(str_detect(Analyte, "filtered|particulate")) %>% 
-  separate(Analyte, into = c("Analyte", "Fraction"), sep = "- ") %>% 
-  mutate(Fraction = str_to_title(Fraction)) %>% 
-  group_nest(Analyte) %>% 
-  mutate(Analyte = if_else(Analyte == "THg", "Hg", Analyte))
+in_loads_clean_hg <- loads_clean %>% 
+  # filter data
+  filter(
+    LocType == "Inlet",
+    str_detect(Analyte, "Hg")
+  ) %>% 
+  # create new variables
+  mutate(
+    Analyte1 = if_else(str_detect(Analyte, "MeHg"), "MeHg", "Hg"),
+    Fraction = case_when(
+      str_detect(Analyte, "^f") ~ "Filtered",
+      str_detect(Analyte, "^p") ~ "Particulate",
+      str_detect(Analyte, "^u") ~ "Unfiltered"
+    )
+  ) %>% 
+  # remove Unfiltered data
+  filter(Fraction != "Unfiltered") %>% 
+  # clean up df
+  select(-c(Analyte, LocType)) %>% 
+  rename(Analyte = Analyte1) %>% 
+  # convert StationName to factor to apply plot order
+  conv_fact_inlet_names() %>% 
+  # nest df based on Analyte variable
+  group_nest(Analyte)
 
 # Create function for figures 3-9 and 3-10
 plot_per_frac <- function(df, param) { 
@@ -319,7 +333,7 @@ in_loads_clean_hg_figs <- in_loads_clean_hg %>%
 # Export figure 3-9
 ggsave(
   "Ch3_final_report_fig3-9.jpg", 
-  plot = in_loads_clean_hg_figs$figures[[2]],
+  plot = in_loads_clean_hg_figs$figures[[1]],
   dpi = 300,
   width = 5.75, 
   height = 4, 
@@ -329,7 +343,7 @@ ggsave(
 # Export figure 3-10
 ggsave(
   "Ch3_final_report_fig3-10.jpg", 
-  plot = in_loads_clean_hg_figs$figures[[1]],
+  plot = in_loads_clean_hg_figs$figures[[2]],
   dpi = 300,
   width = 5.75, 
   height = 4, 
@@ -343,39 +357,13 @@ ggsave(
 # 2017 sampling events only
 
 # Prepare data for figure
-out_loads_clean1 <- loads_calc %>% 
+out_loads_clean <- loads_clean %>% 
   # filter data
-  filter(
-    LocType == "Outlet",
-    Year == 2017,
-    str_detect(Analyte, "^MeHg|^THg|OC$|^TSS")
-  ) %>% 
+  filter(LocType == "Outlet") %>% 
   # sum export loads at the Stairsteps
-  group_by(SamplingEvent, Analyte, LoadUnits) %>% 
+  group_by(SamplingEvent, Analyte) %>% 
   summarize(Load = sum(Load)) %>% 
-  ungroup() %>% 
-  # change some of the analyte names
-  mutate(
-    Analyte = case_when(
-      str_detect(Analyte, "OC$|^TSS") ~ paste0(Analyte, " (", LoadUnits, ")"),
-      Analyte == "MeHg- filtered" ~ paste0("fMeHg (", LoadUnits, ")"),
-      Analyte == "MeHg- particulate" ~ paste0("pMeHg (", LoadUnits, ")"),
-      Analyte == "MeHg- total" ~ paste0("uMeHg (", LoadUnits, ")"),
-      Analyte == "THg- filtered" ~ paste0("fHg (", LoadUnits, ")"),
-      Analyte == "THg- particulate" ~ paste0("pHg (", LoadUnits, ")"),
-      Analyte == "THg- total" ~ paste0("uHg (", LoadUnits, ")")
-    )
-  ) %>% 
-  # convert SamplingEvent variable to factor to apply plot order
-  conv_fact_samplingevent()
-
-# Convert Analyte variable to a factor to apply plot order
-analytes <- sort(unique(out_loads_clean1$Analyte))
-analytes_order <- analytes[c(2,4,9,3,5,10,1,6:8)]
-out_loads_clean <- mutate(out_loads_clean1, Analyte = factor(Analyte, levels = analytes_order))
-
-# Clean up
-rm(out_loads_clean1, analytes, analytes_order)
+  ungroup()
 
 # Create Figure 3-12
 figure_3_12 <- out_loads_clean %>% 
@@ -406,8 +394,9 @@ ggsave(
 # Figure 3-13 -------------------------------------------------------------
 # Bar plots showing net loads of the upper and lower reaches
 # Upper reach is between the inlets to the Stairsteps
-# Lower reach is between the Stairsteps and Below Liberty Island
+# Lower reach is between the inlets and Below Liberty Island
 # Facets for each analyte/parameter
 # 2017 sampling events only
 
 loads_calc
+  
