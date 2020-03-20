@@ -398,5 +398,59 @@ ggsave(
 # Facets for each analyte/parameter
 # 2017 sampling events only
 
-loads_calc
-  
+# Prepare data for figure
+net_loads_clean <- loads_clean %>% 
+  # sum input and output loads
+  group_by(SamplingEvent, Analyte, LocType) %>% 
+  summarize(total_load = sum(Load)) %>% 
+  ungroup() %>% 
+  # calculate net loads for each reach
+  pivot_wider(
+    names_from = LocType,
+    values_from = total_load
+  ) %>% 
+  rename(below_liberty = "Below Liberty") %>% 
+  mutate(
+    "Stairsteps - Inlet" = Outlet - Inlet,
+    "Below Liberty - Inlet" = below_liberty - Inlet
+  ) %>% 
+  select(-c(below_liberty:Outlet)) %>% 
+  pivot_longer(
+    cols = -c(SamplingEvent, Analyte),
+    names_to = "segment",
+    values_to = "net_load"
+  ) %>% 
+  filter(!is.na(net_load)) %>% 
+  # convert segment variable to a factor to apply plot order
+  mutate(segment = factor(segment, levels = c("Stairsteps - Inlet", "Below Liberty - Inlet")))
+
+# Create Figure 3-13
+figure_3_13 <- net_loads_clean %>% 
+  ggplot(aes(x = SamplingEvent, y = net_load, fill = segment)) +
+  geom_col(position = position_dodge2(preserve = "single")) +
+  facet_wrap(
+    vars(Analyte),
+    ncol = 3,
+    scales = "free_y"
+  ) +
+  labs(
+    x = NULL,
+    y = NULL
+  ) +
+  add_gen_color_pal(2) +
+  theme_owhg(x_axis_v = TRUE) +
+  theme(
+    legend.margin = margin(0, 0, 0, 0),
+    legend.position = c(0.5, -0.07)
+  )
+
+# Export figure 3-13
+ggsave(
+  "Ch3_final_report_fig3-13.jpg", 
+  plot = figure_3_13,
+  dpi = 300,
+  width = 6.5,
+  height = 6.5,
+  units = "in"
+)
+
