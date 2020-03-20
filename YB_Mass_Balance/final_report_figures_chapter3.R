@@ -411,8 +411,8 @@ net_loads_clean <- loads_clean %>%
   ) %>% 
   rename(below_liberty = "Below Liberty") %>% 
   mutate(
-    "Stairsteps - Inlet" = Outlet - Inlet,
-    "Below Liberty - Inlet" = below_liberty - Inlet
+    "Inlets to Stairsteps" = Outlet - Inlet,
+    "Inlets to Below Liberty Island" = below_liberty - Inlet
   ) %>% 
   select(-c(below_liberty:Outlet)) %>% 
   pivot_longer(
@@ -422,7 +422,7 @@ net_loads_clean <- loads_clean %>%
   ) %>% 
   filter(!is.na(net_load)) %>% 
   # convert segment variable to a factor to apply plot order
-  mutate(segment = factor(segment, levels = c("Stairsteps - Inlet", "Below Liberty - Inlet")))
+  mutate(segment = factor(segment, levels = c("Inlets to Stairsteps", "Inlets to Below Liberty Island")))
 
 # Create Figure 3-13
 figure_3_13 <- net_loads_clean %>% 
@@ -441,7 +441,7 @@ figure_3_13 <- net_loads_clean %>%
   theme_owhg(x_axis_v = TRUE) +
   theme(
     legend.margin = margin(0, 0, 0, 0),
-    legend.position = c(0.5, -0.07)
+    legend.position = c(0.53, -0.07)
   )
 
 # Export figure 3-13
@@ -449,8 +449,8 @@ ggsave(
   "Ch3_final_report_fig3-13.jpg", 
   plot = figure_3_13,
   dpi = 300,
-  width = 6.5,
-  height = 6.5,
+  width = 6.3,
+  height = 6.3,
   units = "in"
 )
 
