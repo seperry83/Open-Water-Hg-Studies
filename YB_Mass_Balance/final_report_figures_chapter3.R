@@ -162,7 +162,7 @@ ggsave(
 )
 
 
-# Process Load Data for Figures 3-8 through 3-13 ------------------------------
+# Process Load Data for Figures 3-7 through 3-13 ------------------------------
 
 # Filter load data to only include 2017 data and necessary parameters
 loads_clean1 <- loads_calc %>% 
@@ -215,6 +215,46 @@ loads_clean <- loads_clean2 %>%
 
 # Clean up
 rm(loads_clean1, loads_clean2, ccsb_loads, ccsb_loads_total, analytes, analytes_order)
+
+
+# Figure 3-7 --------------------------------------------------------------
+# Bar plots showing total input loads
+# Facets for each analyte/parameter
+# 2017 sampling events only
+
+# Prepare loads_clean df for figure 3-7
+in_loads_clean_total <- loads_clean %>% 
+  # filter data
+  filter(LocType == "Inlet") %>% 
+  # sum input loads
+  group_by(SamplingEvent, Analyte) %>% 
+  summarize(Load = sum(Load)) %>% 
+  ungroup()
+
+# Create Figure 3-7
+figure_3_7 <- in_loads_clean_total %>% 
+  ggplot(aes(x = SamplingEvent, y = Load)) +
+  geom_col() +
+  facet_wrap(
+    vars(Analyte),
+    ncol = 3,
+    scales = "free_y"
+  ) +
+  labs(
+    x = NULL,
+    y = NULL
+  ) +
+  theme_owhg(x_axis_v = TRUE)
+
+# Export figure 3-7
+ggsave(
+  "Ch3_final_report_fig3-7.jpg", 
+  plot = figure_3_7,
+  dpi = 300,
+  width = 6.5,
+  height = 6.5,
+  units = "in"
+)
 
 
 # Figure 3-8 --------------------------------------------------------------
