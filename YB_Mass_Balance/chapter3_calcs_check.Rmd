@@ -113,8 +113,8 @@ rm(inlet_flow_mar15, ccsb_mar15, ccsb_per_flow_mar15, fre_per_flow, shag_per_flo
 
 ## Tributary Input Loads section
 
-Calculate percentage of each tributary's input load to the total input load. This is for the all 9 sampling events during the 2017 flood event.
-```{r per input loads, message = FALSE}
+Process input load data:
+```{r process input load data}
 # Filter just inlet loads for 2017
 inlet_loads <- loads_calc %>% 
   filter(
@@ -167,7 +167,10 @@ sw_zeros <- tibble(
 
 inlet_loads <- bind_rows(inlet_loads, fre_mar15, sw_zeros)
 rm(analytes)
+```
 
+Calculate percentage of each tributary's input load to the total input load. This is for the all 9 sampling events during the 2017 flood event.
+```{r per input loads, message = FALSE}
 # Calculate total inlet loads of each parameter for each sampling event
 total_inlet_loads <- inlet_loads %>% 
   group_by(SamplingEvent, Analyte) %>% 
@@ -312,6 +315,7 @@ inlet_flow_se_rank <- inlet_flow_se %>%
 
 # Rank loads for each sampling event and analyte
 inlet_loads_rank <- inlet_loads %>% 
+  # Remove added zeros for events when the weirs weren't spilling
   anti_join(fre_mar15) %>% 
   anti_join(sw_zeros) %>% 
   group_by(SamplingEvent, Analyte) %>% 
@@ -347,8 +351,8 @@ inlet_flow_load_ranks %>%
 
 ***
 
-Check numbers in Table 3-2
-```{r check table 3-2}
+Check numbers in Table 3-2. Averages and Standard deviations:
+```{r check table 3-2 avg and stdev}
 # Calculate averages and standard deviations of each input and analyte
 inlet_loads_avg <- inlet_loads %>% 
   group_by(StationName, Analyte) %>% 
@@ -392,7 +396,168 @@ inlet_loads_avg <- bind_rows(inlet_loads_avg, total_inlet_loads_avg)
     ) %>%
     kable(caption = "uMeHg loads for each input") %>% 
     kable_styling("striped")
-
 ```
+A few numbers in Table 3-2 were incorrect. Corrected them in the report.
+
+***
+
+Check numbers in Table 3-2. Percentages of the total load in the particulate fraction:
+```{r check table 3-2 per particulate}
+# Create df to be used to calculate percentages in the particulate fraction
+inlet_loads_hg_frac <- inlet_loads %>% 
+  filter(
+    str_detect(Analyte, "^MeHg|^THg"),
+    Load != 0
+  ) %>% 
+  separate(Analyte, into = c("Analyte", "Fraction"), sep = "- ") %>% 
+  filter(Fraction != "filtered") %>% 
+  pivot_wider(names_from = Fraction, values_from = Load)
+
+# Calculate average percentages for each inlet
+inlet_loads_part_avg <- inlet_loads_hg_frac %>% 
+  mutate(per_part = particulate/total * 100) %>% 
+  group_by(StationName, Analyte) %>% 
+  summarize(avg_per_part = round(mean(per_part))) %>% 
+  ungroup()
+
+# Calculate average percentages for total inputs
+inlet_loads_part_avg_total <- inlet_loads_hg_frac %>% 
+  group_by(SamplingEvent, Analyte) %>% 
+  summarize(
+    part_sum = sum(particulate),
+    total_sum = sum(total)
+  ) %>% 
+  ungroup() %>% 
+  mutate(per_part = part_sum/total_sum * 100) %>% 
+  group_by(Analyte) %>% 
+  summarize(avg_per_part = round(mean(per_part))) %>% 
+  ungroup() %>% 
+  mutate(StationName = "Total")
+
+# Bind df's together for kables
+inlet_loads_part_avg <- bind_rows(inlet_loads_part_avg, inlet_loads_part_avg_total)
+
+# Show a kable for each analyte
+  # uHg
+  inlet_loads_part_avg %>% 
+    filter(Analyte == "THg") %>% 
+    select(-Analyte) %>% 
+    kable(caption = "Hg- Percent in the particulate fraction for each input") %>% 
+    kable_styling("striped")
+  
+  # uMeHg
+  inlet_loads_part_avg %>% 
+    filter(Analyte == "MeHg") %>% 
+    select(-Analyte) %>% 
+    kable(caption = "MeHg- Percent in the particulate fraction for each input") %>% 
+    kable_styling("striped")
+```
+A few differences in the inlet percentages probably due to rounding differences. 
+**Total percentages were different than those in Table 3-2.** 
+
+## Net Loads section
+
+Check numbers in Table 3-3.
+```{r check table 3-3}
+# Sum input and output loads for each sampling event
+total_loads <- loads_calc %>% 
+  filter(
+    Year == 2017,
+    str_detect(Analyte, "^THg|^MeHg|OC$|TSS")
+  ) %>% 
+  group_by(SamplingEvent, Analyte, LocType) %>% 
+  summarize(total_load = sum(Load)) %>% 
+  ungroup()
+  
+# Calculate averages and stdev for input and output (Stairsteps) loads
+total_loads_summ <- total_loads %>% 
+  filter(LocType != "Below Liberty") %>% 
+  group_by(Analyte, LocType) %>% 
+  summarize(
+    avg_load = signif(mean(total_load), 3),
+    stdev_load = signif(sd(total_load), 3)  
+  ) %>% 
+  ungroup()
+
+# Show a kable for each LocType
+  # Input
+  total_loads_summ %>% 
+    filter(LocType == "Inlet") %>% 
+    select(-LocType) %>% 
+    kable(caption = "Input Loads- Average and Std Deviations") %>% 
+    kable_styling("striped")
+  
+  # Output
+  total_loads_summ %>% 
+    filter(LocType == "Outlet") %>% 
+    select(-LocType) %>% 
+    kable(caption = "Output Loads- Average and Std Deviations") %>% 
+    kable_styling("striped")
+
+# Calculate averages and stdev for net loads
+net_loads_summ <- total_loads %>% 
+  pivot_wider(names_from = LocType, values_from = total_load) %>% 
+  rename(below_liberty = "Below Liberty") %>% 
+  # Calculate net loads for each reach
+  mutate(
+    upper = Outlet - Inlet,
+    lower = below_liberty - Outlet,
+    entire = below_liberty - Inlet
+  ) %>% 
+  select(-c(Inlet:below_liberty)) %>% 
+  pivot_longer(
+    cols = upper:entire,
+    names_to = "reach",
+    values_to = "net_load"
+  ) %>% 
+  filter(!is.na(net_load)) %>% 
+  group_by(Analyte, reach) %>% 
+  summarize(
+    avg_net_load = signif(mean(net_load), 3),
+    stdev_net_load = signif(sd(net_load), 3)  
+  ) %>% 
+  ungroup()
+
+# Show a kable for each reach
+  # Upper reach
+  net_loads_summ %>% 
+    filter(reach == "upper") %>% 
+    select(-reach) %>% 
+    kable(caption = "Net Load- Upper Reach (Stairsteps - Input)") %>% 
+    kable_styling("striped")
+  
+  # Lower reach
+  net_loads_summ %>% 
+    filter(reach == "lower") %>% 
+    select(-reach) %>% 
+    kable(caption = "Net Load- Lower Reach (Below Liberty - Stairsteps)") %>% 
+    kable_styling("striped")
+  
+  # Entire Bypass
+  net_loads_summ %>% 
+    filter(reach == "entire") %>% 
+    select(-reach) %>% 
+    kable(caption = "Net Load- Entire Bypass (Below Liberty - Input)") %>% 
+    kable_styling("striped")
+```
+A few minor differences in Table 3-3 probably due to rounding differences. 
+
+***
+
+Calculate average export of uMeHg to the Delta from the entire Yolo Bypass
+```{r avg export of uMeHg}
+mehg_export_entire <- total_loads %>% 
+  filter(
+    Analyte == "MeHg- total",
+    LocType == "Below Liberty"
+  )
+
+# Calculate average export
+mehg_export_entire_avg <- signif(mean(mehg_export_entire$total_load), 3)
+
+# Calculate std deviation of export
+mehg_export_entire_stdev <- signif(sd(mehg_export_entire$total_load), 3)
+```
+The lower reach added an additional 3.6 ± 12.2 g/day to the overall average export to the Delta of `r mehg_export_entire_avg` ± `r mehg_export_entire_stdev` g/day of uMeHg.
 
 
