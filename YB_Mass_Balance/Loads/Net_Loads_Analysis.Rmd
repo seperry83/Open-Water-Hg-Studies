@@ -1,0 +1,195 @@
+---
+title: "Net Loads for the Yolo Bypass"
+author: "Dave Bosworth"
+date: "4/1/2020"
+output: 
+  html_document: 
+    code_folding: hide
+    toc: yes
+    toc_depth: 4
+    toc_float:
+      collapsed: no
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Import and Prepare Data
+
+Load R packages necessary for this analysis:
+```{r load packages, message = FALSE, warning = FALSE}
+# Load packages
+library(tidyverse)
+library(openwaterhg)
+library(DT)
+```
+
+Calculate total input and output loads for each sampling event and parameter:
+```{r calc total loads}
+total_loads <- loads_calc %>% 
+  # Only include a subset of the data
+  filter(str_detect(Analyte, "OC$|Hg|SS$")) %>%
+  # Add an AnalyteGroup variable
+  mutate(
+    AnalyteGroup = case_when(
+      str_detect(Analyte, "^MeHg") ~ "MeHg",
+      str_detect(Analyte, "^THg") ~ "Hg",
+      str_detect(Analyte, "OC$") ~ "OrgC",
+      str_detect(Analyte, "SS$") ~ "SuspSolids"
+    )
+  ) %>% 
+  # Group and sum load data
+  group_by(SamplingEvent, Analyte, LoadUnits, AnalyteGroup, LocType) %>% 
+  summarize(total_load = sum(Load)) %>% 
+  ungroup() %>% 
+  # Apply plot order
+  conv_fact_samplingevent() %>% 
+  mutate(LocType = factor(LocType, levels = c("Inlet", "Outlet", "Below Liberty")))
+```
+
+Calculate net loads for each reach (Upper, Liberty Island, Entire Bypass) grouped by sampling event and parameter:
+```{r calc net loads}
+net_loads <- total_loads %>% 
+  pivot_wider(names_from = LocType, values_from = total_load) %>% 
+  rename(below_liberty = "Below Liberty") %>% 
+  # Calculate net loads for each reach
+  mutate(
+    Upper = Outlet - Inlet,
+    Liberty = below_liberty - Outlet,
+    Entire = below_liberty - Inlet
+  ) %>% 
+  select(-c(Inlet:below_liberty)) %>% 
+  pivot_longer(
+    cols = Upper:Entire,
+    names_to = "Reach",
+    values_to = "net_load"
+  ) %>% 
+  filter(!is.na(net_load)) %>% 
+  # Apply plot order
+  mutate(Reach = factor(Reach, levels = c("Upper", "Liberty", "Entire")))
+```
+
+Add total inlet flows to total_loads and net_loads dataframes:
+```{r add flow data, message = FALSE}
+# Prepare flow data df to join with loads df's
+total_inflows <- daily_flow_data_se %>% 
+  # Only include inlet flows
+  filter(LocType == "Inlet") %>% 
+  # Group by and sum flow data
+  group_by(SamplingEvent) %>% 
+  summarize(total_inflow = sum(Flow)) %>% 
+  ungroup() %>% 
+  # Apply plot order
+  conv_fact_samplingevent()
+
+# Join inlet flows to total_loads df
+total_loads <- left_join(total_loads, total_inflows)
+
+# Join inlet flows to net_loads df
+net_loads <- left_join(net_loads, total_inflows)
+```
+
+# Run Calculations
+
+Calculate summary statistics of total loads:
+```{r calc summ stats total loads}
+total_loads_summ <- total_loads %>% 
+  summ_stat(total_load, LocType, Analyte)
+```
+
+Calculate summary statistics of net loads:
+```{r calc summ stats net loads}
+net_loads_summ <- net_loads %>% 
+  summ_stat(net_load, Reach, Analyte)
+```
+
+# Create Plot Functions
+
+Function for barplots of total loads:
+```{r fun barplots total loads}
+barplot_total_load <- function(df) {
+  p <- 
+    ggplot(
+      data = df,
+      aes(
+        x = SamplingEvent, 
+        y = total_load, 
+        fill = LocType
+      )
+    ) +
+    geom_col(position = "dodge") +
+    facet_grid(cols = vars(Analyte)) +
+    labs(
+        title = paste0("Total Loads (", df$LoadUnits[1], ")"),
+        x = NULL,
+        y = NULL
+    ) +
+    add_gen_color_pal(3, "fill") +
+    theme_owhg(x_axis_v = TRUE)
+  
+  return(p)
+}
+```
+
+Function for total loads vs. total inflow scatterplots:
+```{r fun total load vs inflow scatterplots}
+scattplot_tload_flow <- function(df) {
+  p <- 
+    ggplot(
+      data = df,
+      aes(
+        x = total_inflow, 
+        y = total_load, 
+        color = LocType
+      )
+    ) +
+    geom_point() +
+    facet_grid(cols = vars(Analyte)) +
+    labs(
+        title = paste0("y = Total Load (", df$LoadUnits[1], "); x = Total Inflow (cfs)"),
+        x = NULL,
+        y = NULL
+    ) +
+    add_gen_color_pal(3, "color") +
+    theme_owhg()
+  
+  return(p)
+}
+```
+
+# Create Plots
+
+```{r create plots}
+total_loads_plots <- total_loads %>% 
+  group_nest(AnalyteGroup) %>% 
+  mutate(
+    barplots = map(data, .f = barplot_total_load),
+    scatterplots = map(data, .f = scattplot_tload_flow)
+  )
+```
+
+# Plots and Summary Statistics
+
+## MeHg
+
+### Total Loads
+</br>
+
+#### Barplots
+```{r mehg total load barplots, fig.height = 6, fig.width = 8}
+total_loads_plots_mehg <- filter(total_loads_plots, AnalyteGroup == "MeHg")
+
+total_loads_plots_mehg %>% pull(barplots) %>% chuck(1) %>% plotly::ggplotly()
+```
+
+#### Load vs. Inflow Scatterplots
+
+```{r, fig.height = 5, fig.width = 8}
+total_loads_plots_mehg %>% pull(scatterplots) %>% chuck(1) %>% plotly::ggplotly()
+```
+
+#### Summary Statistics
+
