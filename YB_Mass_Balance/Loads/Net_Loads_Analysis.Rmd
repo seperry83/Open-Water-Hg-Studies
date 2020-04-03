@@ -137,13 +137,12 @@ barplot_load <- function(df, y_var, fill_var, type = c("total", "net")) {
       )
     ) +
     geom_col(position = "dodge") +
-    facet_wrap(
-      vars(Analyte),
-      scales = "free_y"
+    facet_grid(
+      rows= vars(Analyte),
+      scales = "free"
     ) +
     add_gen_color_pal(3, "fill") +
-    theme_owhg(x_axis_v = TRUE) +
-    theme(legend.position = "bottom")
+    theme_owhg(x_axis_v = TRUE)
   
   # define y-axis labels based on type arg
   if (type == "total") {
@@ -330,7 +329,7 @@ rm(net_loads_barplots, net_loads_boxplots)
 
 ### Total Load Barplots
 
-```{r mehg total load barplots, fig.width = 8.5}
+```{r mehg total load barplots, fig.height = 6}
 total_loads_plots_mehg <- filter(total_loads_plots, AnalyteGroup == "MeHg")
 
 total_loads_plots_mehg %>% pull(barplots) %>% chuck(1)
@@ -375,7 +374,7 @@ total_loads_summ %>%
 
 ### Net Load Barplots
 
-```{r mehg net load barplots, fig.width = 8.5}
+```{r mehg net load barplots, fig.height = 6}
 net_loads_plots_mehg <- filter(net_loads_plots, AnalyteGroup == "MeHg")
 
 net_loads_plots_mehg %>% pull(barplots) %>% chuck(1)
@@ -416,7 +415,7 @@ net_loads_summ %>%
 
 ### Total Load Barplots
 
-```{r hg total load barplots, fig.width = 8.5}
+```{r hg total load barplots, fig.height = 6}
 total_loads_plots_hg <- filter(total_loads_plots, AnalyteGroup == "Hg")
 
 total_loads_plots_hg %>% pull(barplots) %>% chuck(1)
@@ -461,7 +460,7 @@ total_loads_summ %>%
 
 ### Net Load Barplots
 
-```{r hg net load barplots, fig.width = 8.5}
+```{r hg net load barplots, fig.height = 6}
 net_loads_plots_hg <- filter(net_loads_plots, AnalyteGroup == "Hg")
 
 net_loads_plots_hg %>% pull(barplots) %>% chuck(1)
@@ -502,7 +501,7 @@ net_loads_summ %>%
 
 ### Total Load Barplots
 
-```{r oc total load barplots, fig.width = 8.5}
+```{r oc total load barplots, fig.height = 6}
 total_loads_plots_oc <- filter(total_loads_plots, AnalyteGroup == "OrgC")
 
 total_loads_plots_oc %>% pull(barplots) %>% chuck(1)
@@ -547,7 +546,7 @@ total_loads_summ %>%
 
 ### Net Load Barplots
 
-```{r oc net load barplots, fig.width = 8.5}
+```{r oc net load barplots, fig.height = 6}
 net_loads_plots_oc <- filter(net_loads_plots, AnalyteGroup == "OrgC")
 
 net_loads_plots_oc %>% pull(barplots) %>% chuck(1)
