@@ -331,7 +331,7 @@ rm(net_loads_barplots, net_loads_boxplots)
 
 ### Total Load Barplots
 
-```{r mehg total load barplots, fig.height = 6, fig.width = 8}
+```{r mehg total load barplots, fig.width = 8.5}
 total_loads_plots_mehg <- filter(total_loads_plots, AnalyteGroup == "MeHg")
 
 total_loads_plots_mehg %>% pull(barplots) %>% chuck(1)
@@ -389,7 +389,7 @@ total_loads_summ %>%
 
 #### Barplots
 
-```{r hg total load barplots, fig.height = 6, fig.width = 8}
+```{r hg total load barplots, fig.width = 8.5}
 total_loads_plots_hg <- filter(total_loads_plots, AnalyteGroup == "Hg")
 
 total_loads_plots_hg %>% pull(barplots) %>% chuck(1)
@@ -439,7 +439,7 @@ total_loads_summ %>%
 
 #### Barplots
 
-```{r oc total load barplots, fig.height = 6, fig.width = 8}
+```{r oc total load barplots, fig.width = 8.5}
 total_loads_plots_oc <- filter(total_loads_plots, AnalyteGroup == "OrgC")
 
 total_loads_plots_oc %>% pull(barplots) %>% chuck(1)
@@ -489,7 +489,7 @@ total_loads_summ %>%
 
 #### Barplots
 
-```{r ss total load barplots, fig.height = 6, fig.width = 8}
+```{r ss total load barplots}
 total_loads_plots_ss <- filter(total_loads_plots, AnalyteGroup == "SuspSolids")
 
 total_loads_plots_ss %>% pull(barplots) %>% chuck(1)
