@@ -100,6 +100,7 @@ total_loads17 <- total_loads %>% filter(str_detect(SamplingEvent, "17$"))
 net_loads17 <- net_loads %>% filter(str_detect(SamplingEvent, "17$"))
 ```
 
+
 # Run Calculations
 
 Calculate summary statistics of total loads:
@@ -113,6 +114,7 @@ Calculate summary statistics of net loads:
 net_loads_summ <- net_loads17 %>% 
   summ_stat(net_load, Reach, Analyte)
 ```
+
 
 # Create Plot Functions
 
@@ -246,6 +248,7 @@ scattplot_tload_flow <- function(df) {
 }
 ```
 
+
 # Create Plots
 
 Total Loads:
@@ -323,6 +326,7 @@ net_loads_plots <- left_join(net_loads_barplots, net_loads_boxplots)
 rm(net_loads_barplots, net_loads_boxplots)
 ```
 
+
 # Plots and Summary Statistics
 
 ## MeHg
@@ -337,6 +341,7 @@ total_loads_plots_mehg %>% pull(barplots) %>% chuck(1)
 
 ### Total Load Boxplots
 
+Red diamond represents the average
 ```{r mehg total load boxplots, fig.height = 5.5}
 p <- total_loads_plots_mehg %>% 
   pull(boxplots) %>% 
@@ -382,6 +387,7 @@ net_loads_plots_mehg %>% pull(barplots) %>% chuck(1)
 
 ### Net Load Boxplots
 
+Red diamond represents the average
 ```{r mehg net load boxplots, fig.height = 5.5}
 p <- net_loads_plots_mehg %>% 
   pull(boxplots) %>% 
@@ -411,6 +417,7 @@ net_loads_summ %>%
   formatRound(4:11, digits = 2)
 ```
 
+
 ## Hg
 
 ### Total Load Barplots
@@ -423,6 +430,7 @@ total_loads_plots_hg %>% pull(barplots) %>% chuck(1)
 
 ### Total Load Boxplots
 
+Red diamond represents the average
 ```{r hg total load boxplots, fig.height = 5.5}
 p <- total_loads_plots_hg %>% 
   pull(boxplots) %>% 
@@ -468,6 +476,7 @@ net_loads_plots_hg %>% pull(barplots) %>% chuck(1)
 
 ### Net Load Boxplots
 
+Red diamond represents the average
 ```{r hg net load boxplots, fig.height = 5.5}
 p <- net_loads_plots_hg %>% 
   pull(boxplots) %>% 
@@ -497,6 +506,7 @@ net_loads_summ %>%
   formatRound(4:11, digits = 1)
 ```
 
+
 ## Organic Carbon
 
 ### Total Load Barplots
@@ -509,6 +519,7 @@ total_loads_plots_oc %>% pull(barplots) %>% chuck(1)
 
 ### Total Load Boxplots
 
+Red diamond represents the average
 ```{r oc total load boxplots, fig.height = 5.5}
 p <- total_loads_plots_oc %>% 
   pull(boxplots) %>% 
@@ -554,6 +565,7 @@ net_loads_plots_oc %>% pull(barplots) %>% chuck(1)
 
 ### Net Load Boxplots
 
+Red diamond represents the average
 ```{r oc net load boxplots, fig.height = 5.5}
 p <- net_loads_plots_oc %>% 
   pull(boxplots) %>% 
@@ -583,6 +595,7 @@ net_loads_summ %>%
   formatRound(4:11, digits = 1)
 ```
 
+
 ## Suspended Solids
 
 ### Total Load Barplots
@@ -595,6 +608,7 @@ total_loads_plots_ss %>% pull(barplots) %>% chuck(1)
 
 ### Total Load Boxplots
 
+Red diamond represents the average
 ```{r ss total load boxplots, fig.height = 5.5}
 p <- total_loads_plots_ss %>% 
   pull(boxplots) %>% 
@@ -640,6 +654,7 @@ net_loads_plots_ss %>% pull(barplots) %>% chuck(1)
 
 ### Net Load Boxplots
 
+Red diamond represents the average
 ```{r ss net load boxplots, fig.height = 5.5}
 p <- net_loads_plots_ss %>% 
   pull(boxplots) %>% 
