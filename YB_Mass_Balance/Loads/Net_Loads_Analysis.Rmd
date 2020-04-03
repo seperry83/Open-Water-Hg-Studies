@@ -342,7 +342,23 @@ total_loads_plots_mehg %>% pull(barplots) %>% chuck(1)
 ### Total Load Boxplots
 
 ```{r mehg total load boxplots, fig.height = 5.5}
-total_loads_plots_mehg %>% pull(boxplots) %>% chuck(1) %>% plotly::ggplotly()
+p <- total_loads_plots_mehg %>% 
+  pull(boxplots) %>% 
+  chuck(1) %>% 
+  plotly::plotly_build()
+
+# Workaround to have plotly not add markers for outliers
+p$x$data <- lapply(
+  p$x$data, 
+  FUN = function(x) {
+    if (x$type == "box") {
+      x$marker = list(opacity = 0)
+    }
+    return(x)
+  }
+)
+
+p
 ```
 
 
@@ -384,7 +400,23 @@ total_loads_plots_hg %>% pull(barplots) %>% chuck(1)
 #### Boxplots
 
 ```{r hg total load boxplots, fig.height = 5.5}
-total_loads_plots_hg %>% pull(boxplots) %>% chuck(1) %>% plotly::ggplotly()
+p <- total_loads_plots_hg %>% 
+  pull(boxplots) %>% 
+  chuck(1) %>% 
+  plotly::plotly_build()
+
+# Workaround to have plotly not add markers for outliers
+p$x$data <- lapply(
+  p$x$data, 
+  FUN = function(x) {
+    if (x$type == "box") {
+      x$marker = list(opacity = 0)
+    }
+    return(x)
+  }
+)
+
+p
 ```
 
 #### Load vs. Inflow Scatterplots
@@ -418,7 +450,23 @@ total_loads_plots_oc %>% pull(barplots) %>% chuck(1)
 #### Boxplots
 
 ```{r oc total load boxplots, fig.height = 5.5}
-total_loads_plots_oc %>% pull(boxplots) %>% chuck(1) %>% plotly::ggplotly()
+p <- total_loads_plots_oc %>% 
+  pull(boxplots) %>% 
+  chuck(1) %>% 
+  plotly::plotly_build()
+
+# Workaround to have plotly not add markers for outliers
+p$x$data <- lapply(
+  p$x$data, 
+  FUN = function(x) {
+    if (x$type == "box") {
+      x$marker = list(opacity = 0)
+    }
+    return(x)
+  }
+)
+
+p
 ```
 
 #### Load vs. Inflow Scatterplots
@@ -452,7 +500,23 @@ total_loads_plots_ss %>% pull(barplots) %>% chuck(1)
 #### Boxplots
 
 ```{r ss total load boxplots, fig.height = 5.5}
-total_loads_plots_ss %>% pull(boxplots) %>% chuck(1) %>% plotly::ggplotly()
+p <- total_loads_plots_ss %>% 
+  pull(boxplots) %>% 
+  chuck(1) %>% 
+  plotly::plotly_build()
+
+# Workaround to have plotly not add markers for outliers
+p$x$data <- lapply(
+  p$x$data, 
+  FUN = function(x) {
+    if (x$type == "box") {
+      x$marker = list(opacity = 0)
+    }
+    return(x)
+  }
+)
+
+p
 ```
 
 #### Load vs. Inflow Scatterplots
