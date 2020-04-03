@@ -6,7 +6,6 @@ output:
   html_document: 
     code_folding: hide
     toc: yes
-    toc_depth: 4
     toc_float:
       collapsed: no
 editor_options: 
@@ -359,7 +358,6 @@ p$x$data <- lapply(
 p
 ```
 
-
 ### Total Load vs. Inflow Scatterplots
 
 ```{r mehg load vs flow plots, fig.height = 7, fig.width = 7}
@@ -377,17 +375,46 @@ total_loads_summ %>%
 
 ### Net Load Barplots
 
+```{r mehg net load barplots, fig.width = 8.5}
+net_loads_plots_mehg <- filter(net_loads_plots, AnalyteGroup == "MeHg")
+
+net_loads_plots_mehg %>% pull(barplots) %>% chuck(1)
+```
+
 ### Net Load Boxplots
+
+```{r mehg net load boxplots, fig.height = 5.5}
+p <- net_loads_plots_mehg %>% 
+  pull(boxplots) %>% 
+  chuck(1) %>% 
+  plotly::plotly_build()
+
+# Workaround to have plotly not add markers for outliers
+p$x$data <- lapply(
+  p$x$data, 
+  FUN = function(x) {
+    if (x$type == "box") {
+      x$marker = list(opacity = 0)
+    }
+    return(x)
+  }
+)
+
+p
+```
 
 ### Net Load Summary Statistics
 
+```{r mehg net load summ stats}
+net_loads_summ %>% 
+  filter(str_detect(Analyte, "^MeHg")) %>% 
+  datatable(rownames = FALSE) %>% 
+  formatRound(4:11, digits = 2)
+```
 
 ## Hg
 
-### Total Loads
-</br>
-
-#### Barplots
+### Total Load Barplots
 
 ```{r hg total load barplots, fig.width = 8.5}
 total_loads_plots_hg <- filter(total_loads_plots, AnalyteGroup == "Hg")
@@ -395,7 +422,7 @@ total_loads_plots_hg <- filter(total_loads_plots, AnalyteGroup == "Hg")
 total_loads_plots_hg %>% pull(barplots) %>% chuck(1)
 ```
 
-#### Boxplots
+### Total Load Boxplots
 
 ```{r hg total load boxplots, fig.height = 5.5}
 p <- total_loads_plots_hg %>% 
@@ -417,13 +444,13 @@ p$x$data <- lapply(
 p
 ```
 
-#### Load vs. Inflow Scatterplots
+### Total Load vs. Inflow Scatterplots
 
 ```{r hg load vs flow plots, fig.height = 7, fig.width = 7}
 total_loads_plots_hg %>% pull(scatterplots) %>% chuck(1)
 ```
 
-#### Summary Statistics
+### Total Load Summary Statistics
 
 ```{r hg total load summ stats}
 total_loads_summ %>% 
@@ -432,12 +459,48 @@ total_loads_summ %>%
   formatRound(4:11, digits = 1)
 ```
 
+### Net Load Barplots
+
+```{r hg net load barplots, fig.width = 8.5}
+net_loads_plots_hg <- filter(net_loads_plots, AnalyteGroup == "Hg")
+
+net_loads_plots_hg %>% pull(barplots) %>% chuck(1)
+```
+
+### Net Load Boxplots
+
+```{r hg net load boxplots, fig.height = 5.5}
+p <- net_loads_plots_hg %>% 
+  pull(boxplots) %>% 
+  chuck(1) %>% 
+  plotly::plotly_build()
+
+# Workaround to have plotly not add markers for outliers
+p$x$data <- lapply(
+  p$x$data, 
+  FUN = function(x) {
+    if (x$type == "box") {
+      x$marker = list(opacity = 0)
+    }
+    return(x)
+  }
+)
+
+p
+```
+
+### Net Load Summary Statistics
+
+```{r hg net load summ stats}
+net_loads_summ %>% 
+  filter(str_detect(Analyte, "^THg")) %>% 
+  datatable(rownames = FALSE) %>% 
+  formatRound(4:11, digits = 1)
+```
+
 ## Organic Carbon
 
-### Total Loads
-</br>
-
-#### Barplots
+### Total Load Barplots
 
 ```{r oc total load barplots, fig.width = 8.5}
 total_loads_plots_oc <- filter(total_loads_plots, AnalyteGroup == "OrgC")
@@ -445,7 +508,7 @@ total_loads_plots_oc <- filter(total_loads_plots, AnalyteGroup == "OrgC")
 total_loads_plots_oc %>% pull(barplots) %>% chuck(1)
 ```
 
-#### Boxplots
+### Total Load Boxplots
 
 ```{r oc total load boxplots, fig.height = 5.5}
 p <- total_loads_plots_oc %>% 
@@ -467,13 +530,13 @@ p$x$data <- lapply(
 p
 ```
 
-#### Load vs. Inflow Scatterplots
+### Total Load vs. Inflow Scatterplots
 
 ```{r oc load vs flow plots, fig.height = 7, fig.width = 7}
 total_loads_plots_oc %>% pull(scatterplots) %>% chuck(1)
 ```
 
-#### Summary Statistics
+### Total Load Summary Statistics
 
 ```{r oc total load summ stats}
 total_loads_summ %>% 
@@ -482,12 +545,48 @@ total_loads_summ %>%
   formatRound(4:11, digits = 1)
 ```
 
+### Net Load Barplots
+
+```{r oc net load barplots, fig.width = 8.5}
+net_loads_plots_oc <- filter(net_loads_plots, AnalyteGroup == "OrgC")
+
+net_loads_plots_oc %>% pull(barplots) %>% chuck(1)
+```
+
+### Net Load Boxplots
+
+```{r oc net load boxplots, fig.height = 5.5}
+p <- net_loads_plots_oc %>% 
+  pull(boxplots) %>% 
+  chuck(1) %>% 
+  plotly::plotly_build()
+
+# Workaround to have plotly not add markers for outliers
+p$x$data <- lapply(
+  p$x$data, 
+  FUN = function(x) {
+    if (x$type == "box") {
+      x$marker = list(opacity = 0)
+    }
+    return(x)
+  }
+)
+
+p
+```
+
+### Net Load Summary Statistics
+
+```{r oc net load summ stats}
+net_loads_summ %>% 
+  filter(str_detect(Analyte, "OC$")) %>% 
+  datatable(rownames = FALSE) %>% 
+  formatRound(4:11, digits = 1)
+```
+
 ## Suspended Solids
 
-### Total Loads
-</br>
-
-#### Barplots
+### Total Load Barplots
 
 ```{r ss total load barplots}
 total_loads_plots_ss <- filter(total_loads_plots, AnalyteGroup == "SuspSolids")
@@ -495,7 +594,7 @@ total_loads_plots_ss <- filter(total_loads_plots, AnalyteGroup == "SuspSolids")
 total_loads_plots_ss %>% pull(barplots) %>% chuck(1)
 ```
 
-#### Boxplots
+### Total Load Boxplots
 
 ```{r ss total load boxplots, fig.height = 5.5}
 p <- total_loads_plots_ss %>% 
@@ -517,16 +616,55 @@ p$x$data <- lapply(
 p
 ```
 
-#### Load vs. Inflow Scatterplots
+### Total Load vs. Inflow Scatterplots
 
 ```{r ss load vs flow plots}
 total_loads_plots_ss %>% pull(scatterplots) %>% chuck(1)
 ```
 
-#### Summary Statistics
+### Total Load Summary Statistics
 
 ```{r ss total load summ stats}
 total_loads_summ %>% 
+  filter(str_detect(Analyte, "SS$")) %>% 
+  datatable(rownames = FALSE) %>% 
+  formatRound(4:11, digits = 0)
+```
+
+### Net Load Barplots
+
+```{r ss net load barplots}
+net_loads_plots_ss <- filter(net_loads_plots, AnalyteGroup == "SuspSolids")
+
+net_loads_plots_ss %>% pull(barplots) %>% chuck(1)
+```
+
+### Net Load Boxplots
+
+```{r ss net load boxplots, fig.height = 5.5}
+p <- net_loads_plots_ss %>% 
+  pull(boxplots) %>% 
+  chuck(1) %>% 
+  plotly::plotly_build()
+
+# Workaround to have plotly not add markers for outliers
+p$x$data <- lapply(
+  p$x$data, 
+  FUN = function(x) {
+    if (x$type == "box") {
+      x$marker = list(opacity = 0)
+    }
+    return(x)
+  }
+)
+
+p
+```
+
+### Net Load Summary Statistics
+
+```{r ss net load summ stats}
+net_loads_summ %>% 
   filter(str_detect(Analyte, "SS$")) %>% 
   datatable(rownames = FALSE) %>% 
   formatRound(4:11, digits = 0)
