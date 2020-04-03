@@ -227,14 +227,14 @@ scattplot_tload_flow <- function(df) {
       data = df,
       aes(
         x = total_inflow, 
-        y = total_load, 
-        color = LocType
+        y = total_load
       )
     ) +
-    geom_point(size = 1.8, alpha = 0.7) +
-    facet_wrap(
-      vars(Analyte),
-      scales = "free_y"
+    geom_point() +
+    facet_grid(
+      cols = vars(LocType),
+      rows = vars(Analyte),
+      scales = "free"
     ) +
     labs(
         title = NULL,
@@ -242,9 +242,7 @@ scattplot_tload_flow <- function(df) {
         y = paste0("Total Load (", df$LoadUnits[1], ")")
     ) +
     scale_x_continuous(labels = label_comma()) +
-    add_gen_color_pal(3, "color") +
-    theme_owhg() +
-    theme(legend.position = "bottom")
+    theme_owhg()
   
   return(p)
 }
@@ -364,7 +362,7 @@ p
 
 ### Total Load vs. Inflow Scatterplots
 
-```{r mehg load vs flow plots, fig.height = 4.5, fig.width = 8}
+```{r mehg load vs flow plots, fig.height = 7, fig.width = 7}
 total_loads_plots_mehg %>% pull(scatterplots) %>% chuck(1)
 ```
 
@@ -421,7 +419,7 @@ p
 
 #### Load vs. Inflow Scatterplots
 
-```{r hg load vs flow plots, fig.height = 4.5, fig.width = 8}
+```{r hg load vs flow plots, fig.height = 7, fig.width = 7}
 total_loads_plots_hg %>% pull(scatterplots) %>% chuck(1)
 ```
 
@@ -471,7 +469,7 @@ p
 
 #### Load vs. Inflow Scatterplots
 
-```{r oc load vs flow plots, fig.height = 4.5, fig.width = 8}
+```{r oc load vs flow plots, fig.height = 7, fig.width = 7}
 total_loads_plots_oc %>% pull(scatterplots) %>% chuck(1)
 ```
 
@@ -521,7 +519,7 @@ p
 
 #### Load vs. Inflow Scatterplots
 
-```{r ss load vs flow plots, fig.height = 4.5, fig.width = 8}
+```{r ss load vs flow plots}
 total_loads_plots_ss %>% pull(scatterplots) %>% chuck(1)
 ```
 
