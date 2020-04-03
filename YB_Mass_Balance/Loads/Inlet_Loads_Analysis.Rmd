@@ -22,8 +22,6 @@ Load R packages necessary for this analysis:
 ```{r load packages, message = FALSE, warning = FALSE}
 # Load packages
 library(tidyverse)
-library(rlang)
-library(readxl)
 library(scales)
 library(DT)
 library(openwaterhg)
