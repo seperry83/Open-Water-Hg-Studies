@@ -94,17 +94,24 @@ total_loads <- left_join(total_loads, total_inflows)
 net_loads <- left_join(net_loads, total_inflows)
 ```
 
+Create two new dataframes with total and net loads only for 2017 sampling events. This will be used for the summary statistics and boxplots.
+```{r filter 2017 data}
+total_loads17 <- total_loads %>% filter(str_detect(SamplingEvent, "17$"))
+
+net_loads17 <- net_loads %>% filter(str_detect(SamplingEvent, "17$"))
+```
+
 # Run Calculations
 
 Calculate summary statistics of total loads:
 ```{r calc summ stats total loads}
-total_loads_summ <- total_loads %>% 
+total_loads_summ <- total_loads17 %>% 
   summ_stat(total_load, LocType, Analyte)
 ```
 
 Calculate summary statistics of net loads:
 ```{r calc summ stats net loads}
-net_loads_summ <- net_loads %>% 
+net_loads_summ <- net_loads17 %>% 
   summ_stat(net_load, Reach, Analyte)
 ```
 
@@ -246,7 +253,8 @@ scattplot_tload_flow <- function(df) {
 # Create Plots
 
 Total Loads:
-```{r create plots total loads}
+```{r create plots total loads, message = FALSE}
+# All sampling events
 total_loads_plots <- total_loads %>% 
   group_nest(AnalyteGroup) %>% 
   mutate(
@@ -257,20 +265,35 @@ total_loads_plots <- total_loads %>%
       fill_var = LocType,
       type = "total"
     ), 
+    scatterplots = map(data, .f = scattplot_tload_flow)
+  ) %>% 
+  select(-data)
+
+# Just 2017 sampling events
+total_loads_boxplots <- total_loads17 %>% 
+  group_nest(AnalyteGroup) %>% 
+  mutate(
     boxplots = map(
       data,
       .f = boxplot_load,
       x_var = LocType,
       y_var = total_load,
       type = "total"
-    ), 
-    scatterplots = map(data, .f = scattplot_tload_flow)
-  )
+    )
+  ) %>% 
+  select(-data)
+
+# Join two dataframes together
+total_loads_plots <- left_join(total_loads_plots, total_loads_boxplots)
+
+# Clean up 
+rm(total_loads_boxplots)
 ```
 
 Net Loads:
 ```{r create plots net loads}
-net_loads_plots <- net_loads %>% 
+# All sampling events
+net_loads_barplots <- net_loads %>% 
   group_nest(AnalyteGroup) %>% 
   mutate(
     barplots = map(
@@ -279,7 +302,14 @@ net_loads_plots <- net_loads %>%
       y_var = net_load,
       fill_var = Reach,
       type = "net"
-    ), 
+    )
+  ) %>% 
+  select(-data)
+
+# Just 2017 sampling events
+net_loads_boxplots <- net_loads17 %>% 
+  group_nest(AnalyteGroup) %>% 
+  mutate(
     boxplots = map(
       data,
       .f = boxplot_load,
@@ -287,7 +317,14 @@ net_loads_plots <- net_loads %>%
       y_var = net_load,
       type = "net"
     )
-  )
+  ) %>% 
+  select(-data)
+
+# Join two dataframes together
+net_loads_plots <- left_join(net_loads_barplots, net_loads_boxplots)
+
+# Clean up
+rm(net_loads_barplots, net_loads_boxplots)
 ```
 
 # Plots and Summary Statistics
