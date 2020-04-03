@@ -23,6 +23,8 @@ Load R packages necessary for this analysis:
 ```{r load packages, message = FALSE, warning = FALSE}
 # Load packages
 library(tidyverse)
+library(scales)
+library(rlang)
 library(openwaterhg)
 library(DT)
 ```
@@ -108,28 +110,104 @@ net_loads_summ <- net_loads %>%
 
 # Create Plot Functions
 
-Function for barplots of total loads:
-```{r fun barplots total loads}
-barplot_total_load <- function(df) {
+Function for barplots for total and net loads:
+```{r fun barplot loads}
+barplot_load <- function(df, y_var, fill_var, type = c("total", "net")) {
+  # evaluate choices for type
+  type <- match.arg(type, c("total", "net"))
+  
+  # convert variables to enquo
+  y_var_enquo <- enquo(y_var)
+  fill_var_enquo <- enquo(fill_var)
+  
+  # create plot
   p <- 
     ggplot(
       data = df,
       aes(
         x = SamplingEvent, 
-        y = total_load, 
-        fill = LocType
+        y = !!y_var_enquo, 
+        fill = !!fill_var_enquo
       )
     ) +
     geom_col(position = "dodge") +
-    facet_grid(cols = vars(Analyte)) +
-    labs(
+    facet_wrap(
+      vars(Analyte),
+      scales = "free_y"
+    ) +
+    add_gen_color_pal(3, "fill") +
+    theme_owhg(x_axis_v = TRUE) +
+    theme(legend.position = "bottom")
+  
+  # define y-axis labels based on type arg
+  if (type == "total") {
+    p <- p +
+      labs(
+        title = NULL,
+        x = NULL,
+        y = paste0("Total Loads (", df$LoadUnits[1], ")")
+      )
+  } else {
+    p <- p +
+      labs(
+        title = NULL,
+        x = NULL,
+        y = paste0("Net Loads (", df$LoadUnits[1], ")")
+      )
+  }
+  
+  return(p)
+}
+```
+
+Function for boxplots for total and net loads:
+```{r fun boxplot loads}
+boxplot_load <- function(df, x_var, y_var, type = c("total", "net")) {
+  # evaluate choices for type
+  type <- match.arg(type, c("total", "net"))
+  
+  # convert variables to enquo
+  x_var_enquo <- enquo(x_var)
+  y_var_enquo <- enquo(y_var)
+  
+  # create plot
+  p <- 
+    ggplot(
+      data = df,
+      aes(
+        x = !!x_var_enquo,
+        y = !!y_var_enquo
+      )
+    ) +
+    geom_boxplot(outlier.shape = NA) +
+    geom_jitter(width = 0.25) +
+    stat_summary( 
+      fun = "mean", #add a symbol representing the mean of each group to the plot
+      color = "red",
+      geom = "point",
+      shape = 9, #diamond cross shape
+      size = 2 
+    ) +
+    facet_wrap(vars(Analyte)) +
+    theme_owhg(x_axis_v = TRUE)
+  
+  # define title labels based on type arg
+  if (type == "total") {
+    p <- p +
+      labs(
         title = paste0("Total Loads (", df$LoadUnits[1], ")"),
         x = NULL,
         y = NULL
-    ) +
-    add_gen_color_pal(3, "fill") +
-    theme_owhg(x_axis_v = TRUE)
-  
+      )
+  } else {
+    p <- p +
+      labs(
+        title = paste0("Net Loads (", df$LoadUnits[1], ")"),
+        x = NULL,
+        y = NULL
+      )
+  }
+    
   return(p)
 }
 ```
@@ -146,15 +224,20 @@ scattplot_tload_flow <- function(df) {
         color = LocType
       )
     ) +
-    geom_point() +
-    facet_grid(cols = vars(Analyte)) +
-    labs(
-        title = paste0("y = Total Load (", df$LoadUnits[1], "); x = Total Inflow (cfs)"),
-        x = NULL,
-        y = NULL
+    geom_point(size = 1.8, alpha = 0.7) +
+    facet_wrap(
+      vars(Analyte),
+      scales = "free_y"
     ) +
+    labs(
+        title = NULL,
+        x = "Total Inflow (cfs)",
+        y = paste0("Total Load (", df$LoadUnits[1], ")")
+    ) +
+    scale_x_continuous(labels = label_comma()) +
     add_gen_color_pal(3, "color") +
-    theme_owhg()
+    theme_owhg() +
+    theme(legend.position = "bottom")
   
   return(p)
 }
@@ -162,12 +245,48 @@ scattplot_tload_flow <- function(df) {
 
 # Create Plots
 
-```{r create plots}
+Total Loads:
+```{r create plots total loads}
 total_loads_plots <- total_loads %>% 
   group_nest(AnalyteGroup) %>% 
   mutate(
-    barplots = map(data, .f = barplot_total_load),
+    barplots = map(
+      data,
+      .f = barplot_load,
+      y_var = total_load,
+      fill_var = LocType,
+      type = "total"
+    ), 
+    boxplots = map(
+      data,
+      .f = boxplot_load,
+      x_var = LocType,
+      y_var = total_load,
+      type = "total"
+    ), 
     scatterplots = map(data, .f = scattplot_tload_flow)
+  )
+```
+
+Net Loads:
+```{r create plots net loads}
+net_loads_plots <- net_loads %>% 
+  group_nest(AnalyteGroup) %>% 
+  mutate(
+    barplots = map(
+      data,
+      .f = barplot_load,
+      y_var = net_load,
+      fill_var = Reach,
+      type = "net"
+    ), 
+    boxplots = map(
+      data,
+      .f = boxplot_load,
+      x_var = Reach,
+      y_var = net_load,
+      type = "net"
+    )
   )
 ```
 
@@ -175,21 +294,142 @@ total_loads_plots <- total_loads %>%
 
 ## MeHg
 
+### Total Load Barplots
+
+```{r mehg total load barplots, fig.height = 6, fig.width = 8}
+total_loads_plots_mehg <- filter(total_loads_plots, AnalyteGroup == "MeHg")
+
+total_loads_plots_mehg %>% pull(barplots) %>% chuck(1)
+```
+
+### Total Load Boxplots
+
+```{r mehg total load boxplots, fig.height = 5.5}
+total_loads_plots_mehg %>% pull(boxplots) %>% chuck(1) %>% plotly::ggplotly()
+```
+
+
+### Total Load vs. Inflow Scatterplots
+
+```{r mehg load vs flow plots, fig.height = 4.5, fig.width = 8}
+total_loads_plots_mehg %>% pull(scatterplots) %>% chuck(1)
+```
+
+### Total Load Summary Statistics
+
+```{r mehg total load summ stats}
+total_loads_summ %>% 
+  filter(str_detect(Analyte, "^MeHg")) %>% 
+  datatable(rownames = FALSE) %>% 
+  formatRound(4:11, digits = 2)
+```
+
+### Net Load Barplots
+
+### Net Load Boxplots
+
+### Net Load Summary Statistics
+
+
+## Hg
+
 ### Total Loads
 </br>
 
 #### Barplots
-```{r mehg total load barplots, fig.height = 6, fig.width = 8}
-total_loads_plots_mehg <- filter(total_loads_plots, AnalyteGroup == "MeHg")
 
-total_loads_plots_mehg %>% pull(barplots) %>% chuck(1) %>% plotly::ggplotly()
+```{r hg total load barplots, fig.height = 6, fig.width = 8}
+total_loads_plots_hg <- filter(total_loads_plots, AnalyteGroup == "Hg")
+
+total_loads_plots_hg %>% pull(barplots) %>% chuck(1)
+```
+
+#### Boxplots
+
+```{r hg total load boxplots, fig.height = 5.5}
+total_loads_plots_hg %>% pull(boxplots) %>% chuck(1) %>% plotly::ggplotly()
 ```
 
 #### Load vs. Inflow Scatterplots
 
-```{r, fig.height = 5, fig.width = 8}
-total_loads_plots_mehg %>% pull(scatterplots) %>% chuck(1) %>% plotly::ggplotly()
+```{r hg load vs flow plots, fig.height = 4.5, fig.width = 8}
+total_loads_plots_hg %>% pull(scatterplots) %>% chuck(1)
 ```
 
 #### Summary Statistics
+
+```{r hg total load summ stats}
+total_loads_summ %>% 
+  filter(str_detect(Analyte, "^THg")) %>% 
+  datatable(rownames = FALSE) %>% 
+  formatRound(4:11, digits = 1)
+```
+
+## Organic Carbon
+
+### Total Loads
+</br>
+
+#### Barplots
+
+```{r oc total load barplots, fig.height = 6, fig.width = 8}
+total_loads_plots_oc <- filter(total_loads_plots, AnalyteGroup == "OrgC")
+
+total_loads_plots_oc %>% pull(barplots) %>% chuck(1)
+```
+
+#### Boxplots
+
+```{r oc total load boxplots, fig.height = 5.5}
+total_loads_plots_oc %>% pull(boxplots) %>% chuck(1) %>% plotly::ggplotly()
+```
+
+#### Load vs. Inflow Scatterplots
+
+```{r oc load vs flow plots, fig.height = 4.5, fig.width = 8}
+total_loads_plots_oc %>% pull(scatterplots) %>% chuck(1)
+```
+
+#### Summary Statistics
+
+```{r oc total load summ stats}
+total_loads_summ %>% 
+  filter(str_detect(Analyte, "OC$")) %>% 
+  datatable(rownames = FALSE) %>% 
+  formatRound(4:11, digits = 1)
+```
+
+## Suspended Solids
+
+### Total Loads
+</br>
+
+#### Barplots
+
+```{r ss total load barplots, fig.height = 6, fig.width = 8}
+total_loads_plots_ss <- filter(total_loads_plots, AnalyteGroup == "SuspSolids")
+
+total_loads_plots_ss %>% pull(barplots) %>% chuck(1)
+```
+
+#### Boxplots
+
+```{r ss total load boxplots, fig.height = 5.5}
+total_loads_plots_ss %>% pull(boxplots) %>% chuck(1) %>% plotly::ggplotly()
+```
+
+#### Load vs. Inflow Scatterplots
+
+```{r ss load vs flow plots, fig.height = 4.5, fig.width = 8}
+total_loads_plots_ss %>% pull(scatterplots) %>% chuck(1)
+```
+
+#### Summary Statistics
+
+```{r ss total load summ stats}
+total_loads_summ %>% 
+  filter(str_detect(Analyte, "SS$")) %>% 
+  datatable(rownames = FALSE) %>% 
+  formatRound(4:11, digits = 0)
+```
 
