@@ -160,7 +160,7 @@ barplot_inlet_facet <- function(df, ncols) {
       x = NULL,
       y = paste0("Loads (", df$LoadUnits[1], ")")
     ) +
-    theme(axis.text.x = element_text(angle = 90, hjust = 1))
+    theme_owhg(x_axis_v = TRUE)
   
   return(p)
 }
@@ -185,9 +185,9 @@ barplot_inlet_percent <- function(df) {
       x = NULL,
       y = "Percent of Inlet Load"
     ) +
-    theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
     scale_y_continuous(labels = percent_format()) +
-    add_inlet_color_pal("fill", "Inlet")
+    add_inlet_color_pal("fill", "Inlet") +
+    theme_owhg(x_axis_v = TRUE)
   
   return(p)
 }
@@ -219,7 +219,7 @@ boxplot_inlet <- function(df) {
       x = NULL,
       y = NULL
     ) +
-    theme(axis.text.x = element_text(angle = 90, hjust = 1))
+    theme_owhg(x_axis_v = TRUE)
     
   return(p)
 }
@@ -243,7 +243,7 @@ barplot_perc_mehg <- function(df) {
       x = NULL,
       y = NULL
     ) +
-    theme(axis.text.x = element_text(angle = 90, hjust = 1))
+    theme_owhg(x_axis_v = TRUE)
   
   return(p)
 }
