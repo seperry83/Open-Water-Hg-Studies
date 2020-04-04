@@ -207,7 +207,7 @@ boxplot_inlet <- function(df) {
     geom_boxplot(outlier.shape = NA) +
     geom_jitter(width = 0.25) +
     stat_summary( 
-      fun.y = "mean", #add a symbol representing the mean of each group to the plot
+      fun = "mean", #add a symbol representing the mean of each group to the plot
       color = "red",
       geom = "point",
       shape = 9, #diamond cross shape
