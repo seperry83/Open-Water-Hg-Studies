@@ -301,9 +301,24 @@ loads_plots_mehg %>% pull(barplots_percent) %>% chuck(1)
 
 Red diamond represents the average
 ```{r mehg inlet boxplots, fig.height = 6, fig.width = 8}
-loads_plots_mehg %>% pull(boxplots) %>% chuck(1) %>% plotly::ggplotly()
-```
+p <- loads_plots_mehg %>% 
+  pull(boxplots) %>% 
+  chuck(1) %>% 
+  plotly::plotly_build()
 
+# Workaround to have plotly not add markers for outliers
+p$x$data <- lapply(
+  p$x$data, 
+  FUN = function(x) {
+    if (x$type == "box") {
+      x$marker = list(opacity = 0)
+    }
+    return(x)
+  }
+)
+
+p
+```
 
 ### Total Load Barplots
 
@@ -383,9 +398,24 @@ loads_plots_hg %>% pull(barplots_percent) %>% chuck(1)
 
 Red diamond represents the average
 ```{r hg inlet boxplots, fig.height = 6, fig.width = 8}
-loads_plots_hg %>% pull(boxplots) %>% chuck(1) %>% plotly::ggplotly()
-```
+p <- loads_plots_hg %>% 
+  pull(boxplots) %>% 
+  chuck(1) %>% 
+  plotly::plotly_build()
 
+# Workaround to have plotly not add markers for outliers
+p$x$data <- lapply(
+  p$x$data, 
+  FUN = function(x) {
+    if (x$type == "box") {
+      x$marker = list(opacity = 0)
+    }
+    return(x)
+  }
+)
+
+p
+```
 
 ### Total Load Barplots
 
@@ -504,7 +534,23 @@ loads_plots_oc %>% pull(barplots_percent) %>% chuck(1)
 
 Red diamond represents the average
 ```{r oc inlet boxplots, fig.height = 6, fig.width = 8}
-loads_plots_oc %>% pull(boxplots) %>% chuck(1) %>% plotly::ggplotly()
+p <- loads_plots_oc %>% 
+  pull(boxplots) %>% 
+  chuck(1) %>% 
+  plotly::plotly_build()
+
+# Workaround to have plotly not add markers for outliers
+p$x$data <- lapply(
+  p$x$data, 
+  FUN = function(x) {
+    if (x$type == "box") {
+      x$marker = list(opacity = 0)
+    }
+    return(x)
+  }
+)
+
+p
 ```
 
 ### Total Load Barplots
@@ -585,7 +631,23 @@ loads_plots_ss %>% pull(barplots_percent) %>% chuck(1)
 
 Red diamond represents the average
 ```{r ss inlet boxplots, fig.height = 6, fig.width = 8}
-loads_plots_ss %>% pull(boxplots) %>% chuck(1) %>% plotly::ggplotly()
+p <- loads_plots_ss %>% 
+  pull(boxplots) %>% 
+  chuck(1) %>% 
+  plotly::plotly_build()
+
+# Workaround to have plotly not add markers for outliers
+p$x$data <- lapply(
+  p$x$data, 
+  FUN = function(x) {
+    if (x$type == "box") {
+      x$marker = list(opacity = 0)
+    }
+    return(x)
+  }
+)
+
+p
 ```
 
 ### Total Load Barplots
