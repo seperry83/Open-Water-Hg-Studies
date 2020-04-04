@@ -72,6 +72,12 @@ loads_clean <- loads_inlet %>%
   conv_fact_inlet_names()
 ```
 
+Create a new loads_clean df with inlet loads only for 2017 sampling events. This will be used for the summary statistics and boxplots.
+```{r filter 2017 data}
+loads_clean17 <- loads_clean %>% filter(str_detect(SamplingEvent, "17$"))
+```
+
+
 # Run Calculations
 
 Calculate total inlet loads for each analyte and sampling event:
@@ -100,7 +106,7 @@ loads_clean_perc_wide <- loads_clean_perc %>%
 
 Calculate summary statistics of loads for each inlet:
 ```{r calc summ stats inlet loads}
-loads_clean_summ <- loads_clean %>% 
+loads_clean_summ <- loads_clean17 %>% 
   summ_stat(Load, StationName, Analyte) %>% 
   mutate_at(vars(Mean:IQR), signif, digits = 3)
 ```
@@ -108,6 +114,7 @@ loads_clean_summ <- loads_clean %>%
 Calculate summary statistics of inlet load percentages:
 ```{r calc summ stats perc inlet loads}
 loads_clean_perc_summ <- loads_clean_perc %>% 
+  filter(str_detect(SamplingEvent, "17$")) %>% 
   summ_stat(percent_load, StationName, Analyte)
 ```
 
@@ -246,17 +253,33 @@ barplot_perc_mehg <- function(df) {
 # Create Plots
 
 ```{r create plots}
+# All sampling events
 loads_plots <- loads_clean %>% 
   group_nest(AnalyteGroup) %>% 
   mutate(
     ncols = if_else(AnalyteGroup == "SuspSolids", 2, 3),
     barplots_facet = map2(data, ncols, .f = barplot_inlet_facet),
-    barplots_percent = map(data, .f = barplot_inlet_percent),
-    boxplots = map(data, .f = boxplot_inlet)
-  )
+    barplots_percent = map(data, .f = barplot_inlet_percent)
+  ) %>% 
+  select(-data)
+
+# Just 2017 sampling events for the boxplots
+loads_boxplots <- loads_clean17 %>% 
+  group_nest(AnalyteGroup) %>% 
+  mutate(boxplots = map(data, .f = boxplot_inlet)) %>% 
+  select(-data)
+
+# Join two dataframes together
+loads_plots <- left_join(loads_plots, loads_boxplots)
+
+# Clean up 
+rm(loads_boxplots)
 ```
 
+
 # Plots and Summary Statistics
+
+The summary statistics for the inlet and % loads and the boxplots only include the sampling events conducted in 2017. The remaining plots include all sampling events conducted throughout the study period (2014-2017).
 
 ## MeHg
 
@@ -339,6 +362,7 @@ loads_clean_perc_summ %>%
   formatPercentage(4:11, digits = 1)
 ```
 
+
 ## Hg
 
 ### Facet Barplots
@@ -420,6 +444,7 @@ loads_clean_perc_summ %>%
   formatPercentage(4:11, digits = 1)
 ```
 
+
 ## Percent MeHg of Hg loads
 
 ```{r create perc mehg plots}
@@ -457,6 +482,7 @@ loads_plots_perc_mehg %>%
   chuck(1) %>% 
  plotly::ggplotly()
 ```
+
 
 ## Organic Carbon
 
@@ -537,6 +563,7 @@ loads_clean_perc_summ %>%
   datatable(rownames = FALSE) %>% 
   formatPercentage(4:11, digits = 1)
 ```
+
 
 ## Suspended Solids
 
