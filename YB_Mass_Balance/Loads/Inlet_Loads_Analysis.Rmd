@@ -252,7 +252,7 @@ barplot_perc_mehg <- function(df) {
 
 # Create Plots
 
-```{r create plots}
+```{r create plots, message = FALSE}
 # All sampling events
 loads_plots <- loads_clean %>% 
   group_nest(AnalyteGroup) %>% 
