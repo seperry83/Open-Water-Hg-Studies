@@ -10,10 +10,24 @@ library(lubridate)
 
 # 1. Import continuous flow data ---------------------------------------------
 
+# Dataset is on SharePoint site for the Open Water Final Report
+# Define path on SharePoint site for data
+sharepoint_path <- normalizePath(
+  file.path(
+    Sys.getenv("USERPROFILE"),
+    "California Department of Water Resources/DWR Documents - Open Water Final Report - Documents/Technical Appendices/Technical Appendix-B_Inlet-Outlet/Data"
+  )
+)  
+
 # 1.1 2014 Event ----------------------------------------------------------
+
+# Define path for 2014 flow data
+flow_data_path14 <- paste0(sharepoint_path, "/2014_YB_Flood_Flows.xlsx")
+
+# Import data
 klrc.14 <- 
   read_excel(
-    path = "Flows/2014_YB_Flood_Flows.xlsx", 
+    path = flow_data_path14,
     sheet = "KLRC", 
     range = "B2:C2977",
     col_names = c("Date", "Flow"),
@@ -23,7 +37,7 @@ klrc.14 <-
 
 ccsb.14 <- 
   read_excel(
-    path = "Flows/2014_YB_Flood_Flows.xlsx", 
+    path = flow_data_path14, 
     sheet = "CCSB", 
     range = "B2:E2977",
     col_names = c("Date", "ow.flow", "ow.qual", "lfc.flow"),
@@ -42,7 +56,7 @@ ccsb.14 <-
 
 PutahCk.14 <- 
   read_excel(
-    path = "Flows/2014_YB_Flood_Flows.xlsx", 
+    path = flow_data_path14, 
     sheet = "Putah Ck", 
     range = "L2:M31",
     col_names = c("Date", "Flow"),
@@ -52,7 +66,7 @@ PutahCk.14 <-
 
 schism.14 <- 
   read_excel(
-    path = "Flows/2014_YB_Flood_Flows.xlsx", 
+    path = flow_data_path14, 
     sheet = "Toe Drain abv Stairsteps SELFE", 
     range = "B2:C121",
     col_names = c("Date", "Flow"),
@@ -61,9 +75,14 @@ schism.14 <-
   mutate(StationName = "Toe Drain at 1/2 Lisbon")
 
 # 1.2 2016 Event ----------------------------------------------------------
+
+# Define path for 2016 flow data
+flow_data_path16 <- paste0(sharepoint_path, "/2016_YB_Flood_Flows.xlsx")
+
+# Import data
 fw.16 <- 
   read_excel(
-    path = "Flows/2016_YB_Flood_Flows.xlsx", 
+    path = flow_data_path16, 
     sheet = "Fremont Weir", 
     range = "B2:C2977",
     col_names = c("Date", "Flow"),
@@ -73,7 +92,7 @@ fw.16 <-
 
 klrc.16 <- 
   read_excel(
-    path = "Flows/2016_YB_Flood_Flows.xlsx", 
+    path = flow_data_path16, 
     sheet = "KLRC", 
     range = "B2:C2977",
     col_names = c("Date", "Flow"),
@@ -83,7 +102,7 @@ klrc.16 <-
 
 ccsb.16 <- 
   read_excel(
-    path = "Flows/2016_YB_Flood_Flows.xlsx", 
+    path = flow_data_path16, 
     sheet = "CCSB", 
     range = "B2:E2977",
     col_names = c("Date", "ow.flow", "ow.qual", "lfc.flow"),
@@ -102,7 +121,7 @@ ccsb.16 <-
 
 PutahCk.16 <- 
   read_excel(
-    path = "Flows/2016_YB_Flood_Flows.xlsx", 
+    path = flow_data_path16, 
     sheet = "Putah Ck", 
     range = "L2:M32",
     col_names = c("Date", "Flow"),
@@ -112,7 +131,7 @@ PutahCk.16 <-
 
 schism.16 <- 
   read_excel(
-    path = "Flows/2016_YB_Flood_Flows.xlsx", 
+    path = flow_data_path16, 
     sheet = "SCHISM Output Flows", 
     range = "B2:H4922",
     col_names = c(
@@ -140,10 +159,57 @@ schism.16 <-
     values_to = "Flow"
   )
 
+CacheSl.16 <- 
+  read_excel(
+    path = flow_data_path16, 
+    sheet = "Cache Slough", 
+    range = "B2:E2977",
+    col_names = c(
+      "Date",
+      "Flow.raw",
+      "Flow.int",
+      "Flow"
+    ),
+    col_types = c(
+      "date", 
+      "numeric",
+      "numeric",
+      "numeric"
+    )
+  ) %>% 
+  select(Date, Flow) %>% 
+  mutate(StationName = "Cache Slough near Ryer Island")
+
+MinerSl.16 <- 
+  read_excel(
+    path = flow_data_path16, 
+    sheet = "Miner Slough", 
+    range = "B2:E2976",
+    col_names = c(
+      "Date",
+      "Flow.raw",
+      "Flow.int",
+      "Flow"
+    ),
+    col_types = c(
+      "date", 
+      "numeric",
+      "numeric",
+      "numeric"
+    )
+  ) %>% 
+  select(Date, Flow) %>% 
+  mutate(StationName = "Miner Slough near Sac River")
+
 # 1.3 2017 Event ----------------------------------------------------------
+
+# Define path for 2016 flow data
+flow_data_path17 <- paste0(sharepoint_path, "/2017_YB_Flood_Flows.xlsx")
+
+# Import data
 fw.17 <- 
   read_excel(
-    path = "Flows/2017_YB_Flood_Flows.xlsx", 
+    path = flow_data_path17, 
     sheet = "Fremont Weir", 
     range = "B2:D12097",
     col_names = c("Date", "Stage", "Flow"),
@@ -154,7 +220,7 @@ fw.17 <-
 
 klrc.17 <- 
   read_excel(
-    path = "Flows/2017_YB_Flood_Flows.xlsx", 
+    path = flow_data_path17, 
     sheet = "KLRC", 
     range = "B2:C12001",
     col_names = c("Date", "Flow"),
@@ -164,7 +230,7 @@ klrc.17 <-
 
 ccsb.17 <- 
   read_excel(
-    path = "Flows/2017_YB_Flood_Flows.xlsx", 
+    path = flow_data_path17, 
     sheet = "CCSB", 
     range = "B2:E11905",
     col_names = c("Date", "ow.flow", "ow.qual", "lfc.flow"),
@@ -183,7 +249,7 @@ ccsb.17 <-
 
 PutahCk.17 <- 
   read_excel(
-    path = "Flows/2017_YB_Flood_Flows.xlsx", 
+    path = flow_data_path17, 
     sheet = "Putah Ck", 
     range = "M2:N125",
     col_names = c("Date", "Flow"),
@@ -193,7 +259,7 @@ PutahCk.17 <-
 
 sw.17 <- 
   read_excel(
-    path = "Flows/2017_YB_Flood_Flows.xlsx", 
+    path = flow_data_path17, 
     sheet = "Sacramento Weir", 
     range = "A2:B125",
     col_names = c("Date", "Flow"),
@@ -203,7 +269,7 @@ sw.17 <-
 
 schism.17 <- 
   read_excel(
-    path = "Flows/2017_YB_Flood_Flows.xlsx", 
+    path = flow_data_path17, 
     sheet = "Output Flows - SCHISM", 
     range = "B2:G11233",
     col_names = c(
@@ -231,7 +297,7 @@ schism.17 <-
 
 CacheSl.17 <- 
   read_excel(
-    path = "Flows/2017_YB_Flood_Flows.xlsx", 
+    path = flow_data_path17, 
     sheet = "Cache Slough", 
     range = "B2:E12384",
     col_names = c(
@@ -252,7 +318,7 @@ CacheSl.17 <-
 
 MinerSl.17 <- 
   read_excel(
-    path = "Flows/2017_YB_Flood_Flows.xlsx", 
+    path = flow_data_path17, 
     sheet = "Miner Slough", 
     range = "B2:E12384",
     col_names = c(
@@ -275,6 +341,7 @@ MinerSl.17 <-
 # Bind all flow data together except for Putah Creek and Sacramento Weir which are already daily averages
 flow.all <- 
   bind_rows(
+    CacheSl.16,
     CacheSl.17,
     ccsb.14,
     ccsb.16,
@@ -284,6 +351,7 @@ flow.all <-
     klrc.14,
     klrc.16,
     klrc.17,
+    MinerSl.16,
     MinerSl.17,
     schism.14,
     schism.16,
@@ -336,8 +404,8 @@ flow.all <- flow.all %>%
   ) %>% 
   select(Date, Year, StationName, LocType, Flow)
 
-# Export flow.all to be used for hydrographs
-flow.all %>% write_excel_csv("Flows/DailyAvgFlows_All.csv")
+# Export flow.all
+flow.all %>% write_excel_csv("DailyAvgFlows_All.csv")
 
 # Pull out daily average flow data for just the sampling events -----------
 # Create vectors of the sampling event dates for the inlet and outlet stations
@@ -405,8 +473,8 @@ flow.se <- bind_rows(flow.se.in, flow.se.out) %>%
   ) %>% 
   select(SamplingEvent, Year, StationName, LocType, Flow)
 
-# Export flow.se to be used for load calculations and plots
-flow.se %>% write_excel_csv("Flows/DailyAvgFlows_SE.csv")
+# Export flow.se
+flow.se %>% write_excel_csv("DailyAvgFlows_SE.csv")
 
 # The daily average flow data for the flooding periods and for just the sampling events
 # are in the following file: Flows/DailyAvgFlows_All_and_SE.xlsx
