@@ -154,7 +154,7 @@ plotly::ggplotly(p)
 
 ### Table of Flows for each Inlet
 
-```{r flows table}
+```{r flows table, message = FALSE}
 flows_clean %>% 
   # Sort dataframe
   arrange(StationName, SamplingEvent) %>% 
