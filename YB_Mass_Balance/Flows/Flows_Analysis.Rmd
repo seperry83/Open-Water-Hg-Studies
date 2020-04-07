@@ -76,7 +76,7 @@ Calculate the inlet flow percentages:
 ```{r calc perc inlet flows}
 flows_clean_perc <- flows_clean %>% 
   left_join(flows_total, by = "SamplingEvent") %>% 
-  mutate(percent_flow = Flow/total_flow) %>% 
+  mutate(percent_flow = signif(Flow/total_flow, 3)) %>% 
   select(-c(LocType:total_flow)) %>% 
   arrange(StationName, SamplingEvent)
 
@@ -125,7 +125,8 @@ Calculate summary statistics of inlet flow percentages:
 ```{r calc summ stats perc inlet flows}
 flows_clean_perc_summ <- flows_clean_perc %>% 
   filter(Year == 2017) %>% 
-  summ_stat(percent_flow, StationName)
+  summ_stat(percent_flow, StationName) %>% 
+  mutate_at(vars(Mean:IQR), signif, digits = 3)
 ```
 
 
@@ -169,6 +170,9 @@ flows_clean %>%
   # Add total flows for each sampling event
   left_join(flows_total) %>% 
   rename(Total = total_flow) %>% 
+  # Round all Flow values
+  mutate_at(vars(KLRC:Total), round) %>% 
+  # Convert to a datatable
   datatable(rownames = FALSE) %>% 
   formatRound(2:7, digits = 0)
 ```
