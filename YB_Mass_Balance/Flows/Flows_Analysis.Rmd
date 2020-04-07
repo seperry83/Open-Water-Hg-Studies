@@ -1,0 +1,221 @@
+---
+title: "Flows Analysis"
+author: "Dave Bosworth"
+date: "4/7/2020"
+output: 
+  html_document: 
+    code_folding: hide
+    toc: yes
+    toc_float:
+      collapsed: no
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Import and Prepare Data
+
+Load R packages necessary for this analysis:
+```{r load packages, message = FALSE, warning = FALSE}
+# Load packages
+library(tidyverse)
+library(scales)
+library(DT)
+library(openwaterhg)
+```
+
+```{r clean flow data, message = FALSE}
+flows_inlet <- daily_flow_data_se %>% 
+  # only include a subset of the data
+  filter(LocType == "Inlet")
+
+# Sum the CCSB Flows
+ccsb_flow <- filter(flows_inlet, str_detect(StationName, "^CCSB"))
+
+ccsb_flow_sum <- ccsb_flow %>%                      
+  group_by(SamplingEvent, Year) %>% 
+  summarize(Flow = sum(Flow)) %>% 
+  ungroup() %>% 
+  mutate(StationName = "CCSB")
+
+# Add back the summed CCSB flows and prepare data for plots
+flows_clean <- flows_inlet %>% 
+  anti_join(ccsb_flow) %>% 
+  bind_rows(ccsb_flow_sum) %>% 
+  # rename some station names
+  mutate(
+    StationName = case_when(
+      StationName == "Knights Landing Ridge Cut" ~ "KLRC",
+      StationName == "Putah Creek at Mace Blvd" ~ "Putah Creek",
+      StationName == "Sac River above the Sacramento Weir" ~ "Sacramento Weir",
+      TRUE ~ StationName
+    )
+  ) %>% 
+  # apply plot order
+  conv_fact_samplingevent() %>% 
+  conv_fact_inlet_names()
+
+# Clean up
+rm(ccsb_flow, ccsb_flow_sum, flows_inlet)
+```
+
+
+# Run Calculations
+
+Calculate total inlet flows for each sampling event:
+```{r calc total inlet flows, warning = FALSE}
+flows_total <- flows_clean %>% 
+  group_by(SamplingEvent) %>% 
+  summarize(total_flow = sum(Flow))
+```
+
+Calculate the inlet flow percentages:
+```{r calc perc inlet flows}
+flows_clean_perc <- flows_clean %>% 
+  left_join(flows_total, by = "SamplingEvent") %>% 
+  mutate(percent_flow = Flow/total_flow) %>% 
+  select(-c(LocType:total_flow)) %>% 
+  arrange(StationName, SamplingEvent)
+
+flows_clean_perc_wide <- flows_clean_perc %>% 
+  pivot_wider(
+    names_from = StationName,
+    values_from = percent_flow
+  ) %>% 
+  replace_na(list("Fremont Weir" = 0, "Sacramento Weir" = 0)) %>% 
+  select(-Year)
+```
+
+Calculate summary statistics of flows for each inlet:
+```{r calc summ stats inlet flows}
+# Prepare flows_total df to add to flows_clean df to be able to summarize total flows
+flows_total_clean <- flows_total %>% 
+  mutate(
+    StationName = "Total",
+    StationName = factor(
+      StationName,
+      levels = c(
+        "KLRC",
+        "CCSB",
+        "Putah Creek",
+        "Sacramento Weir",
+        "Fremont Weir",
+        "Total"
+      )
+    )
+  ) %>% 
+  rename(Flow = total_flow) %>% 
+  filter(str_detect(SamplingEvent, "17$"))
+
+flows_clean_summ <- flows_clean %>%
+  filter(Year == 2017) %>% 
+  mutate(StationName = fct_expand(StationName, "Total")) %>% 
+  bind_rows(flows_total_clean) %>% 
+  summ_stat(Flow, StationName) %>% 
+  mutate_at(vars(Mean:IQR), round)
+
+# Clean up
+rm(flows_total_clean)
+```
+
+Calculate summary statistics of inlet flow percentages:
+```{r calc summ stats perc inlet flows}
+flows_clean_perc_summ <- flows_clean_perc %>% 
+  filter(Year == 2017) %>% 
+  summ_stat(percent_flow, StationName)
+```
+
+
+# Plots and Summary Statistics
+
+The summary statistics for the flows only include the sampling events conducted in 2017. The remaining plots and tables include all sampling events conducted throughout the study period (2014-2017).
+
+## Flows
+
+### Barplot
+
+```{r flow barplot}
+p <- flows_clean %>% 
+  ggplot(aes(x = SamplingEvent, y = Flow, fill = StationName)) +
+  geom_col() +
+  xlab(NULL) +
+  scale_y_continuous(
+    name = "Daily Average Flow (cfs)",
+    labels = label_comma()
+  ) +
+  add_inlet_color_pal("fill", "Inlet") +
+  theme_owhg(x_axis_v = TRUE)
+
+plotly::ggplotly(p)
+```
+
+### Table of Flows for each Inlet
+
+```{r flows table}
+flows_clean %>% 
+  # Sort dataframe
+  arrange(StationName, SamplingEvent) %>% 
+  # Convert to wide format
+  pivot_wider(
+    id_cols = SamplingEvent,
+    names_from = StationName,
+    values_from = Flow
+  ) %>% 
+  # Replace some NA values with zeros
+  replace_na(list("Fremont Weir" = 0, "Sacramento Weir" = 0)) %>% 
+  # Add total flows for each sampling event
+  left_join(flows_total) %>% 
+  rename(Total = total_flow) %>% 
+  datatable(rownames = FALSE) %>% 
+  formatRound(2:7, digits = 0)
+```
+
+### Summary Statistics for each Inlet
+
+```{r summ stats flows}
+flows_clean_summ %>% datatable(rownames = FALSE)
+```
+
+
+## Percent Flows
+
+### Proportional Barplot
+```{r prop flow barplot}
+p <- flows_clean %>% 
+  ggplot(aes(x = SamplingEvent, y = Flow, fill = StationName)) +
+  geom_col(position = "fill") +
+  xlab(NULL) +
+  scale_y_continuous(
+    name = "Percent of total Inlet flow",
+    labels = label_percent()
+  ) +
+  add_inlet_color_pal("fill", "Inlet") +
+  theme_owhg(x_axis_v = TRUE)
+
+plotly::ggplotly(p)
+```
+
+### Table of Percent Flow for each Inlet
+
+```{r perc flows table}
+flows_clean_perc_wide %>% 
+  datatable(rownames = FALSE) %>% 
+  formatPercentage(2:6, digits = 1)
+```
+
+### Summary Statistics for each Inlet Percentage
+
+```{r summ stats perc flow}
+flows_clean_perc_summ %>% 
+  datatable(rownames = FALSE) %>% 
+  formatPercentage(3:10, digits = 1)
+```
+
+
+## Extra Analyses in Technical Appendix
+
+
+
