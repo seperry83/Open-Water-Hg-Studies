@@ -7,6 +7,20 @@ library(tidyverse)
 library(lubridate)
 library(openwaterhg)
 
+# Define Analyte order for Tables
+analyte_order <- c(
+  "THg- total",
+  "THg- filtered",
+  "THg- particulate",
+  "MeHg- total",
+  "MeHg- filtered",
+  "MeHg- particulate",
+  "TSS",
+  "TOC",
+  "DOC",
+  "POC"
+)
+
 
 # Table B-6 ---------------------------------------------------------------
 # Water Flows and Water Balances for each sampling event
@@ -100,5 +114,35 @@ rm(flow_data_clean, flow_data_clean_bli, water_vol_total)
 
 # Export Table B-9
 water_bal %>% write_excel_csv("table_b-9.csv", na = "N/A")
+
+
+# Table B-10 --------------------------------------------------------------
+# Summary statistics for total inlet loads of Hg, MeHg, Organic Carbon and Suspended Solids
+# For just the sampling events in 2017
+
+# Summarize inlet load data for Table B-10
+inlet_loads_summ <- loads_calc %>% 
+  # filter a subset of load data
+  filter(
+    Year == 2017,
+    LocType == "Inlet",
+    str_detect(Analyte, "OC$|Hg|TSS"),
+  ) %>%
+  # Calculate total inlet loads for each sampling event and analyte
+  group_by(SamplingEvent, Analyte, LoadUnits) %>% 
+  summarize(total_load = sum(Load)) %>% 
+  ungroup() %>% 
+  # Calculate summary statistics for each analyte
+  summ_stat(total_load, Analyte, LoadUnits) %>% 
+  # Round to 3 significant digits
+  mutate_at(vars(Mean:IQR), signif, digits = 3) %>% 
+  select(Analyte, LoadUnits, Minimum, Maximum, Median, Mean, StDev) %>% 
+  # Define analyte order for table
+  mutate(Analyte = factor(Analyte, levels = analyte_order)) %>% 
+  arrange(Analyte)
+
+# Export Table B-10
+inlet_loads_summ %>% write_excel_csv("table_b-10.csv")
+
 
 
