@@ -92,7 +92,7 @@ Calculate the inlet load percentages:
 ```{r calc perc inlet loads}
 loads_clean_perc <- loads_clean %>% 
   left_join(loads_total, by = c("SamplingEvent", "Analyte", "LoadUnits")) %>% 
-  mutate(percent_load = Load/total_load) %>% 
+  mutate(percent_load = signif(Load/total_load, 3)) %>% 
   select(-c(Load:total_load)) %>% 
   arrange(SamplingEvent, StationName)
 
@@ -115,7 +115,8 @@ Calculate summary statistics of inlet load percentages:
 ```{r calc summ stats perc inlet loads}
 loads_clean_perc_summ <- loads_clean_perc %>% 
   filter(str_detect(SamplingEvent, "17$")) %>% 
-  summ_stat(percent_load, StationName, Analyte)
+  summ_stat(percent_load, StationName, Analyte) %>% 
+  mutate_at(vars(Mean:IQR), signif, digits = 3)
 ```
 
 Calculate %MeHg of Hg loads for all fractions:
