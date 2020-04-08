@@ -221,5 +221,58 @@ flows_clean_perc_summ %>%
 
 ## Extra Analyses in Technical Appendix
 
+```{r extra flow analysis in ta, message = FALSE}
+inlet_flows <- daily_flow_data_all %>% 
+  filter(
+    Year != 2014,
+    LocType == "Inlet"
+  )
+
+# Sum the CCSB Flows
+ccsb_flow <- filter(inlet_flows, str_detect(StationName, "^CCSB"))
+
+ccsb_flow_sum <- ccsb_flow %>%                      
+  group_by(Date, Year) %>% 
+  summarize(Flow = sum(Flow)) %>% 
+  ungroup() %>% 
+  mutate(StationName = "CCSB")
+
+# Add back the summed CCSB flows
+inlet_flows <- inlet_flows %>% 
+  anti_join(ccsb_flow) %>% 
+  bind_rows(ccsb_flow_sum)
+
+# Clean up 
+rm(ccsb_flow, ccsb_flow_sum)
+
+inlet_flows_total <- inlet_flows %>% 
+  group_by(Date) %>% 
+  summarize(total_flow = sum(Flow))
+
+inlet_flows_perc <- inlet_flows %>% 
+  left_join(inlet_flows_total, by = "Date") %>% 
+  mutate(perc_flow = Flow/total_flow * 100)
+
+inlet_flows_perc_fw <- inlet_flows_perc %>% 
+  filter(
+    StationName == "Fremont Weir",
+    Flow != 0
+  ) %>%
+  group_by(Year) %>% 
+  summarize(avg_per_flow = round(mean(perc_flow)))
+
+flows_clean_perc_wide_fw <- flows_clean_perc_wide %>% 
+  rename(fremont = "Fremont Weir") %>% 
+  filter(
+    str_detect(SamplingEvent, "17$"),
+    fremont != 0
+  )
+
+fremont17 <- flows_clean_perc_wide_fw %>% pull(fremont)
+klrc17 <- flows_clean_perc_wide_fw %>% pull(KLRC)
+ccsb17 <- flows_clean_perc_wide_fw %>% pull(CCSB)
+```
+
+The Fremont Weir was always the most dominant source of water to the Yolo Bypass when it was overtopping, contributing averages of `r inlet_flows_perc_fw %>% filter(Year == 2016) %>% pull(avg_per_flow)`% and `r inlet_flows_perc_fw %>% filter(Year == 2017) %>% pull(avg_per_flow)`% of the total daily inflow when it was spilling during the 2016 and 2017 floods, respectively (Figure 8).  Daily inflows for the eight sampling events when the Fremont Weir was overtopping in 2017 show a similar trend.  The Fremont Weir dominated water inflows to the Yolo Bypass ranging from `r round(min(fremont17) * 100)` to `r round(max(fremont17) * 100)`% of the total daily inflow during these eight sampling events (Figure 4).  KLRC and CCSB contributed `r round(min(klrc17) * 100)`-`r round(max(klrc17) * 100)`% and `r round(min(ccsb17) * 100)`-`r round(max(ccsb17) * 100)`% of the total daily inflow, respectively, during these same eight events.
 
 
