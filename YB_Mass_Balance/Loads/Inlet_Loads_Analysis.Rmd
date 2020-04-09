@@ -387,14 +387,14 @@ loads_total_mehg %>%
 
 ### Summary Statistics of each Inlet
 
-Including zero load values for the Fremont and Sacramento Weirs when they weren't spilling:
+**Including** zero load values for the Fremont and Sacramento Weirs when they weren't spilling:
 ```{r mehg summ stats inlets}
 loads_clean_summ %>% 
   filter(str_detect(Analyte, "^MeHg")) %>% 
   datatable(rownames = FALSE)
 ```
 
-Excluding zero load values for the Fremont and Sacramento Weirs:
+**Excluding** zero load values for the Fremont and Sacramento Weirs:
 ```{r mehg summ stats inlets no zero}
 loads_clean_summ_no0 %>% 
   filter(str_detect(Analyte, "^MeHg")) %>% 
@@ -412,7 +412,7 @@ loads_clean_perc_wide %>%
 
 ### Summary Statistics of % loads
 
-Including zero percentage values for the Fremont and Sacramento Weirs when they weren't spilling:
+**Including** zero percentage values for the Fremont and Sacramento Weirs when they weren't spilling:
 ```{r mehg summ stats perc inlets}
 loads_clean_perc_summ %>% 
   filter(str_detect(Analyte, "^MeHg")) %>% 
@@ -420,7 +420,7 @@ loads_clean_perc_summ %>%
   formatPercentage(4:11, digits = 1)
 ```
 
-Excluding zero percentage values for the Fremont and Sacramento Weirs:
+**Excluding** zero percentage values for the Fremont and Sacramento Weirs:
 ```{r mehg summ stats perc inlets no zero}
 loads_clean_perc_summ_no0 %>% 
   filter(str_detect(Analyte, "^MeHg")) %>% 
@@ -501,14 +501,14 @@ loads_total_hg %>%
 
 ### Summary Statistics of each Inlet
 
-Including zero load values for the Fremont and Sacramento Weirs when they weren't spilling:
+**Including** zero load values for the Fremont and Sacramento Weirs when they weren't spilling:
 ```{r hg summ stats inlets}
 loads_clean_summ %>% 
   filter(str_detect(Analyte, "^THg")) %>% 
   datatable(rownames = FALSE)
 ```
 
-Excluding zero load values for the Fremont and Sacramento Weirs:
+**Excluding** zero load values for the Fremont and Sacramento Weirs:
 ```{r hg summ stats inlets no zero}
 loads_clean_summ_no0 %>% 
   filter(str_detect(Analyte, "^THg")) %>% 
@@ -526,7 +526,7 @@ loads_clean_perc_wide %>%
 
 ### Summary Statistics of % loads
 
-Including zero percentage values for the Fremont and Sacramento Weirs when they weren't spilling:
+**Including** zero percentage values for the Fremont and Sacramento Weirs when they weren't spilling:
 ```{r hg summ stats perc inlets}
 loads_clean_perc_summ %>% 
   filter(str_detect(Analyte, "^THg")) %>% 
@@ -534,7 +534,7 @@ loads_clean_perc_summ %>%
   formatPercentage(4:11, digits = 1)
 ```
 
-Excluding zero percentage values for the Fremont and Sacramento Weirs:
+**Excluding** zero percentage values for the Fremont and Sacramento Weirs:
 ```{r hg summ stats perc inlets no zero}
 loads_clean_perc_summ_no0 %>% 
   filter(str_detect(Analyte, "^THg")) %>% 
@@ -654,14 +654,14 @@ loads_total_oc %>%
 
 ### Summary Statistics of each Inlet
 
-Including zero load values for the Fremont and Sacramento Weirs when they weren't spilling:
+**Including** zero load values for the Fremont and Sacramento Weirs when they weren't spilling:
 ```{r oc summ stats inlets}
 loads_clean_summ %>% 
   filter(str_detect(Analyte, "OC$")) %>% 
   datatable(rownames = FALSE)
 ```
 
-Excluding zero load values for the Fremont and Sacramento Weirs:
+**Excluding** zero load values for the Fremont and Sacramento Weirs:
 ```{r oc summ stats inlets no zero}
 loads_clean_summ_no0 %>% 
   filter(str_detect(Analyte, "OC$")) %>% 
@@ -679,7 +679,7 @@ loads_clean_perc_wide %>%
 
 ### Summary Statistics of % loads
 
-Including zero percentage values for the Fremont and Sacramento Weirs when they weren't spilling:
+**Including** zero percentage values for the Fremont and Sacramento Weirs when they weren't spilling:
 ```{r oc summ stats perc inlets}
 loads_clean_perc_summ %>% 
   filter(str_detect(Analyte, "OC$")) %>% 
@@ -687,7 +687,7 @@ loads_clean_perc_summ %>%
   formatPercentage(4:11, digits = 1)
 ```
 
-Excluding zero percentage values for the Fremont and Sacramento Weirs:
+**Excluding** zero percentage values for the Fremont and Sacramento Weirs:
 ```{r oc summ stats perc inlets no zero}
 loads_clean_perc_summ_no0 %>% 
   filter(str_detect(Analyte, "OC$")) %>% 
@@ -769,14 +769,14 @@ plotly::ggplotly(p)
 
 ### Summary Statistics of each Inlet
 
-Including zero load values for the Fremont and Sacramento Weirs when they weren't spilling:
+**Including** zero load values for the Fremont and Sacramento Weirs when they weren't spilling:
 ```{r ss summ stats inlets}
 loads_clean_summ %>% 
   filter(str_detect(Analyte, "SS$")) %>% 
   datatable(rownames = FALSE)
 ```
 
-Excluding zero load values for the Fremont and Sacramento Weirs:
+**Excluding** zero load values for the Fremont and Sacramento Weirs:
 ```{r ss summ stats inlets no zero}
 loads_clean_summ_no0 %>% 
   filter(str_detect(Analyte, "SS$")) %>% 
@@ -794,7 +794,7 @@ loads_clean_perc_wide %>%
 
 ### Summary Statistics of % loads
 
-Including zero percentage values for the Fremont and Sacramento Weirs when they weren't spilling:
+**Including** zero percentage values for the Fremont and Sacramento Weirs when they weren't spilling:
 ```{r ss summ stats perc inlets}
 loads_clean_perc_summ %>% 
   filter(str_detect(Analyte, "SS$")) %>% 
@@ -802,7 +802,7 @@ loads_clean_perc_summ %>%
   formatPercentage(4:11, digits = 1)
 ```
 
-Excluding zero percentage values for the Fremont and Sacramento Weirs:
+**Excluding** zero percentage values for the Fremont and Sacramento Weirs:
 ```{r ss summ stats perc inlets no zero}
 loads_clean_perc_summ_no0 %>% 
   filter(str_detect(Analyte, "SS$")) %>% 
