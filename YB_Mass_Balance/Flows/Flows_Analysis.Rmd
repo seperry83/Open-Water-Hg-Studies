@@ -56,7 +56,13 @@ flows_clean <- flows_inlet %>%
   ) %>% 
   # apply plot order
   conv_fact_samplingevent() %>% 
-  conv_fact_inlet_names()
+  conv_fact_inlet_names() %>% 
+  select(-LocType) %>% 
+  # Add zero flow values to Fremont and Sacramento Weirs when they weren't spilling
+  complete(
+    nesting(SamplingEvent, Year), StationName,
+    fill = list(Flow = 0)
+  )
 
 # Clean up
 rm(ccsb_flow, ccsb_flow_sum, flows_inlet)
@@ -77,7 +83,7 @@ Calculate the inlet flow percentages:
 flows_clean_perc <- flows_clean %>% 
   left_join(flows_total, by = "SamplingEvent") %>% 
   mutate(percent_flow = signif(Flow/total_flow, 3)) %>% 
-  select(-c(LocType:total_flow)) %>% 
+  select(-c(Flow:total_flow)) %>% 
   arrange(StationName, SamplingEvent)
 
 flows_clean_perc_wide <- flows_clean_perc %>% 
@@ -85,7 +91,6 @@ flows_clean_perc_wide <- flows_clean_perc %>%
     names_from = StationName,
     values_from = percent_flow
   ) %>% 
-  replace_na(list("Fremont Weir" = 0, "Sacramento Weir" = 0)) %>% 
   select(-Year)
 ```
 
