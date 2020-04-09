@@ -70,6 +70,23 @@ loads_clean <- loads_inlet %>%
   # apply plot order
   conv_fact_samplingevent() %>% 
   conv_fact_inlet_names()
+
+# Add zero load values to Fremont and Sacramento Weirs when they weren't spilling
+loads_clean_c <- loads_clean %>%   
+  complete(
+    SamplingEvent, StationName, nesting(Analyte, AnalyteGroup, LoadUnits),
+    fill = list(Load = 0)
+  )
+
+# Create a dataframe of these added zero load values to be removed from some of the
+  # analyses later
+zero_loads <- anti_join(loads_clean_c, loads_clean)
+
+# Keep the zero load values in loads_clean df for now
+loads_clean <- loads_clean_c
+
+# Clean up
+rm(ccsb_loads, ccsb_loads_sum, loads_inlet, loads_clean_c)
 ```
 
 Create a new loads_clean df with inlet loads only for 2017 sampling events. This will be used for the summary statistics and boxplots.
@@ -100,28 +117,43 @@ loads_clean_perc_wide <- loads_clean_perc %>%
   pivot_wider(
     names_from = StationName,
     values_from = percent_load
-  ) %>% 
-  replace_na(list("Fremont Weir" = 0, "Sac Weir" = 0))
+  )
 ```
 
 Calculate summary statistics of loads for each inlet:
-```{r calc summ stats inlet loads}
+```{r calc summ stats inlet loads, message = FALSE}
+# Including zero load values for Fremont and Sacramento Weirs
 loads_clean_summ <- loads_clean17 %>% 
+  summ_stat(Load, StationName, Analyte) %>% 
+  mutate_at(vars(Mean:IQR), signif, digits = 3)
+
+# NOT Including zero load values for Fremont and Sacramento Weirs
+loads_clean_summ_no0 <- loads_clean17 %>% 
+  anti_join(zero_loads) %>% 
   summ_stat(Load, StationName, Analyte) %>% 
   mutate_at(vars(Mean:IQR), signif, digits = 3)
 ```
 
 Calculate summary statistics of inlet load percentages:
-```{r calc summ stats perc inlet loads}
+```{r calc summ stats perc inlet loads, message = FALSE}
+# Including zero percentage values for Fremont and Sacramento Weirs
 loads_clean_perc_summ <- loads_clean_perc %>% 
   filter(str_detect(SamplingEvent, "17$")) %>% 
+  summ_stat(percent_load, StationName, Analyte) %>% 
+  mutate_at(vars(Mean:IQR), signif, digits = 3)
+
+# NOT Including zero percentage values for Fremont and Sacramento Weirs
+loads_clean_perc_summ_no0 <- loads_clean_perc %>% 
+  filter(str_detect(SamplingEvent, "17$")) %>% 
+  anti_join(zero_loads) %>% 
   summ_stat(percent_load, StationName, Analyte) %>% 
   mutate_at(vars(Mean:IQR), signif, digits = 3)
 ```
 
 Calculate %MeHg of Hg loads for all fractions:
-```{r calc perc mehg inlet loads}
+```{r calc perc mehg inlet loads, message = FALSE}
 loads_clean_perc_mehg <- loads_clean %>% 
+  anti_join(zero_loads) %>% 
   filter(str_detect(AnalyteGroup, "Hg$")) %>% 
   separate(Analyte, into = c("Analyte", "Fraction")) %>% 
   select(-c(LoadUnits, AnalyteGroup)) %>% 
@@ -256,6 +288,7 @@ barplot_perc_mehg <- function(df) {
 ```{r create plots, message = FALSE}
 # All sampling events
 loads_plots <- loads_clean %>% 
+  anti_join(zero_loads) %>% 
   group_nest(AnalyteGroup) %>% 
   mutate(
     ncols = if_else(AnalyteGroup == "SuspSolids", 2, 3),
@@ -280,7 +313,7 @@ rm(loads_boxplots)
 
 # Plots and Summary Statistics
 
-The summary statistics for the inlet and % loads and the boxplots only include the sampling events conducted in 2017. The remaining plots include all sampling events conducted throughout the study period (2014-2017).
+The summary statistics for the inlet and % loads and the boxplots include only the sampling events conducted in 2017. The remaining plots include all sampling events conducted throughout the study period (2014-2017). The boxplots include zero load values for the Fremont and Sacramento Weirs when they weren't spilling.
 
 ## MeHg
 
@@ -354,8 +387,16 @@ loads_total_mehg %>%
 
 ### Summary Statistics of each Inlet
 
+Including zero load values for the Fremont and Sacramento Weirs when they weren't spilling:
 ```{r mehg summ stats inlets}
 loads_clean_summ %>% 
+  filter(str_detect(Analyte, "^MeHg")) %>% 
+  datatable(rownames = FALSE)
+```
+
+Excluding zero load values for the Fremont and Sacramento Weirs:
+```{r mehg summ stats inlets no zero}
+loads_clean_summ_no0 %>% 
   filter(str_detect(Analyte, "^MeHg")) %>% 
   datatable(rownames = FALSE)
 ```
@@ -371,8 +412,17 @@ loads_clean_perc_wide %>%
 
 ### Summary Statistics of % loads
 
+Including zero percentage values for the Fremont and Sacramento Weirs when they weren't spilling:
 ```{r mehg summ stats perc inlets}
 loads_clean_perc_summ %>% 
+  filter(str_detect(Analyte, "^MeHg")) %>% 
+  datatable(rownames = FALSE) %>% 
+  formatPercentage(4:11, digits = 1)
+```
+
+Excluding zero percentage values for the Fremont and Sacramento Weirs:
+```{r mehg summ stats perc inlets no zero}
+loads_clean_perc_summ_no0 %>% 
   filter(str_detect(Analyte, "^MeHg")) %>% 
   datatable(rownames = FALSE) %>% 
   formatPercentage(4:11, digits = 1)
@@ -451,8 +501,16 @@ loads_total_hg %>%
 
 ### Summary Statistics of each Inlet
 
+Including zero load values for the Fremont and Sacramento Weirs when they weren't spilling:
 ```{r hg summ stats inlets}
 loads_clean_summ %>% 
+  filter(str_detect(Analyte, "^THg")) %>% 
+  datatable(rownames = FALSE)
+```
+
+Excluding zero load values for the Fremont and Sacramento Weirs:
+```{r hg summ stats inlets no zero}
+loads_clean_summ_no0 %>% 
   filter(str_detect(Analyte, "^THg")) %>% 
   datatable(rownames = FALSE)
 ```
@@ -468,8 +526,17 @@ loads_clean_perc_wide %>%
 
 ### Summary Statistics of % loads
 
+Including zero percentage values for the Fremont and Sacramento Weirs when they weren't spilling:
 ```{r hg summ stats perc inlets}
 loads_clean_perc_summ %>% 
+  filter(str_detect(Analyte, "^THg")) %>% 
+  datatable(rownames = FALSE) %>% 
+  formatPercentage(4:11, digits = 1)
+```
+
+Excluding zero percentage values for the Fremont and Sacramento Weirs:
+```{r hg summ stats perc inlets no zero}
+loads_clean_perc_summ_no0 %>% 
   filter(str_detect(Analyte, "^THg")) %>% 
   datatable(rownames = FALSE) %>% 
   formatPercentage(4:11, digits = 1)
@@ -587,8 +654,16 @@ loads_total_oc %>%
 
 ### Summary Statistics of each Inlet
 
+Including zero load values for the Fremont and Sacramento Weirs when they weren't spilling:
 ```{r oc summ stats inlets}
 loads_clean_summ %>% 
+  filter(str_detect(Analyte, "OC$")) %>% 
+  datatable(rownames = FALSE)
+```
+
+Excluding zero load values for the Fremont and Sacramento Weirs:
+```{r oc summ stats inlets no zero}
+loads_clean_summ_no0 %>% 
   filter(str_detect(Analyte, "OC$")) %>% 
   datatable(rownames = FALSE)
 ```
@@ -604,8 +679,17 @@ loads_clean_perc_wide %>%
 
 ### Summary Statistics of % loads
 
+Including zero percentage values for the Fremont and Sacramento Weirs when they weren't spilling:
 ```{r oc summ stats perc inlets}
 loads_clean_perc_summ %>% 
+  filter(str_detect(Analyte, "OC$")) %>% 
+  datatable(rownames = FALSE) %>% 
+  formatPercentage(4:11, digits = 1)
+```
+
+Excluding zero percentage values for the Fremont and Sacramento Weirs:
+```{r oc summ stats perc inlets no zero}
+loads_clean_perc_summ_no0 %>% 
   filter(str_detect(Analyte, "OC$")) %>% 
   datatable(rownames = FALSE) %>% 
   formatPercentage(4:11, digits = 1)
@@ -685,8 +769,16 @@ plotly::ggplotly(p)
 
 ### Summary Statistics of each Inlet
 
+Including zero load values for the Fremont and Sacramento Weirs when they weren't spilling:
 ```{r ss summ stats inlets}
 loads_clean_summ %>% 
+  filter(str_detect(Analyte, "SS$")) %>% 
+  datatable(rownames = FALSE)
+```
+
+Excluding zero load values for the Fremont and Sacramento Weirs:
+```{r oc summ stats inlets no zero}
+loads_clean_summ_no0 %>% 
   filter(str_detect(Analyte, "SS$")) %>% 
   datatable(rownames = FALSE)
 ```
@@ -702,8 +794,17 @@ loads_clean_perc_wide %>%
 
 ### Summary Statistics of % loads
 
+Including zero percentage values for the Fremont and Sacramento Weirs when they weren't spilling:
 ```{r ss summ stats perc inlets}
 loads_clean_perc_summ %>% 
+  filter(str_detect(Analyte, "SS$")) %>% 
+  datatable(rownames = FALSE) %>% 
+  formatPercentage(4:11, digits = 1)
+```
+
+Excluding zero percentage values for the Fremont and Sacramento Weirs:
+```{r ss summ stats perc inlets no zero}
+loads_clean_perc_summ_no0 %>% 
   filter(str_detect(Analyte, "SS$")) %>% 
   datatable(rownames = FALSE) %>% 
   formatPercentage(4:11, digits = 1)
