@@ -810,3 +810,23 @@ loads_clean_perc_summ_no0 %>%
   formatPercentage(4:11, digits = 1)
 ```
 
+
+## Extra Analyses in Technical Appendix
+
+```{r perc load sw 3 events 2017}
+# Calculate average load percentages for Sacramento Weir during 3 largest sampling events in 2017
+
+sac_weir17 <- loads_clean_perc %>% 
+  filter(
+    SamplingEvent %in% c(
+      "Jan 11-12, 2017", 
+      "Feb 14-15, 2017", 
+      "Mar 1-2, 2017"
+    ),
+    StationName == "Sacramento Weir"
+  ) %>% 
+  group_by(Analyte) %>% 
+  summarize(avg_perc_load = round(mean(percent_load) * 100))
+```
+
+During these three sampling events, the Sacramento Weir provided averages of 19% of the total inflow to the Bypass, and `r sac_weir17 %>% filter(Analyte == "THg- total") %>% pull(avg_perc_load)`, `r sac_weir17 %>% filter(Analyte == "MeHg- total") %>% pull(avg_perc_load)`, and `r sac_weir17 %>% filter(Analyte == "TSS") %>% pull(avg_perc_load)`% of the total input load of uHg, uMeHg, and TSS, respectively 
