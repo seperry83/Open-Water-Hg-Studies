@@ -236,7 +236,7 @@ flows_inlet_all <- daily_flow_data_all %>%
   )
 
 # Sum the CCSB Flows
-ccsb_flow <- filter(inlet_flows, str_detect(StationName, "^CCSB"))
+ccsb_flow <- filter(flows_inlet_all, str_detect(StationName, "^CCSB"))
 
 ccsb_flow_sum <- ccsb_flow %>%                      
   group_by(Date, Year) %>% 
@@ -253,18 +253,18 @@ flows_inlet_all <- flows_inlet_all %>%
 rm(ccsb_flow, ccsb_flow_sum)
 
 # Calculate total daily inflows
-inlet_flows_total <- inlet_flows %>% 
+flows_inlet_all_total <- flows_inlet_all %>% 
   group_by(Date) %>% 
   summarize(total_flow = sum(Flow))
 
 # Calculate percentages of the total inflow for each input
-inlet_flows_perc <- inlet_flows %>% 
-  left_join(inlet_flows_total, by = "Date") %>% 
+flows_inlet_perc_all <- flows_inlet_all %>% 
+  left_join(flows_inlet_all_total, by = "Date") %>% 
   mutate(perc_flow = Flow/total_flow * 100)
 
 # Calcuate the averages of the percentages of Fremont Weir when it was spilling for the
   # 2016 and 2017 floods
-inlet_flows_perc_fw <- inlet_flows_perc %>% 
+flows_fw_perc <- flows_inlet_perc_all %>% 
   filter(
     StationName == "Fremont Weir",
     Flow != 0
@@ -290,7 +290,7 @@ ccsb17 <- flows_clean_perc_wide_fw %>% pull(CCSB)
 ```
 
 
-The Fremont Weir was always the most dominant source of water to the Yolo Bypass when it was overtopping, contributing averages of `r inlet_flows_perc_fw %>% filter(Year == 2016) %>% pull(avg_per_flow)`% and `r inlet_flows_perc_fw %>% filter(Year == 2017) %>% pull(avg_per_flow)`% of the total daily inflow when it was spilling during the 2016 and 2017 floods, respectively (Figure 8).  Daily inflows for the eight sampling events when the Fremont Weir was overtopping in 2017 show a similar trend.  The Fremont Weir dominated water inflows to the Yolo Bypass ranging from `r round(min(fremont17) * 100)` to `r round(max(fremont17) * 100)`% of the total daily inflow during these eight sampling events (Figure 4).  KLRC and CCSB contributed `r round(min(klrc17) * 100)`-`r round(max(klrc17) * 100)`% and `r round(min(ccsb17) * 100)`-`r round(max(ccsb17) * 100)`% of the total daily inflow, respectively, during these same eight events.
+The Fremont Weir was always the most dominant source of water to the Yolo Bypass when it was overtopping, contributing averages of `r flows_fw_perc %>% filter(Year == 2016) %>% pull(avg_per_flow)`% and `r flows_fw_perc %>% filter(Year == 2017) %>% pull(avg_per_flow)`% of the total daily inflow when it was spilling during the 2016 and 2017 floods, respectively (Figure 8).  Daily inflows for the eight sampling events when the Fremont Weir was overtopping in 2017 show a similar trend.  The Fremont Weir dominated water inflows to the Yolo Bypass ranging from `r round(min(fremont17) * 100)` to `r round(max(fremont17) * 100)`% of the total daily inflow during these eight sampling events (Figure 4).  KLRC and CCSB contributed `r round(min(klrc17) * 100)`-`r round(max(klrc17) * 100)`% and `r round(min(ccsb17) * 100)`-`r round(max(ccsb17) * 100)`% of the total daily inflow, respectively, during these same eight events.
 
 ***
 
