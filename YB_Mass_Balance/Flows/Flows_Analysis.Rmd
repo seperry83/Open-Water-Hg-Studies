@@ -311,5 +311,5 @@ This mirrors the results that Fremont Weir was the dominant input of water to th
 
 ***
 
-During these three sampling events, the Sacramento Weir provided about `r round(mean(sac_weir17) * 100)`% of the total inflow to the Bypass
+During these three sampling events, the Sacramento Weir provided averages of `r round(mean(sac_weir17) * 100)`% of the total inflow to the Bypass
 
