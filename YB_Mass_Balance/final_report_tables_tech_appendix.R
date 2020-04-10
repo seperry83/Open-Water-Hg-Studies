@@ -116,18 +116,52 @@ rm(flow_data_clean, flow_data_clean_bli, water_vol_total)
 water_bal %>% write_excel_csv("table_b-9.csv", na = "N/A")
 
 
+# Process Inlet Load Data for Tables B-10 and B-11 ------------------------
+
+# Filter Inlet Load data
+inlet_loads <- loads_calc %>% 
+  filter(
+    Year == 2017,
+    LocType == "Inlet",
+    str_detect(Analyte, "OC$|Hg|TSS"),
+  ) %>% 
+  # remove a few variables
+  select(-c(Year, Conc:LocType))
+
+# Sum the CCSB Loads
+ccsb_loads <- filter(inlet_loads, str_detect(StationName, "^CCSB"))
+
+ccsb_loads_sum <- ccsb_loads %>%                      
+  group_by(SamplingEvent, Analyte, LoadUnits) %>% 
+  summarize(Load = sum(Load)) %>% 
+  ungroup() %>% 
+  mutate(StationName = "CCSB")
+
+# Add back the summed CCSB loads
+inlet_loads <- inlet_loads %>% 
+  anti_join(ccsb_loads) %>% 
+  bind_rows(ccsb_loads_sum) %>% 
+  # rename some station names
+  mutate(
+    StationName = case_when(
+      StationName == "Knights Landing Ridge Cut" ~ "KLRC",
+      StationName == "Putah Creek at Mace Blvd" ~ "Putah Creek",
+      StationName == "Sac River above the Sacramento Weir" ~ "Sacramento Weir",
+      TRUE ~ StationName
+    )
+  ) %>% 
+  # apply factor order to Inlets
+  conv_fact_inlet_names()
+
+# Clean up
+rm(ccsb_loads, ccsb_loads_sum)
+
 # Table B-10 --------------------------------------------------------------
 # Summary statistics for total inlet loads of Hg, MeHg, Organic Carbon and Suspended Solids
 # For just the sampling events in 2017
 
 # Summarize inlet load data for Table B-10
-inlet_loads_summ <- loads_calc %>% 
-  # filter a subset of load data
-  filter(
-    Year == 2017,
-    LocType == "Inlet",
-    str_detect(Analyte, "OC$|Hg|TSS"),
-  ) %>%
+total_inlet_loads_summ <- inlet_loads %>% 
   # Calculate total inlet loads for each sampling event and analyte
   group_by(SamplingEvent, Analyte, LoadUnits) %>% 
   summarize(total_load = sum(Load)) %>% 
@@ -142,7 +176,63 @@ inlet_loads_summ <- loads_calc %>%
   arrange(Analyte)
 
 # Export Table B-10
-inlet_loads_summ %>% write_excel_csv("table_b-10.csv")
+total_inlet_loads_summ %>% write_excel_csv("table_b-10.csv")
 
 
+# Table B-11 --------------------------------------------------------------
+# Averages and standard deviations for each inlet's load of Hg, MeHg, Organic Carbon and Suspended Solids
+# For just the sampling events in 2017
 
+# Summarize inlet load data for Table B-11
+inlet_loads_summ <- inlet_loads %>% 
+  # Add zero load values to Fremont and Sacramento Weirs when they weren't spilling
+  complete(
+    SamplingEvent, StationName, nesting(Analyte, LoadUnits),
+    fill = list(Load = 0)
+  ) %>% 
+  # Calculate averages and standard deviations of loads for each inlet
+  group_by(StationName, Analyte, LoadUnits) %>% 
+  summarize(
+    avg_load = signif(mean(Load), 3),
+    stdev_load = signif(sd(Load), 3)
+  ) %>% 
+  ungroup()
+
+# Pivot the averages
+inlet_loads_avg <- inlet_loads_summ %>% 
+  pivot_wider(
+    id_cols = c(Analyte, LoadUnits),
+    names_from = StationName,
+    values_from = avg_load
+  )
+
+# Pivot the standard deviations
+inlet_loads_stdev <- inlet_loads_summ %>% 
+  pivot_wider(
+    id_cols = c(Analyte, LoadUnits),
+    names_from = StationName,
+    values_from = stdev_load
+  )
+
+# Join averages and standard deviations together into one df
+inlet_loads_summ_c <- 
+  left_join(
+    inlet_loads_avg, inlet_loads_stdev,
+    by = c("Analyte", "LoadUnits"),
+    suffix = c("_avg", "_stdev")
+  ) %>% 
+  mutate(Analyte = factor(Analyte, levels = analyte_order)) %>% 
+  arrange(Analyte) %>% 
+  select(
+    Analyte,
+    LoadUnits,
+    starts_with("KLRC"),
+    starts_with("CCSB"),
+    starts_with("Putah"),
+    starts_with("Sac"),
+    starts_with("Fre"),
+  )
+
+# Export Table B-11
+inlet_loads_summ_c %>% write_excel_csv("table_b-11.csv")
+  
