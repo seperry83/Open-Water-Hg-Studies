@@ -262,8 +262,7 @@ flows_inlet_perc_all <- flows_inlet_all %>%
   left_join(flows_inlet_all_total, by = "Date") %>% 
   mutate(perc_flow = Flow/total_flow * 100)
 
-# Calcuate the averages of the percentages of Fremont Weir when it was spilling for the
-  # 2016 and 2017 floods
+# Calcuate the averages of the percentages of Fremont Weir when it was spilling for the 2016 and 2017 floods
 flows_fw_perc <- flows_inlet_perc_all %>% 
   filter(
     StationName == "Fremont Weir",
@@ -274,8 +273,7 @@ flows_fw_perc <- flows_inlet_perc_all %>%
 ```
 
 ```{r inputs fw spill 2017}
-# Calculate ranges and averages of inflow percentages during 8 sampling events in
-  # 2017 when the Fremont Weir was spilling
+# Calculate ranges and averages of inflow percentages during 8 sampling events in 2017 when the Fremont Weir was spilling
 
 flows_clean_perc_wide_fw <- flows_clean_perc_wide %>% 
   rename(fremont = "Fremont Weir") %>% 
@@ -289,9 +287,29 @@ klrc17 <- flows_clean_perc_wide_fw %>% pull(KLRC)
 ccsb17 <- flows_clean_perc_wide_fw %>% pull(CCSB)
 ```
 
+```{r inputs sw 3 events 2017}
+# Calculate average inflow percentage for Sacramento Weir during 3 largest sampling events in 2017
+
+sac_weir17 <- flows_clean_perc_wide %>% 
+  rename(sac_weir = "Sacramento Weir") %>% 
+  filter(
+    SamplingEvent %in% c(
+      "Jan 11-12, 2017", 
+      "Feb 14-15, 2017", 
+      "Mar 1-2, 2017"
+    )
+  ) %>%
+  pull(sac_weir)
+```
+
 
 The Fremont Weir was always the most dominant source of water to the Yolo Bypass when it was overtopping, contributing averages of `r flows_fw_perc %>% filter(Year == 2016) %>% pull(avg_per_flow)`% and `r flows_fw_perc %>% filter(Year == 2017) %>% pull(avg_per_flow)`% of the total daily inflow when it was spilling during the 2016 and 2017 floods, respectively (Figure 8).  Daily inflows for the eight sampling events when the Fremont Weir was overtopping in 2017 show a similar trend.  The Fremont Weir dominated water inflows to the Yolo Bypass ranging from `r round(min(fremont17) * 100)` to `r round(max(fremont17) * 100)`% of the total daily inflow during these eight sampling events (Figure 4).  KLRC and CCSB contributed `r round(min(klrc17) * 100)`-`r round(max(klrc17) * 100)`% and `r round(min(ccsb17) * 100)`-`r round(max(ccsb17) * 100)`% of the total daily inflow, respectively, during these same eight events.
 
 ***
 
 This mirrors the results that Fremont Weir was the dominant input of water to the Bypass during these same eight sampling events in 2017, contributing an average of `r round(mean(fremont17) * 100)`% of the total inflow.  
+
+***
+
+During these three sampling events, the Sacramento Weir provided about `r round(mean(sac_weir17) * 100)`% of the total inflow to the Bypass
+
