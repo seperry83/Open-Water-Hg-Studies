@@ -168,6 +168,48 @@ loads_clean_perc_mehg <- loads_clean %>%
   select(-c(MeHg, THg))
 ```
 
+Calculate the % of each fraction for Hg and MeHg loads:
+```{r calc perc fraction hg and mehg, message = FALSE}
+loads_clean_perc_frac <- loads_clean %>% 
+  anti_join(zero_loads) %>% 
+  filter(str_detect(AnalyteGroup, "Hg$")) %>% 
+  separate(Analyte, into = c("Analyte", "Fraction"), sep = "- ") %>% 
+  pivot_wider(
+    id_cols = c(SamplingEvent:Analyte),
+    names_from = Fraction,
+    values_from = Load
+  ) %>% 
+  mutate(
+    perc_filt = signif(filtered/total, 3),
+    perc_part = signif(particulate/total, 3)
+  ) %>% 
+  select(-c(filtered:total))
+```
+
+Calculate summary statistics of the % fractions for Hg and MeHg loads:
+```{r calc summ stats perc fraction hg and mehg}
+loads_clean_perc_frac_summ <- loads_clean_perc_frac %>% 
+  # Just for the sampling events in 2017
+  filter(str_detect(SamplingEvent, "17$")) %>% 
+  rename(
+    Filtered = perc_filt,
+    Particulate = perc_part
+  ) %>% 
+  pivot_longer(
+    cols = Filtered:Particulate,
+    names_to = "Fraction",
+    values_to = "perc"
+  ) %>% 
+  group_nest(Analyte) %>% 
+  mutate(
+    summ_stats = map(
+      data,
+      .f = ~summ_stat(.x, perc, StationName, Fraction) %>% 
+        mutate_at(vars(Mean:IQR), signif, digits = 3)
+    )
+  )
+```
+
 
 # Create Plot Functions
 
@@ -469,6 +511,27 @@ loads_clean_perc_summ_no0 %>%
   formatPercentage(4:11, digits = 1)
 ```
 
+### % of each MeHg Fraction
+
+```{r mehg perc frac}
+loads_clean_perc_frac %>% 
+  filter(Analyte == "MeHg") %>% 
+  select(-Analyte) %>% 
+  datatable(rownames = FALSE) %>% 
+  formatPercentage(3:4, digits = 1)
+```
+
+### Summary Statistics of % MeHg Fractions
+
+```{r mehg summ stats perc frac}
+loads_clean_perc_frac_summ %>% 
+  filter(Analyte == "MeHg") %>% 
+  pull(summ_stats) %>% 
+  chuck(1) %>% 
+  datatable(rownames = FALSE) %>% 
+  formatPercentage(4:11, digits = 1)
+```
+
 
 ## Hg
 
@@ -587,6 +650,27 @@ loads_clean_perc_summ %>%
 ```{r hg summ stats perc inlets no zero}
 loads_clean_perc_summ_no0 %>% 
   filter(str_detect(Analyte, "^THg")) %>% 
+  datatable(rownames = FALSE) %>% 
+  formatPercentage(4:11, digits = 1)
+```
+
+### % of each Hg Fraction
+
+```{r hg perc frac}
+loads_clean_perc_frac %>% 
+  filter(Analyte == "THg") %>% 
+  select(-Analyte) %>% 
+  datatable(rownames = FALSE) %>% 
+  formatPercentage(3:4, digits = 1)
+```
+
+### Summary Statistics of % Hg Fractions
+
+```{r hg summ stats perc frac}
+loads_clean_perc_frac_summ %>% 
+  filter(Analyte == "THg") %>% 
+  pull(summ_stats) %>% 
+  chuck(1) %>% 
   datatable(rownames = FALSE) %>% 
   formatPercentage(4:11, digits = 1)
 ```
