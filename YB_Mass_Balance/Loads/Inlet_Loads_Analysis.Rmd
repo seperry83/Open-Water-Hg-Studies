@@ -171,9 +171,9 @@ loads_clean_perc_mehg <- loads_clean %>%
 
 # Create Plot Functions
 
-Function for facet barplots for inlet loads:
-```{r fun facet barplots inlets}
-barplot_inlet_facet <- function(df, ncols) {
+Function for facet barplots of inlet loads, free y-axis scale:
+```{r fun facet barplots inlets free}
+barplot_inlet_facet_free <- function(df, ncols) {
   p <- 
     ggplot(
       data = df,
@@ -192,6 +192,30 @@ barplot_inlet_facet <- function(df, ncols) {
       title = NULL,
       x = NULL,
       y = paste0("Loads (", df$LoadUnits[1], ")")
+    ) +
+    theme_owhg(x_axis_v = TRUE)
+  
+  return(p)
+}
+```
+
+Function for facet barplots of inlet loads, fixed y-axis scale:
+```{r fun facet barplots inlets fixed}
+barplot_inlet_facet_fixed <- function(df) {
+  p <- 
+    ggplot(
+      data = df,
+      aes(
+        x = SamplingEvent,
+        y = Load
+      )
+    ) +
+    geom_col() +
+    facet_grid(cols = vars(StationName)) +
+    labs(
+      title = paste0("Loads (", df$LoadUnits[1], ")"),
+      x = NULL,
+      y = NULL
     ) +
     theme_owhg(x_axis_v = TRUE)
   
@@ -259,7 +283,7 @@ boxplot_inlet <- function(df) {
 ```
 
 Function for barplots showing %MeHg of Hg loads:
-```{r fun parplots perc mehg}
+```{r fun barplots perc mehg}
 barplot_perc_mehg <- function(df) {
   p <- 
     ggplot(
@@ -292,7 +316,7 @@ loads_plots <- loads_clean %>%
   group_nest(AnalyteGroup) %>% 
   mutate(
     ncols = if_else(AnalyteGroup == "SuspSolids", 2, 3),
-    barplots_facet = map2(data, ncols, .f = barplot_inlet_facet),
+    barplots_facet_free = map2(data, ncols, .f = barplot_inlet_facet_free),
     barplots_percent = map(data, .f = barplot_inlet_percent)
   ) %>% 
   select(-data)
@@ -305,6 +329,15 @@ loads_boxplots <- loads_clean17 %>%
 
 # Join two dataframes together
 loads_plots <- left_join(loads_plots, loads_boxplots)
+
+# Barplots for just uHg, uMeHg, TOC, and TSS and 2017 sampling events, fixed y-axis scale
+loads_barplots_fixed <- loads_clean17 %>% 
+  anti_join(zero_loads) %>% 
+  group_nest(Analyte) %>% 
+  filter(str_detect(Analyte, "total$|TOC|TSS")) %>% 
+  mutate(
+    barplots_facet_fixed = map(data, .f = barplot_inlet_facet_fixed)
+  )
 
 # Clean up 
 rm(loads_boxplots)
@@ -319,10 +352,18 @@ The summary statistics for the inlet and % loads and the boxplots include only t
 
 ### Facet Barplots
 
-```{r mehg inlet facet barplots, fig.height = 9}
+```{r mehg inlet facet barplots free, fig.height = 9}
 loads_plots_mehg <- filter(loads_plots, AnalyteGroup == "MeHg")
 
-loads_plots_mehg %>% pull(barplots_facet) %>% chuck(1)
+loads_plots_mehg %>% pull(barplots_facet_free) %>% chuck(1)
+```
+
+```{r mehg inlet facet barplots fixed, fig.height = 5.5}
+loads_barplots_fixed %>% 
+  filter(Analyte == "MeHg- total") %>% 
+  pull(barplots_facet_fixed) %>% 
+  chuck(1) %>% 
+  plotly::ggplotly()
 ```
 
 ### Proportional Barplots
@@ -433,10 +474,18 @@ loads_clean_perc_summ_no0 %>%
 
 ### Facet Barplots
 
-```{r hg inlet facet barplots, fig.height = 9}
+```{r hg inlet facet barplots free, fig.height = 9}
 loads_plots_hg <- filter(loads_plots, AnalyteGroup == "Hg")
 
-loads_plots_hg %>% pull(barplots_facet) %>% chuck(1)
+loads_plots_hg %>% pull(barplots_facet_free) %>% chuck(1)
+```
+
+```{r hg inlet facet barplots fixed, fig.height = 5.5}
+loads_barplots_fixed %>% 
+  filter(Analyte == "THg- total") %>% 
+  pull(barplots_facet_fixed) %>% 
+  chuck(1) %>% 
+  plotly::ggplotly()
 ```
 
 ### Proportional Barplots
@@ -597,10 +646,18 @@ loads_clean_perc_mehg %>%
 
 ### Facet Barplots
 
-```{r oc inlet facet barplots, fig.height = 9}
+```{r oc inlet facet barplots free, fig.height = 9}
 loads_plots_oc <- filter(loads_plots, AnalyteGroup == "OrgC")
 
-loads_plots_oc %>% pull(barplots_facet) %>% chuck(1)
+loads_plots_oc %>% pull(barplots_facet_free) %>% chuck(1)
+```
+
+```{r oc inlet facet barplots fixed, fig.height = 5.5}
+loads_barplots_fixed %>% 
+  filter(Analyte == "TOC") %>% 
+  pull(barplots_facet_fixed) %>% 
+  chuck(1) %>% 
+  plotly::ggplotly()
 ```
 
 ### Proportional Barplots
@@ -711,10 +768,18 @@ loads_clean_perc_summ_no0 %>%
 
 ### Facet Barplots
 
-```{r ss inlet facet barplots, fig.height = 9}
+```{r ss inlet facet barplots free, fig.height = 9}
 loads_plots_ss <- filter(loads_plots, AnalyteGroup == "SuspSolids")
 
-loads_plots_ss %>% pull(barplots_facet) %>% chuck(1)
+loads_plots_ss %>% pull(barplots_facet_free) %>% chuck(1)
+```
+
+```{r ss inlet facet barplots fixed, fig.height = 5.5}
+loads_barplots_fixed %>% 
+  filter(Analyte == "TSS") %>% 
+  pull(barplots_facet_fixed) %>% 
+  chuck(1) %>% 
+  plotly::ggplotly()
 ```
 
 ### Proportional Barplots
