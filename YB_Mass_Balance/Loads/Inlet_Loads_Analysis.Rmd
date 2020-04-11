@@ -243,7 +243,7 @@ barplot_inlet_facet_free <- function(df, ncols) {
 
 Function for facet barplots of inlet loads, fixed y-axis scale:
 ```{r fun facet barplots inlets fixed}
-barplot_inlet_facet_fixed <- function(df) {
+barplot_inlet_facet_fixed <- function(df, param) {
   p <- 
     ggplot(
       data = df,
@@ -255,7 +255,7 @@ barplot_inlet_facet_fixed <- function(df) {
     geom_col() +
     facet_grid(cols = vars(StationName)) +
     labs(
-      title = paste0("Loads (", df$LoadUnits[1], ")"),
+      title = paste0(param, " (", df$LoadUnits[1], ")"),
       x = NULL,
       y = NULL
     ) +
@@ -378,7 +378,7 @@ loads_barplots_fixed <- loads_clean17 %>%
   group_nest(Analyte) %>% 
   filter(str_detect(Analyte, "total$|TOC|TSS")) %>% 
   mutate(
-    barplots_facet_fixed = map(data, .f = barplot_inlet_facet_fixed)
+    barplots_facet_fixed = map2(data, Analyte, .f = barplot_inlet_facet_fixed)
   )
 
 # Clean up 
