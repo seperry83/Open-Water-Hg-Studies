@@ -400,7 +400,7 @@ loads_plots_mehg <- filter(loads_plots, AnalyteGroup == "MeHg")
 loads_plots_mehg %>% pull(barplots_facet_free) %>% chuck(1)
 ```
 
-```{r mehg inlet facet barplots fixed, fig.height = 5.5}
+```{r mehg inlet facet barplots fixed, fig.height = 5.5, fig.width = 8}
 loads_barplots_fixed %>% 
   filter(Analyte == "MeHg- total") %>% 
   pull(barplots_facet_fixed) %>% 
@@ -543,7 +543,7 @@ loads_plots_hg <- filter(loads_plots, AnalyteGroup == "Hg")
 loads_plots_hg %>% pull(barplots_facet_free) %>% chuck(1)
 ```
 
-```{r hg inlet facet barplots fixed, fig.height = 5.5}
+```{r hg inlet facet barplots fixed, fig.height = 5.5, fig.width = 8}
 loads_barplots_fixed %>% 
   filter(Analyte == "THg- total") %>% 
   pull(barplots_facet_fixed) %>% 
@@ -736,7 +736,7 @@ loads_plots_oc <- filter(loads_plots, AnalyteGroup == "OrgC")
 loads_plots_oc %>% pull(barplots_facet_free) %>% chuck(1)
 ```
 
-```{r oc inlet facet barplots fixed, fig.height = 5.5}
+```{r oc inlet facet barplots fixed, fig.height = 5.5, fig.width = 8}
 loads_barplots_fixed %>% 
   filter(Analyte == "TOC") %>% 
   pull(barplots_facet_fixed) %>% 
@@ -858,7 +858,7 @@ loads_plots_ss <- filter(loads_plots, AnalyteGroup == "SuspSolids")
 loads_plots_ss %>% pull(barplots_facet_free) %>% chuck(1)
 ```
 
-```{r ss inlet facet barplots fixed, fig.height = 5.5}
+```{r ss inlet facet barplots fixed, fig.height = 5.5, fig.width = 8}
 loads_barplots_fixed %>% 
   filter(Analyte == "TSS") %>% 
   pull(barplots_facet_fixed) %>% 
