@@ -581,6 +581,17 @@ loads_plots_perc_mehg %>%
  plotly::ggplotly()
 ```
 
+### Summary Statistics for Sampling Events in 2017
+
+```{r perc mehg summ stats 2017}
+loads_clean_perc_mehg %>% 
+  mutate(per_mehg = per_mehg/100) %>% 
+  filter(str_detect(SamplingEvent, "17$")) %>% 
+  summ_stat(per_mehg, StationName, Fraction) %>% 
+  datatable(rownames = FALSE) %>% 
+  formatPercentage(4:11, digits = 1)
+```
+
 
 ## Organic Carbon
 
