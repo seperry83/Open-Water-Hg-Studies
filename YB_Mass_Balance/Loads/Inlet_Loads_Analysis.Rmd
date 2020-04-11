@@ -824,6 +824,25 @@ loads_clean_perc_summ_no0 %>%
 
 ## Extra Analyses in Technical Appendix
 
+```{r first flush analysis}
+# Calculate the percent reduction of input loads between the first sampling event in 2017 and the largest sampling event in 2017 in terms of inflow (February 14)
+
+loads_total_ff <- loads_total %>% 
+  filter(str_detect(SamplingEvent, "Jan 11|Feb 14")) %>% 
+  pivot_wider(
+    id_cols = Analyte,
+    names_from = SamplingEvent,
+    values_from = total_load
+  ) %>% 
+  rename(
+    jan11 = "Jan 11-12, 2017",
+    feb14 = "Feb 14-15, 2017"
+  ) %>% 
+  mutate(perc_lower = round((jan11 - feb14)/jan11 * 100))
+
+loads_total_ff %>% filter(Analyte == "THg- total") %>% pull(perc_lower)
+```
+
 ```{r perc load sw 3 events 2017}
 # Calculate average load percentages for Sacramento Weir during 3 largest sampling events in 2017
 
@@ -863,6 +882,9 @@ klrc_fw_spill <- loads_clean_perc_fw_spill$KLRC
 ccsb_fw_spill <- loads_clean_perc_fw_spill$CCSB
 ```
 
+February 14th, approximately a month later, was the sampling event with the largest inflow at 188,700 cfs, but the total inlet loads were not as large as the January 11th event.  This largest inflow event had uHg, uMeHg, and TSS loads that were `r loads_total_ff %>% filter(Analyte == "THg- total") %>% pull(perc_lower)`, `r loads_total_ff %>% filter(Analyte == "MeHg- total") %>% pull(perc_lower)`, and `r loads_total_ff %>% filter(Analyte == "TSS") %>% pull(perc_lower)`% lower than the January 11th event, respectively.
+
+***
 
 During these three sampling events, the Sacramento Weir provided averages of 19% of the total inflow to the Bypass, and `r sac_weir17 %>% filter(Analyte == "THg- total") %>% pull(avg_perc_load)`, `r sac_weir17 %>% filter(Analyte == "MeHg- total") %>% pull(avg_perc_load)`, and `r sac_weir17 %>% filter(Analyte == "TSS") %>% pull(avg_perc_load)`% of the total input load of uHg, uMeHg, and TSS, respectively
 
