@@ -988,8 +988,6 @@ loads_total_ff <- loads_total %>%
     feb14 = "Feb 14-15, 2017"
   ) %>% 
   mutate(perc_lower = round((jan11 - feb14)/jan11 * 100))
-
-loads_total_ff %>% filter(Analyte == "THg- total") %>% pull(perc_lower)
 ```
 
 ```{r perc load sw 3 events 2017}
