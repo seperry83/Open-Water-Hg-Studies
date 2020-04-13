@@ -290,7 +290,7 @@ rm(total_loads_boxplots)
 ```
 
 Net Loads:
-```{r create plots net loads}
+```{r create plots net loads, message = FALSE}
 # All sampling events
 net_loads_barplots <- net_loads %>% 
   group_nest(AnalyteGroup) %>% 
