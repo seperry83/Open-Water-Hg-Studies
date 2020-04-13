@@ -235,4 +235,75 @@ inlet_loads_summ_c <-
 
 # Export Table B-11
 inlet_loads_summ_c %>% write_excel_csv("table_b-11.csv")
+
+
+# Table B-12 --------------------------------------------------------------
+# Summary statistics for net loads of Hg, MeHg, Organic Carbon and Suspended Solids
+# For 3 segments of the Yolo Bypass: upper reach, Liberty Island, and entire Bypass
+# For just the sampling events in 2017
+
+# Calculate total input and output loads for each sampling event and parameter
+total_loads <- loads_calc %>% 
+  # Only include a subset of the data
+  filter(
+    Year == 2017,
+    str_detect(Analyte, "OC$|Hg|TSS")
+  ) %>%
+  # Group and sum load data
+  group_by(SamplingEvent, Analyte, LoadUnits, LocType) %>% 
+  summarize(total_load = sum(Load)) %>% 
+  ungroup()
+
+# Calculate net loads for each reach
+net_loads <- total_loads %>% 
+  pivot_wider(names_from = LocType, values_from = total_load) %>% 
+  rename(below_liberty = "Below Liberty") %>% 
+  # Calculate net loads for each reach
+  mutate(
+    Upper = Outlet - Inlet,
+    Liberty = below_liberty - Outlet,
+    Entire = below_liberty - Inlet
+  ) %>% 
+  select(-c(Inlet:below_liberty)) %>% 
+  pivot_longer(
+    cols = Upper:Entire,
+    names_to = "Reach",
+    values_to = "net_load"
+  ) %>% 
+  filter(!is.na(net_load))
+
+# Calculate summary statistics of net loads for each reach
+net_loads_summ <- net_loads %>% 
+  mutate(Analyte = factor(Analyte, levels = analyte_order)) %>% 
+  group_nest(Reach) %>% 
+  mutate(
+    summ_stats = map(
+      data,
+      .f = ~summ_stat(.x, net_load, Analyte, LoadUnits) %>% 
+        mutate_at(vars(Mean:IQR), signif, digits = 3) %>% 
+        select(Analyte, LoadUnits, Minimum, Maximum, Median, Mean, StDev)
+    )
+  )
+
+# Export Table B-12
+  # Upper reach 
+  net_loads_summ %>% 
+    filter(Reach == "Upper") %>% 
+    pull(summ_stats) %>% 
+    chuck(1) %>% 
+    write_excel_csv("table_b-12_upper.csv")
+
+  # Liberty Island reach 
+  net_loads_summ %>% 
+    filter(Reach == "Liberty") %>% 
+    pull(summ_stats) %>% 
+    chuck(1) %>% 
+    write_excel_csv("table_b-12_lib.csv")
   
+  # Entire Bypass
+  net_loads_summ %>% 
+    filter(Reach == "Entire") %>% 
+    pull(summ_stats) %>% 
+    chuck(1) %>% 
+    write_excel_csv("table_b-12_entire.csv")
+
