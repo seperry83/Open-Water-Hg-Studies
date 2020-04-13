@@ -106,13 +106,15 @@ net_loads17 <- net_loads %>% filter(str_detect(SamplingEvent, "17$"))
 Calculate summary statistics of total loads:
 ```{r calc summ stats total loads}
 total_loads_summ <- total_loads17 %>% 
-  summ_stat(total_load, LocType, Analyte)
+  summ_stat(total_load, LocType, Analyte) %>% 
+  mutate_at(vars(Mean:IQR), signif, digits = 3)
 ```
 
 Calculate summary statistics of net loads:
 ```{r calc summ stats net loads}
 net_loads_summ <- net_loads17 %>% 
-  summ_stat(net_load, Reach, Analyte)
+  summ_stat(net_load, Reach, Analyte) %>% 
+  mutate_at(vars(Mean:IQR), signif, digits = 3)
 ```
 
 
@@ -375,8 +377,7 @@ total_loads_plots_mehg %>% pull(scatterplots) %>% chuck(1)
 ```{r mehg total load summ stats}
 total_loads_summ %>% 
   filter(str_detect(Analyte, "^MeHg")) %>% 
-  datatable(rownames = FALSE) %>% 
-  formatRound(4:11, digits = 2)
+  datatable(rownames = FALSE)
 ```
 
 ### Net Load Barplots
@@ -415,8 +416,7 @@ p
 ```{r mehg net load summ stats}
 net_loads_summ %>% 
   filter(str_detect(Analyte, "^MeHg")) %>% 
-  datatable(rownames = FALSE) %>% 
-  formatRound(4:11, digits = 2)
+  datatable(rownames = FALSE)
 ```
 
 
@@ -464,8 +464,7 @@ total_loads_plots_hg %>% pull(scatterplots) %>% chuck(1)
 ```{r hg total load summ stats}
 total_loads_summ %>% 
   filter(str_detect(Analyte, "^THg")) %>% 
-  datatable(rownames = FALSE) %>% 
-  formatRound(4:11, digits = 1)
+  datatable(rownames = FALSE)
 ```
 
 ### Net Load Barplots
@@ -504,8 +503,7 @@ p
 ```{r hg net load summ stats}
 net_loads_summ %>% 
   filter(str_detect(Analyte, "^THg")) %>% 
-  datatable(rownames = FALSE) %>% 
-  formatRound(4:11, digits = 1)
+  datatable(rownames = FALSE)
 ```
 
 
@@ -553,8 +551,7 @@ total_loads_plots_oc %>% pull(scatterplots) %>% chuck(1)
 ```{r oc total load summ stats}
 total_loads_summ %>% 
   filter(str_detect(Analyte, "OC$")) %>% 
-  datatable(rownames = FALSE) %>% 
-  formatRound(4:11, digits = 1)
+  datatable(rownames = FALSE)
 ```
 
 ### Net Load Barplots
@@ -593,8 +590,7 @@ p
 ```{r oc net load summ stats}
 net_loads_summ %>% 
   filter(str_detect(Analyte, "OC$")) %>% 
-  datatable(rownames = FALSE) %>% 
-  formatRound(4:11, digits = 1)
+  datatable(rownames = FALSE)
 ```
 
 
@@ -642,8 +638,7 @@ total_loads_plots_ss %>% pull(scatterplots) %>% chuck(1)
 ```{r ss total load summ stats}
 total_loads_summ %>% 
   filter(str_detect(Analyte, "SS$")) %>% 
-  datatable(rownames = FALSE) %>% 
-  formatRound(4:11, digits = 0)
+  datatable(rownames = FALSE)
 ```
 
 ### Net Load Barplots
@@ -682,7 +677,6 @@ p
 ```{r ss net load summ stats}
 net_loads_summ %>% 
   filter(str_detect(Analyte, "SS$")) %>% 
-  datatable(rownames = FALSE) %>% 
-  formatRound(4:11, digits = 0)
+  datatable(rownames = FALSE)
 ```
 
