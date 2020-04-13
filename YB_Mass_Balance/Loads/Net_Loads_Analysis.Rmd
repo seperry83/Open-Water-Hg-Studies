@@ -377,7 +377,8 @@ total_loads_plots_mehg %>% pull(scatterplots) %>% chuck(1)
 ```{r mehg total load summ stats}
 total_loads_summ %>% 
   filter(str_detect(Analyte, "^MeHg")) %>% 
-  datatable(rownames = FALSE)
+  datatable(rownames = FALSE) %>% 
+  formatSignif(4:11, digits = 3)
 ```
 
 ### Net Load Barplots
@@ -416,7 +417,8 @@ p
 ```{r mehg net load summ stats}
 net_loads_summ %>% 
   filter(str_detect(Analyte, "^MeHg")) %>% 
-  datatable(rownames = FALSE)
+  datatable(rownames = FALSE) %>% 
+  formatSignif(4:11, digits = 3)
 ```
 
 
@@ -464,7 +466,8 @@ total_loads_plots_hg %>% pull(scatterplots) %>% chuck(1)
 ```{r hg total load summ stats}
 total_loads_summ %>% 
   filter(str_detect(Analyte, "^THg")) %>% 
-  datatable(rownames = FALSE)
+  datatable(rownames = FALSE) %>% 
+  formatSignif(4:11, digits = 3)
 ```
 
 ### Net Load Barplots
@@ -503,7 +506,8 @@ p
 ```{r hg net load summ stats}
 net_loads_summ %>% 
   filter(str_detect(Analyte, "^THg")) %>% 
-  datatable(rownames = FALSE)
+  datatable(rownames = FALSE) %>% 
+  formatSignif(4:11, digits = 3)
 ```
 
 
@@ -551,7 +555,8 @@ total_loads_plots_oc %>% pull(scatterplots) %>% chuck(1)
 ```{r oc total load summ stats}
 total_loads_summ %>% 
   filter(str_detect(Analyte, "OC$")) %>% 
-  datatable(rownames = FALSE)
+  datatable(rownames = FALSE) %>% 
+  formatSignif(4:11, digits = 3)
 ```
 
 ### Net Load Barplots
@@ -590,7 +595,8 @@ p
 ```{r oc net load summ stats}
 net_loads_summ %>% 
   filter(str_detect(Analyte, "OC$")) %>% 
-  datatable(rownames = FALSE)
+  datatable(rownames = FALSE) %>% 
+  formatSignif(4:11, digits = 3)
 ```
 
 
@@ -638,7 +644,8 @@ total_loads_plots_ss %>% pull(scatterplots) %>% chuck(1)
 ```{r ss total load summ stats}
 total_loads_summ %>% 
   filter(str_detect(Analyte, "SS$")) %>% 
-  datatable(rownames = FALSE)
+  datatable(rownames = FALSE) %>% 
+  formatSignif(4:11, digits = 3)
 ```
 
 ### Net Load Barplots
@@ -677,6 +684,7 @@ p
 ```{r ss net load summ stats}
 net_loads_summ %>% 
   filter(str_detect(Analyte, "SS$")) %>% 
-  datatable(rownames = FALSE)
+  datatable(rownames = FALSE) %>% 
+  formatSignif(4:11, digits = 3)
 ```
 
