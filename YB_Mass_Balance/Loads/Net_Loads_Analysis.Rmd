@@ -120,9 +120,9 @@ net_loads_summ <- net_loads17 %>%
 
 # Create Plot Functions
 
-Function for barplots for total and net loads:
-```{r fun barplot loads}
-barplot_load <- function(df, y_var, fill_var, type = c("total", "net")) {
+Function for barplots for total and net loads, free y-axis scale:
+```{r fun barplot loads free}
+barplot_load_free <- function(df, y_var, fill_var, type = c("total", "net")) {
   # evaluate choices for type
   type <- match.arg(type, c("total", "net"))
   
@@ -164,6 +164,32 @@ barplot_load <- function(df, y_var, fill_var, type = c("total", "net")) {
         y = paste0("Net Loads (", df$LoadUnits[1], ")")
       )
   }
+  
+  return(p)
+}
+```
+
+Function for barplots for net loads, fixed y-axis scale:
+```{r fun barplot net loads fixed}
+barplot_load_fixed <- function(df) {
+   p <- 
+    ggplot(
+      data = df,
+      aes(
+        x = SamplingEvent, 
+        y = net_load, 
+        fill = Reach
+      )
+    ) +
+    geom_col(position = "dodge") +
+    facet_grid(rows= vars(Analyte)) +
+    labs(
+      title = NULL,
+      x = NULL,
+      y = paste0("Net Loads (", df$LoadUnits[1], ")")
+    ) +
+    add_gen_color_pal(3, "fill") +
+    theme_owhg(x_axis_v = TRUE)
   
   return(p)
 }
@@ -261,7 +287,7 @@ total_loads_plots <- total_loads %>%
   mutate(
     barplots = map(
       data,
-      .f = barplot_load,
+      .f = barplot_load_free,
       y_var = total_load,
       fill_var = LocType,
       type = "total"
@@ -297,13 +323,14 @@ Net Loads:
 net_loads_barplots <- net_loads %>% 
   group_nest(AnalyteGroup) %>% 
   mutate(
-    barplots = map(
+    barplots_free = map(
       data,
-      .f = barplot_load,
+      .f = barplot_load_free,
       y_var = net_load,
       fill_var = Reach,
       type = "net"
-    )
+    ),
+    barplots_fixed = map(data, .f = barplot_load_fixed)
   ) %>% 
   select(-data)
 
@@ -383,10 +410,16 @@ total_loads_summ %>%
 
 ### Net Load Barplots
 
-```{r mehg net load barplots, fig.height = 6}
+Free y-axis scale:
+```{r mehg net load barplots free, fig.height = 6}
 net_loads_plots_mehg <- filter(net_loads_plots, AnalyteGroup == "MeHg")
 
-net_loads_plots_mehg %>% pull(barplots) %>% chuck(1)
+net_loads_plots_mehg %>% pull(barplots_free) %>% chuck(1)
+```
+
+Fixed y-axis scale:
+```{r mehg net load barplots fixed, fig.height = 7}
+net_loads_plots_mehg %>% pull(barplots_fixed) %>% chuck(1)
 ```
 
 ### Net Load Boxplots
@@ -472,10 +505,16 @@ total_loads_summ %>%
 
 ### Net Load Barplots
 
-```{r hg net load barplots, fig.height = 6}
+Free y-axis scale:
+```{r hg net load barplots free, fig.height = 6}
 net_loads_plots_hg <- filter(net_loads_plots, AnalyteGroup == "Hg")
 
-net_loads_plots_hg %>% pull(barplots) %>% chuck(1)
+net_loads_plots_hg %>% pull(barplots_free) %>% chuck(1)
+```
+
+Fixed y-axis scale:
+```{r hg net load barplots fixed, fig.height = 7}
+net_loads_plots_hg %>% pull(barplots_fixed) %>% chuck(1)
 ```
 
 ### Net Load Boxplots
@@ -561,10 +600,16 @@ total_loads_summ %>%
 
 ### Net Load Barplots
 
-```{r oc net load barplots, fig.height = 6}
+Free y-axis scale:
+```{r oc net load barplots free, fig.height = 6}
 net_loads_plots_oc <- filter(net_loads_plots, AnalyteGroup == "OrgC")
 
-net_loads_plots_oc %>% pull(barplots) %>% chuck(1)
+net_loads_plots_oc %>% pull(barplots_free) %>% chuck(1)
+```
+
+Fixed y-axis scale:
+```{r oc net load barplots fixed, fig.height = 7}
+net_loads_plots_oc %>% pull(barplots_fixed) %>% chuck(1)
 ```
 
 ### Net Load Boxplots
@@ -653,7 +698,7 @@ total_loads_summ %>%
 ```{r ss net load barplots}
 net_loads_plots_ss <- filter(net_loads_plots, AnalyteGroup == "SuspSolids")
 
-net_loads_plots_ss %>% pull(barplots) %>% chuck(1)
+net_loads_plots_ss %>% pull(barplots_free) %>% chuck(1)
 ```
 
 ### Net Load Boxplots
