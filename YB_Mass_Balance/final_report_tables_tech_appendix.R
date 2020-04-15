@@ -265,12 +265,12 @@ inlet_loads_summ_c %>% write_excel_csv("table_b-11.csv")
 
 
 # Table B-12 --------------------------------------------------------------
-# Summary statistics for net loads of Hg, MeHg, Organic Carbon and Suspended Solids
+# Averages and standard deviations for net loads of Hg, MeHg, Organic Carbon and Suspended Solids
 # For 3 segments of the Yolo Bypass: upper reach, Liberty Island, and entire Bypass
 # For just the sampling events in 2017
 
-# Calculate total input and output loads for each sampling event and parameter
-total_loads <- loads_calc %>% 
+# Calculate net loads for each reach
+net_loads <- loads_calc %>% 
   # Only include a subset of the data
   filter(
     Year == 2017,
@@ -279,13 +279,10 @@ total_loads <- loads_calc %>%
   # Group and sum load data
   group_by(SamplingEvent, Analyte, LoadUnits, LocType) %>% 
   summarize(total_load = sum(Load)) %>% 
-  ungroup()
-
-# Calculate net loads for each reach
-net_loads <- total_loads %>% 
+  ungroup() %>% 
+  # Calculate net loads for each reach
   pivot_wider(names_from = LocType, values_from = total_load) %>% 
   rename(below_liberty = "Below Liberty") %>% 
-  # Calculate net loads for each reach
   mutate(
     Upper = Outlet - Inlet,
     Liberty = below_liberty - Outlet,
@@ -299,38 +296,49 @@ net_loads <- total_loads %>%
   ) %>% 
   filter(!is.na(net_load))
 
-# Calculate summary statistics of net loads for each reach
+# Summarize net load data for each reach for Table B-12
 net_loads_summ <- net_loads %>% 
+  # Calculate averages and standard deviations of net loads for each reach
+  group_by(Reach, Analyte, LoadUnits) %>% 
+  summarize(
+    avg_load = signif(mean(net_load), 3),
+    stdev_load = signif(sd(net_load), 3)
+  ) %>% 
+  ungroup()
+
+# Pivot the averages
+net_loads_avg <- net_loads_summ %>% 
+  pivot_wider(
+    id_cols = c(Analyte, LoadUnits),
+    names_from = Reach,
+    values_from = avg_load
+  )
+
+# Pivot the standard deviations
+net_loads_stdev <- net_loads_summ %>% 
+  pivot_wider(
+    id_cols = c(Analyte, LoadUnits),
+    names_from = Reach,
+    values_from = stdev_load
+  )
+
+# Join averages and standard deviations together into one df
+net_loads_summ_c <- 
+  left_join(
+    net_loads_avg, net_loads_stdev,
+    by = c("Analyte", "LoadUnits"),
+    suffix = c("_avg", "_stdev")
+  ) %>% 
   mutate(Analyte = factor(Analyte, levels = analyte_order)) %>% 
-  group_nest(Reach) %>% 
-  mutate(
-    summ_stats = map(
-      data,
-      .f = ~summ_stat(.x, net_load, Analyte, LoadUnits) %>% 
-        mutate_at(vars(Mean:IQR), signif, digits = 3) %>% 
-        select(Analyte, LoadUnits, Minimum, Maximum, Median, Mean, StDev)
-    )
+  arrange(Analyte) %>% 
+  select(
+    Analyte,
+    LoadUnits,
+    starts_with("Upper"),
+    starts_with("Liberty"),
+    starts_with("Entire")
   )
 
 # Export Table B-12
-  # Upper reach 
-  net_loads_summ %>% 
-    filter(Reach == "Upper") %>% 
-    pull(summ_stats) %>% 
-    chuck(1) %>% 
-    write_excel_csv("table_b-12_upper.csv")
-
-  # Liberty Island reach 
-  net_loads_summ %>% 
-    filter(Reach == "Liberty") %>% 
-    pull(summ_stats) %>% 
-    chuck(1) %>% 
-    write_excel_csv("table_b-12_lib.csv")
-  
-  # Entire Bypass
-  net_loads_summ %>% 
-    filter(Reach == "Entire") %>% 
-    pull(summ_stats) %>% 
-    chuck(1) %>% 
-    write_excel_csv("table_b-12_entire.csv")
+net_loads_summ_c %>% write_excel_csv("table_b-12.csv")
 
