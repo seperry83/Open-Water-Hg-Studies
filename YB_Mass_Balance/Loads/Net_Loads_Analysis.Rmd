@@ -733,3 +733,25 @@ net_loads_summ %>%
   formatSignif(4:11, digits = 3)
 ```
 
+
+## Extra Analyses in Technical Appendix
+
+```{r inlet vs internal mehg source for entire yb}
+mehg_entire_yb <- total_loads17 %>% 
+  filter(
+    !str_detect(SamplingEvent, "Apr 11"),
+    Analyte == "MeHg- total"
+  ) %>%
+  select(-c(LoadUnits, AnalyteGroup, total_inflow)) %>% 
+  group_by(LocType) %>% 
+  summarize(avg_total_load = mean(total_load))
+
+mehg_inlet <- mehg_entire_yb$avg_total_load[1]
+mehg_outlet <- mehg_entire_yb$avg_total_load[2]
+mehg_bli <- mehg_entire_yb$avg_total_load[3]
+perc_inlet <- round(mehg_inlet/mehg_bli * 100)
+
+```
+
+On average, the inlets to the Bypass accounted for `r perc_inlet`% of this uMeHg export load and net internal production provided the remaining `r 100 - perc_inlet`% or 17.9 ± 18.5 g/day (Table 13).  Most of this net internal production of uMeHg occurred in the Upper reach between the inlets and the Stairsteps supplying `r round((mehg_outlet - mehg_inlet)/(mehg_bli - mehg_inlet) * 100)`% of the net load.
+
