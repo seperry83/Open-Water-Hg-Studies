@@ -6,6 +6,7 @@ output:
   html_document: 
     code_folding: hide
     toc: yes
+    toc_depth: 4
     toc_float:
       collapsed: no
 editor_options: 
@@ -25,6 +26,8 @@ library(tidyverse)
 library(scales)
 library(rlang)
 library(openwaterhg)
+library(knitr)
+library(kableExtra)
 library(DT)
 ```
 
@@ -38,8 +41,8 @@ total_loads <- loads_calc %>%
     AnalyteGroup = case_when(
       str_detect(Analyte, "^MeHg") ~ "MeHg",
       str_detect(Analyte, "^THg") ~ "Hg",
-      str_detect(Analyte, "OC$") ~ "OrgC",
-      str_detect(Analyte, "SS$") ~ "SuspSolids"
+      str_detect(Analyte, "OC$") ~ "Organic Carbon",
+      str_detect(Analyte, "SS$") ~ "Suspended Solids"
     )
   ) %>% 
   # Group and sum load data
@@ -49,6 +52,41 @@ total_loads <- loads_calc %>%
   # Apply plot order
   conv_fact_samplingevent() %>% 
   mutate(LocType = factor(LocType, levels = c("Inlet", "Outlet", "Below Liberty")))
+```
+
+Create restructured total_loads dataframes grouped by LocType and Analyte Group to display as datatables:
+```{r total loads restructure}
+total_loads_table <- total_loads %>% 
+  arrange(SamplingEvent) %>% 
+  mutate(total_load = signif(total_load, 3)) %>% 
+  group_nest(LocType, AnalyteGroup) %>% 
+  mutate(
+    load_table = map(
+      data,
+      .f = ~pivot_wider(
+        .x,
+        id_cols = SamplingEvent, 
+        names_from = Analyte, 
+        values_from = total_load
+      ) %>% 
+      kable(
+        format = "html",
+        col.names = gsub("gE", "g E", names(.)),
+        format.args = list(
+          big.mark = ",", 
+          drop0trailing = TRUE
+        )
+      ) %>% 
+      kable_styling(
+        "striped", 
+        full_width = FALSE, 
+        position = "left"
+      )
+    )
+  ) %>% 
+  select(-data) %>% 
+  group_nest(AnalyteGroup) %>% 
+  rename(t_loads_table = data)
 ```
 
 Calculate net loads for each reach (Upper, Liberty Island, Entire Bypass) grouped by sampling event and parameter:
@@ -73,6 +111,57 @@ net_loads <- total_loads %>%
   mutate(Reach = factor(Reach, levels = c("Upper", "Liberty", "Entire")))
 ```
 
+Create restructured net_loads dataframes grouped by Reach and Analyte Group to display as datatables:
+```{r net loads restructure}
+net_loads_table <- net_loads %>% 
+  arrange(SamplingEvent) %>% 
+  mutate(
+    net_load = signif(net_load, 3),
+    net_load = cell_spec(
+        format(
+          net_load,
+          big.mark = ",", 
+          scientific = FALSE,
+          drop0trailing = TRUE
+        ),
+        "html",
+        color = if_else(net_load < 0, "red", "black")
+    )
+  ) %>%
+  group_nest(Reach, AnalyteGroup) %>% 
+   mutate(
+    load_table = map(
+      data,
+      .f = ~pivot_wider(
+        .x,
+        id_cols = SamplingEvent, 
+        names_from = Analyte, 
+        values_from = net_load
+      ) %>% 
+      kable(
+        format = "html",
+        col.names = gsub("gE", "g E", names(.)),
+        escape = FALSE
+      ) %>% 
+      kable_styling(
+        "striped", 
+        full_width = FALSE, 
+        position = "left"
+      )
+    )
+  ) %>% 
+  select(-data) %>% 
+  group_nest(AnalyteGroup) %>% 
+  rename(n_loads_table = data)
+```
+
+Create two new dataframes with total and net loads only for 2017 sampling events. This will be used for the summary statistics and boxplots.
+```{r filter 2017 data}
+total_loads17 <- total_loads %>% filter(str_detect(SamplingEvent, "17$"))
+
+net_loads17 <- net_loads %>% filter(str_detect(SamplingEvent, "17$"))
+```
+
 Add total inlet flows to total_loads and net_loads dataframes:
 ```{r add flow data, message = FALSE}
 # Prepare flow data df to join with loads df's
@@ -93,28 +182,41 @@ total_loads <- left_join(total_loads, total_inflows)
 net_loads <- left_join(net_loads, total_inflows)
 ```
 
-Create two new dataframes with total and net loads only for 2017 sampling events. This will be used for the summary statistics and boxplots.
-```{r filter 2017 data}
-total_loads17 <- total_loads %>% filter(str_detect(SamplingEvent, "17$"))
-
-net_loads17 <- net_loads %>% filter(str_detect(SamplingEvent, "17$"))
-```
-
 
 # Run Calculations
 
 Calculate summary statistics of total loads:
 ```{r calc summ stats total loads}
 total_loads_summ <- total_loads17 %>% 
-  summ_stat(total_load, LocType, Analyte) %>% 
-  mutate_at(vars(Mean:IQR), signif, digits = 3)
+  group_nest(AnalyteGroup) %>% 
+  mutate(
+    t_loads_summ = map(
+      data,
+      .f = ~summ_stat(.x, total_load, LocType, Analyte) %>% 
+        mutate_at(vars(Mean:IQR), signif, digits = 3) %>% 
+        datatable(rownames = FALSE)
+    )
+  ) %>% 
+  select(-data)
 ```
 
 Calculate summary statistics of net loads:
 ```{r calc summ stats net loads}
 net_loads_summ <- net_loads17 %>% 
-  summ_stat(net_load, Reach, Analyte) %>% 
-  mutate_at(vars(Mean:IQR), signif, digits = 3)
+  group_nest(AnalyteGroup) %>% 
+  mutate(
+    n_loads_summ = map(
+      data,
+      .f = ~summ_stat(.x, net_load, Reach, Analyte) %>% 
+        mutate_at(vars(Mean:IQR), signif, digits = 3) %>% 
+        datatable(rownames = FALSE) %>% 
+        formatStyle(
+          4:11,
+          color = styleInterval(0, values = c("red", "black"))
+        )
+    )
+  ) %>% 
+  select(-data)
 ```
 
 
@@ -285,7 +387,7 @@ Total Loads:
 total_loads_plots <- total_loads %>% 
   group_nest(AnalyteGroup) %>% 
   mutate(
-    barplots = map(
+    t_barplots = map(
       data,
       .f = barplot_load_free,
       y_var = total_load,
@@ -300,7 +402,7 @@ total_loads_plots <- total_loads %>%
 total_loads_boxplots <- total_loads17 %>% 
   group_nest(AnalyteGroup) %>% 
   mutate(
-    boxplots = map(
+    t_boxplots = map(
       data,
       .f = boxplot_load,
       x_var = LocType,
@@ -309,12 +411,6 @@ total_loads_boxplots <- total_loads17 %>%
     )
   ) %>% 
   select(-data)
-
-# Join two dataframes together
-total_loads_plots <- left_join(total_loads_plots, total_loads_boxplots)
-
-# Clean up 
-rm(total_loads_boxplots)
 ```
 
 Net Loads:
@@ -323,14 +419,14 @@ Net Loads:
 net_loads_barplots <- net_loads %>% 
   group_nest(AnalyteGroup) %>% 
   mutate(
-    barplots_free = map(
+    n_barplots_free = map(
       data,
       .f = barplot_load_free,
       y_var = net_load,
       fill_var = Reach,
       type = "net"
     ),
-    barplots_fixed = map(data, .f = barplot_load_fixed)
+    n_barplots_fixed = map(data, .f = barplot_load_fixed)
   ) %>% 
   select(-data)
 
@@ -338,7 +434,7 @@ net_loads_barplots <- net_loads %>%
 net_loads_boxplots <- net_loads17 %>% 
   group_nest(AnalyteGroup) %>% 
   mutate(
-    boxplots = map(
+    n_boxplots = map(
       data,
       .f = boxplot_load,
       x_var = Reach,
@@ -347,12 +443,6 @@ net_loads_boxplots <- net_loads17 %>%
     )
   ) %>% 
   select(-data)
-
-# Join two dataframes together
-net_loads_plots <- left_join(net_loads_barplots, net_loads_boxplots)
-
-# Clean up
-rm(net_loads_barplots, net_loads_boxplots)
 ```
 
 
@@ -360,379 +450,55 @@ rm(net_loads_barplots, net_loads_boxplots)
 
 The summary statistics and boxplots for the total and net loads only include the sampling events conducted in 2017. The remaining plots include all sampling events conducted throughout the study period (2014-2017).
 
-## MeHg
+Join all plots, data tables, and summary statistics together for more efficient code:
+```{r join plots tables summ stats, message = FALSE}
+all_obj <- 
+  reduce(
+    list(
+      total_loads_plots,
+      total_loads_boxplots,
+      total_loads_table,
+      total_loads_summ,
+      net_loads_barplots,
+      net_loads_boxplots,
+      net_loads_table,
+      net_loads_summ
+    ),
+    left_join
+  ) 
 
-### Total Load Barplots
-
-```{r mehg total load barplots, fig.height = 6}
-total_loads_plots_mehg <- filter(total_loads_plots, AnalyteGroup == "MeHg")
-
-total_loads_plots_mehg %>% pull(barplots) %>% chuck(1)
+# Clean up
+rm(
+  total_loads_plots,
+  total_loads_boxplots,
+  total_loads_table,
+  total_loads_summ,
+  net_loads_barplots,
+  net_loads_boxplots,
+  net_loads_table,
+  net_loads_summ
+)
 ```
 
-### Total Load Boxplots
-
-Red diamond represents the average
-```{r mehg total load boxplots, fig.height = 5.5}
-p <- total_loads_plots_mehg %>% 
-  pull(boxplots) %>% 
-  chuck(1) %>% 
-  plotly::plotly_build()
-
-# Workaround to have plotly not add markers for outliers
-p$x$data <- lapply(
-  p$x$data, 
-  FUN = function(x) {
-    if (x$type == "box") {
+Create function to have plotly not add markers for outliers:
+```{r fun remove plotly markers}
+remove_markers <- function(x) {
+  if (x$type == "box") {
       x$marker = list(opacity = 0)
     }
     return(x)
-  }
-)
-
-p
+}
 ```
 
-### Total Load vs. Inflow Scatterplots
-
-```{r mehg load vs flow plots, fig.height = 7, fig.width = 7}
-total_loads_plots_mehg %>% pull(scatterplots) %>% chuck(1)
+```{r, include = FALSE}
+run_analyses <- 
+  map(
+    c("MeHg", "Hg", "Organic Carbon", "Suspended Solids"),
+    .f = ~knit_expand(file = "Net_loads_Analysis_template.Rmd", parameter = .x)
+  )
 ```
 
-### Total Load Summary Statistics
-
-```{r mehg total load summ stats}
-total_loads_summ %>% 
-  filter(str_detect(Analyte, "^MeHg")) %>% 
-  datatable(rownames = FALSE) %>% 
-  formatSignif(4:11, digits = 3)
-```
-
-### Net Load Barplots
-
-Free y-axis scale:
-```{r mehg net load barplots free, fig.height = 6}
-net_loads_plots_mehg <- filter(net_loads_plots, AnalyteGroup == "MeHg")
-
-net_loads_plots_mehg %>% pull(barplots_free) %>% chuck(1)
-```
-
-Fixed y-axis scale:
-```{r mehg net load barplots fixed, fig.height = 7}
-net_loads_plots_mehg %>% pull(barplots_fixed) %>% chuck(1)
-```
-
-### Net Load Boxplots
-
-Red diamond represents the average
-```{r mehg net load boxplots, fig.height = 5.5}
-p <- net_loads_plots_mehg %>% 
-  pull(boxplots) %>% 
-  chuck(1) %>% 
-  plotly::plotly_build()
-
-# Workaround to have plotly not add markers for outliers
-p$x$data <- lapply(
-  p$x$data, 
-  FUN = function(x) {
-    if (x$type == "box") {
-      x$marker = list(opacity = 0)
-    }
-    return(x)
-  }
-)
-
-p
-```
-
-### Net Load Summary Statistics
-
-```{r mehg net load summ stats}
-net_loads_summ %>% 
-  filter(str_detect(Analyte, "^MeHg")) %>% 
-  datatable(rownames = FALSE) %>% 
-  formatSignif(4:11, digits = 3)
-```
-
-
-## Hg
-
-### Total Load Barplots
-
-```{r hg total load barplots, fig.height = 6}
-total_loads_plots_hg <- filter(total_loads_plots, AnalyteGroup == "Hg")
-
-total_loads_plots_hg %>% pull(barplots) %>% chuck(1)
-```
-
-### Total Load Boxplots
-
-Red diamond represents the average
-```{r hg total load boxplots, fig.height = 5.5}
-p <- total_loads_plots_hg %>% 
-  pull(boxplots) %>% 
-  chuck(1) %>% 
-  plotly::plotly_build()
-
-# Workaround to have plotly not add markers for outliers
-p$x$data <- lapply(
-  p$x$data, 
-  FUN = function(x) {
-    if (x$type == "box") {
-      x$marker = list(opacity = 0)
-    }
-    return(x)
-  }
-)
-
-p
-```
-
-### Total Load vs. Inflow Scatterplots
-
-```{r hg load vs flow plots, fig.height = 7, fig.width = 7}
-total_loads_plots_hg %>% pull(scatterplots) %>% chuck(1)
-```
-
-### Total Load Summary Statistics
-
-```{r hg total load summ stats}
-total_loads_summ %>% 
-  filter(str_detect(Analyte, "^THg")) %>% 
-  datatable(rownames = FALSE) %>% 
-  formatSignif(4:11, digits = 3)
-```
-
-### Net Load Barplots
-
-Free y-axis scale:
-```{r hg net load barplots free, fig.height = 6}
-net_loads_plots_hg <- filter(net_loads_plots, AnalyteGroup == "Hg")
-
-net_loads_plots_hg %>% pull(barplots_free) %>% chuck(1)
-```
-
-Fixed y-axis scale:
-```{r hg net load barplots fixed, fig.height = 7}
-net_loads_plots_hg %>% pull(barplots_fixed) %>% chuck(1)
-```
-
-### Net Load Boxplots
-
-Red diamond represents the average
-```{r hg net load boxplots, fig.height = 5.5}
-p <- net_loads_plots_hg %>% 
-  pull(boxplots) %>% 
-  chuck(1) %>% 
-  plotly::plotly_build()
-
-# Workaround to have plotly not add markers for outliers
-p$x$data <- lapply(
-  p$x$data, 
-  FUN = function(x) {
-    if (x$type == "box") {
-      x$marker = list(opacity = 0)
-    }
-    return(x)
-  }
-)
-
-p
-```
-
-### Net Load Summary Statistics
-
-```{r hg net load summ stats}
-net_loads_summ %>% 
-  filter(str_detect(Analyte, "^THg")) %>% 
-  datatable(rownames = FALSE) %>% 
-  formatSignif(4:11, digits = 3)
-```
-
-
-## Organic Carbon
-
-### Total Load Barplots
-
-```{r oc total load barplots, fig.height = 6}
-total_loads_plots_oc <- filter(total_loads_plots, AnalyteGroup == "OrgC")
-
-total_loads_plots_oc %>% pull(barplots) %>% chuck(1)
-```
-
-### Total Load Boxplots
-
-Red diamond represents the average
-```{r oc total load boxplots, fig.height = 5.5}
-p <- total_loads_plots_oc %>% 
-  pull(boxplots) %>% 
-  chuck(1) %>% 
-  plotly::plotly_build()
-
-# Workaround to have plotly not add markers for outliers
-p$x$data <- lapply(
-  p$x$data, 
-  FUN = function(x) {
-    if (x$type == "box") {
-      x$marker = list(opacity = 0)
-    }
-    return(x)
-  }
-)
-
-p
-```
-
-### Total Load vs. Inflow Scatterplots
-
-```{r oc load vs flow plots, fig.height = 7, fig.width = 7}
-total_loads_plots_oc %>% pull(scatterplots) %>% chuck(1)
-```
-
-### Total Load Summary Statistics
-
-```{r oc total load summ stats}
-total_loads_summ %>% 
-  filter(str_detect(Analyte, "OC$")) %>% 
-  datatable(rownames = FALSE) %>% 
-  formatSignif(4:11, digits = 3)
-```
-
-### Net Load Barplots
-
-Free y-axis scale:
-```{r oc net load barplots free, fig.height = 6}
-net_loads_plots_oc <- filter(net_loads_plots, AnalyteGroup == "OrgC")
-
-net_loads_plots_oc %>% pull(barplots_free) %>% chuck(1)
-```
-
-Fixed y-axis scale:
-```{r oc net load barplots fixed, fig.height = 7}
-net_loads_plots_oc %>% pull(barplots_fixed) %>% chuck(1)
-```
-
-### Net Load Boxplots
-
-Red diamond represents the average
-```{r oc net load boxplots, fig.height = 5.5}
-p <- net_loads_plots_oc %>% 
-  pull(boxplots) %>% 
-  chuck(1) %>% 
-  plotly::plotly_build()
-
-# Workaround to have plotly not add markers for outliers
-p$x$data <- lapply(
-  p$x$data, 
-  FUN = function(x) {
-    if (x$type == "box") {
-      x$marker = list(opacity = 0)
-    }
-    return(x)
-  }
-)
-
-p
-```
-
-### Net Load Summary Statistics
-
-```{r oc net load summ stats}
-net_loads_summ %>% 
-  filter(str_detect(Analyte, "OC$")) %>% 
-  datatable(rownames = FALSE) %>% 
-  formatSignif(4:11, digits = 3)
-```
-
-
-## Suspended Solids
-
-### Total Load Barplots
-
-```{r ss total load barplots}
-total_loads_plots_ss <- filter(total_loads_plots, AnalyteGroup == "SuspSolids")
-
-total_loads_plots_ss %>% pull(barplots) %>% chuck(1)
-```
-
-### Total Load Boxplots
-
-Red diamond represents the average
-```{r ss total load boxplots, fig.height = 5.5}
-p <- total_loads_plots_ss %>% 
-  pull(boxplots) %>% 
-  chuck(1) %>% 
-  plotly::plotly_build()
-
-# Workaround to have plotly not add markers for outliers
-p$x$data <- lapply(
-  p$x$data, 
-  FUN = function(x) {
-    if (x$type == "box") {
-      x$marker = list(opacity = 0)
-    }
-    return(x)
-  }
-)
-
-p
-```
-
-### Total Load vs. Inflow Scatterplots
-
-```{r ss load vs flow plots}
-total_loads_plots_ss %>% pull(scatterplots) %>% chuck(1)
-```
-
-### Total Load Summary Statistics
-
-```{r ss total load summ stats}
-total_loads_summ %>% 
-  filter(str_detect(Analyte, "SS$")) %>% 
-  datatable(rownames = FALSE) %>% 
-  formatSignif(4:11, digits = 3)
-```
-
-### Net Load Barplots
-
-```{r ss net load barplots}
-net_loads_plots_ss <- filter(net_loads_plots, AnalyteGroup == "SuspSolids")
-
-net_loads_plots_ss %>% pull(barplots_free) %>% chuck(1)
-```
-
-### Net Load Boxplots
-
-Red diamond represents the average
-```{r ss net load boxplots, fig.height = 5.5}
-p <- net_loads_plots_ss %>% 
-  pull(boxplots) %>% 
-  chuck(1) %>% 
-  plotly::plotly_build()
-
-# Workaround to have plotly not add markers for outliers
-p$x$data <- lapply(
-  p$x$data, 
-  FUN = function(x) {
-    if (x$type == "box") {
-      x$marker = list(opacity = 0)
-    }
-    return(x)
-  }
-)
-
-p
-```
-
-### Net Load Summary Statistics
-
-```{r ss net load summ stats}
-net_loads_summ %>% 
-  filter(str_detect(Analyte, "SS$")) %>% 
-  datatable(rownames = FALSE) %>% 
-  formatSignif(4:11, digits = 3)
-```
-
+`r knit(text = unlist(run_analyses))`
 
 ## Extra Analyses in Technical Appendix
 
@@ -742,7 +508,7 @@ mehg_entire_yb <- total_loads17 %>%
     !str_detect(SamplingEvent, "Apr 11"),
     Analyte == "MeHg- total"
   ) %>%
-  select(-c(LoadUnits, AnalyteGroup, total_inflow)) %>% 
+  select(-c(LoadUnits, AnalyteGroup)) %>% 
   group_by(LocType) %>% 
   summarize(avg_total_load = mean(total_load))
 
