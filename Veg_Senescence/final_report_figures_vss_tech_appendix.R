@@ -14,7 +14,7 @@ library(openwaterhg)
 sharepoint_path <- normalizePath(
   file.path(
     Sys.getenv("USERPROFILE"),
-    "California Department of Water Resources/DWR Documents - Open Water Final Report - Documents/Technical Appendices/Vegetation Senscence/Veg Sens. data and graphs"
+    "California Department of Water Resources/DWR Documents - Open Water Final Report - Documents/Technical Appendices/Technical Appendix-E_Vegetation Senscence/Veg Sens. data and graphs"
   )
 )  
 
@@ -105,7 +105,7 @@ ggsave(
 # 2017 Vegetation Senescence Study
 # Bar plot of means of each treatment with error bars indicating their standard deviations
 # Means are the concentration in ng/L/day of filtered MeHg in the overlying water
-# Facets for each Week of sample collection
+# Facets for each Week of sample collection, excluding Week 1
 
 # Import Data
 vss_2017_orig <- read_excel(path = paste0(sharepoint_path, "/VegSens_Dec2017_Conc_Data.xlsx"), sheet = "Normal Water Data- R")
@@ -114,10 +114,16 @@ vss_2017_orig <- read_excel(path = paste0(sharepoint_path, "/VegSens_Dec2017_Con
 vss_2017_clean <- vss_2017_orig %>% 
   # Extract date from dttm variable
   mutate(SampleDate = as_date(SampleDate)) %>%
-  # Remove Ice Chest Blank and Devegetated Treatments  
-  filter(!str_detect(StationName, "Blank|Devegetated")) %>% 
-  # Only keep MeHg- filtered data and Before Water Change samples
-  filter(Analyte == "MeHg- filtered", SampleTiming == "Before water change") %>% 
+  # Filter data
+  filter(
+    # Remove Ice Chest Blank and Devegetated Treatments  
+    !str_detect(StationName, "Blank|Devegetated"),
+    # Only keep MeHg- filtered data and Before Water Change samples
+    Analyte == "MeHg- filtered", 
+    SampleTiming == "Before water change",
+    # Remove Week 1 data
+    SampleDate != "2017-12-06"
+  ) %>% 
   # Create a new variable Conc, which is a numeric version of Result with the MDL and RL for the ND values
   add_num_result() %>% 
   # Divide Conc by 4 to convert to ng/L/day
@@ -126,7 +132,6 @@ vss_2017_clean <- vss_2017_orig %>%
   mutate(
     Treatment = str_sub(StationName, end = -3),
     Week = case_when(
-      SampleDate == "2017-12-06" ~ "Week 1",
       SampleDate == "2017-12-13" ~ "Week 2",
       SampleDate == "2017-12-20" ~ "Week 3",
       SampleDate == "2018-01-03" ~ "Week 5"
@@ -165,8 +170,8 @@ ggsave(
   "VSS_final_report_fig8.jpg", 
   plot = vss_2017_fig8,
   dpi = 300,
-  width = 5, 
-  height = 4, 
+  width = 6.5, 
+  height = 3, 
   units = "in"
 )
 
