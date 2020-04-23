@@ -1,0 +1,52 @@
+Analyte,AnalyteStd,n_round
+Dissolved Aluminum,Aluminum- filtered,2
+Dissolved Antimony,Antimony- filtered,3
+Dissolved Arsenic,Arsenic- filtered,3
+Dissolved Barium,Barium- filtered,3
+Dissolved Beryllium,Beryllium- filtered,3
+Dissolved Boron,Boron- filtered,1
+Dissolved Cadmium,Cadmium- filtered,3
+Dissolved Calcium,Calcium- filtered,0
+Dissolved Chloride,Chloride- filtered,0
+Dissolved Chromium,Chromium- filtered,3
+Dissolved Copper,Copper- filtered,3
+Dissolved Iron,Iron- filtered,3
+Dissolved Lead,Lead- filtered,3
+Dissolved Magnesium,Magnesium- filtered,0
+Dissolved Manganese,Manganese- filtered,3
+Dissolved Mercury,THg- filtered,1
+Dissolved Nickel,Nickel- filtered,3
+Dissolved Organic Carbon,DOC,1
+Dissolved Potassium,Potassium- filtered,1
+Dissolved Selenium,Selenium- filtered,3
+Dissolved Silica (SiO2),Silica (SiO2)- filtered,1
+Dissolved Silver,Silver- filtered,3
+Dissolved Sodium,Sodium- filtered,0
+Dissolved Sulfate,Sulfate- filtered,0
+Dissolved Zinc,Zinc- filtered,3
+Total Aluminum,Aluminum- total,2
+Total Antimony,Antimony- total,3
+Total Arsenic,Arsenic- total,3
+Total Barium,Barium- total,3
+Total Beryllium,Beryllium- total,3
+Total Boron,Boron- total,1
+Total Cadmium,Cadmium- total,3
+Total Calcium,Calcium- total,0
+Total Chromium,Chromium- total,3
+Total Copper,Copper- total,3
+Total Iron,Iron- total,3
+Total Lead,Lead- total,3
+Total Magnesium,Magnesium- total,0
+Total Manganese,Manganese- total,3
+Total Mercury,THg- total,1
+Total Nickel,Nickel- total,3
+Total Organic Carbon,TOC,1
+Total Potassium,Potassium- total,1
+Total Selenium,Selenium- total,3
+Total Silica (SiO2),Silica (SiO2)- total,1
+Total Silver,Silver- total,3
+Total Sodium,Sodium- total,0
+Total Suspended Solids,TSS,0
+Total Zinc,Zinc- total,3
+UV Absorbance @254nm,UVA 254,3
+Volatile Suspended Solids,VSS,0
