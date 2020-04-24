@@ -145,9 +145,12 @@ contract_data_switch <- contract_data_temp %>%
 contract_data_clean <- 
   anti_join(contract_data_clean, contract_data_temp) %>% 
   bind_rows(contract_data_switch)
+
+# Create a vector of analytes for the contract labs to be used later
+contract_ana <- sort(unique(contract_data_clean$Analyte))
     
 # Clean up
-rm(list= ls()[!(ls() == "contract_data_clean")])
+rm(list= ls()[!(ls() %in% c("contract_data_clean", "contract_ana"))])
 
 
 # Bryte Lab Data ----------------------------------------------------------
@@ -156,6 +159,9 @@ rm(list= ls()[!(ls() == "contract_data_clean")])
 bryte_data_orig <- read_excel(path = "M:/Data/Lab/Bryte_Lab/Open_Water/YB_Inlet-Outlet_Data_Bryte_all.xlsx")
  
 # Clean up bryte_data_orig df
+  # Clean up variable names
+  names(bryte_data_orig) <- str_replace_all(names(bryte_data_orig), "[:space:]", "")
+  
   #Import StationName Standarized Key
   std_station_b <- read_csv("YB_Mass_Balance/Concentrations/StationNameKey_Bryte.csv")
   
@@ -163,15 +169,18 @@ bryte_data_orig <- read_excel(path = "M:/Data/Lab/Bryte_Lab/Open_Water/YB_Inlet-
   std_analyte_b <- read_csv("YB_Mass_Balance/Concentrations/AnalyteKey_Bryte.csv")
   
   bryte_data_clean <- bryte_data_orig %>% 
-    # Remove some extra Hg Analyses
-    filter(Method != "EPA 200.8 (Hg Total) [1]*") %>%
+    # Filter data
+    filter(
+      # remove data earlier than first sampling event on Dec 22-23, 2014
+      CollectionDate >= "2014-12-22",
+      # remove some extra Hg Analyses
+      Method != "EPA 200.8 (Hg Total) [1]*"
+    ) %>% 
     # Standardize Analyte Names
     left_join(std_analyte_b) %>% 
     # Standardize StationNames
-    rename(StationName = "Station Name") %>% 
     left_join(std_station_b) %>% 
     # Separate Collection Date into 2 variables- one for date, other for time
-    rename(CollectionDate = "Collection Date") %>% 
     mutate(
       SampleDate = as_date(CollectionDate), 
       CollectionTime = hms::as_hms(CollectionDate)
@@ -187,24 +196,22 @@ bryte_data_orig <- read_excel(path = "M:/Data/Lab/Bryte_Lab/Open_Water/YB_Inlet-
     # Keep necessary variables
     select(
       StationNameStd,
-      "Sample Code",
+      SampleCode,
       SampleDate,
       CollectionTime,
       AnalyteStd,
       Result,
-      "Rpt Limit",
+      RptLimit,
       Units,
       Method,
-      "Parent Sample",
+      ParentSample,
       n_round
     ) %>%
     # Rename some variables (New Name = Old Name)
     rename(
       StationName = StationNameStd,
-      SampleCode = "Sample Code",
       Analyte = AnalyteStd,
-      RL = "Rpt Limit",
-      ParentSample = "Parent Sample"
+      RL = RptLimit
     ) %>% 
     # Clean up Result variable
     mutate(
@@ -231,7 +238,7 @@ all_data <- bind_rows(contract_data_clean, bryte_data_clean) %>%
 
 
 # Lab Replicates ----------------------------------------------------------
-# START HERE
+
 # Create a df of all Lab Replicates
 lab_reps <- all_data %>% 
   count(SampleCode, Analyte) %>% 
@@ -273,237 +280,346 @@ no_lab_reps <- anti_join(all_data, lab_reps)
     pivot_wider(names_from = Rep, values_from = Conc)
   
 # Join all of the df back together
-lab_rep_data <- left_join(S_Conc, S_Result) %>% left_join(lab_reps_i) %>% 
-  # Reorder columns
-  select(
-    SampleCode,
-    StationName,
-    SampleDate,
-    CollectionTime,
-    Analyte,
-    Method,
-    LabBatch,
-    AnalysisDate,
-    Conc1,
-    Conc2,
-    ResQual,
-    RL,
-    MDL,
-    Units,
-    ParentSample,
-    Result1,
-    Result2,
-    n_round
+lab_rep_data <-
+  reduce(list(S_Conc, S_Result, lab_reps_i), left_join) %>% 
+  # Calculate RPD values for each replicate pair and flag if necessary
+  mutate(
+    rpd = round(abs(Conc1 - Conc2)/((Conc1 + Conc2)/2), 3),
+    flag = case_when(
+      Analyte %in% contract_ana & rpd > 0.25 & (Conc1 > 10 * MDL | Conc2 > 10 * MDL) ~ "y",
+      !Analyte %in% contract_ana & rpd > 0.25 & (Conc1 > 10 * RL | Conc2 > 10 * RL) ~ "y",
+      TRUE ~ "n"
+    )
   )
-  
-# Export lab_rep_data to .csv file for further analysis- only needed once
-lab_rep_data %>% 
-  select(-c(Method, AnalysisDate, ParentSample)) %>%
-write_excel_csv("LabReplicates.csv")
+
+# Export lab_rep_data to .csv file- only needed once
+# lab_rep_data %>%
+#   select(
+#     SampleCode,
+#     StationName,
+#     SampleDate,
+#     CollectionTime,
+#     Analyte,
+#     LabBatch,
+#     Result1,
+#     Result2,
+#     rpd,
+#     ResQual,
+#     RL,
+#     MDL,
+#     Units,
+#     MME_Comments,
+#     flag
+#   ) %>%
+#   write_excel_csv("LabReplicates.csv", na = "")
     
 # Modify the lab_rep_data df
-lab_rep_data <- lab_rep_data %>% 
-  mutate(Conc = (Conc1 + Conc2)/2,
-         MME_Comments = paste0("Average of Lab Replicates: ", Result1, ", ", Result2)) %>% 
+lab_rep_data_mod <- lab_rep_data %>% 
+  # Average Concentration values and round
+  mutate(
+    Conc = (Conc1 + Conc2)/2,
+    Conc = case_when(
+      str_detect(Analyte, "^Boron|^MeHg") ~ round(Conc, 3),
+      Analyte %in% c("Iron- filtered", "Manganese- filtered") ~ signif(Conc, 3),
+      TRUE ~ round(Conc, n_round)
+    ),
+    # Add comment about using the average of lab replicates
+    MME_Comments = if_else(
+      is.na(MME_Comments),
+      "Average of Lab Replicates",
+      paste("Average of Lab Replicates", MME_Comments, sep = "; ")
+    )
+  ) %>% 
   # Delete a few variables
-  select(-c(Conc1, Conc2, Result1, Result2)) %>% 
-  # Round the Conc variable to 3 significant digits
-  mutate(Conc = signif(Conc, 3)) %>% 
+  select(
+    -c(
+      Conc1, 
+      Conc2,
+      Result1, 
+      Result2,
+      rpd,
+      flag
+    )
+  ) %>% 
   # Add Result variable back to df
-  mutate(Result = if_else(ResQual == 1, "< DL", as.character(Conc)))
+  mutate(
+    Result = case_when(
+      ResQual == 1 & Analyte %in% contract_ana ~ "< MDL",
+      ResQual == 1 & !Analyte %in% contract_ana ~ "< RL",
+      TRUE ~ as.character(Conc)
+    )
+  )
   
-  # Bind the lab_rep_data df back with the no_lab_reps df
-  all_data <- bind_rows(lab_rep_data, no_lab_reps)
+  # Bind the lab_rep_data_mod df back with the no_lab_reps df
+  all_data1 <- bind_rows(no_lab_reps, lab_rep_data_mod)
   
   # Remove df that are no longer necessary
-  rm(lab_reps, lab_reps_i, lab_reps_u, lab_rep_data, no_lab_reps, S_Conc, S_Result)
+  rm(lab_rep_data_mod, lab_reps, lab_reps_i, lab_reps_u, no_lab_reps, S_Conc, S_Result)
     
 
 # Blanks and QA Information -----------------------------------------------
 
 # Create a .csv file that summarizes the Lab Methods used for each analyte- only needed once
-# all_data %>% count(Analyte, Method) %>% 
-  # write_excel_csv("AnalyteMethods.csv")
+# all_data1 %>% 
+#   count(Analyte, Method) %>%
+#   select(-n) %>% 
+#   write_excel_csv("AnalyteMethods.csv", na = "")
   
-# Export a .csv file for QA tracking- only needed once
-# all_data %>% select(SampleCode:AnalysisDate) %>% write_excel_csv("QA_tracking.csv")
-  
-# Bring in Sample Completeness data and check to see if we have all samples accounted for
-IO_Samples <- read_excel(path = "Concentrations/Inlet-Outlet_SampleCompleteness.xlsx") %>% 
-  mutate(SampleDate = as_date(SampleDate))
-  
-all_data %>% select(SampleCode, SampleDate, Analyte) %>% 
-  setequal(IO_Samples)
-  
+# Export a .csv file for Lab QA batches- only needed once
+# all_data1 %>% 
+#   select(LabBatch, SampleCode, Analyte) %>%
+#   write_excel_csv("Lab_QA_Batch.csv", na = "")
+
+# Export a .csv file for Analysis dates for Lab QA batches- only needed once
+# all_data1 %>% 
+#   select(LabBatch, AnalysisDate) %>% 
+#   distinct() %>% 
+#   # removing Lab Batch: MPSL-DFG_20160427_W_MeHg with AnalysisDate of 4/28/2016, since all
+#   # but one sample in this batch were analyzed on 4/27/2016
+#   filter(!(LabBatch == "MPSL-DFG_20160427_W_MeHg" & AnalysisDate == "2016-04-28")) %>% 
+#   write_excel_csv("Lab_QA_Batch_AnaDate.csv", na = "")
+
 # Remove a few QA related variables
-all_data <- select(all_data, -c(Method:AnalysisDate))
- 
-# Filter and export Blank Samples- only needed once
-# all_data %>% filter(StationName %in% c("Field and Filter Blank", "Field Blank", "Filter Blank")) %>% 
-  # write_excel_csv("Blanks.csv")
+all_data1 <- all_data1 %>% 
+  select(-c(LabBatch, AnalysisDate, Method))
   
+# Pull out Blank Samples and save for QA validation
+blank_samples <- all_data1 %>% 
+  filter(str_detect(StationName, "Blank$"))
+
 # Remove Blank samples from all_data df
-all_data <- filter(all_data, !StationName %in% c("Field and Filter Blank", "Field Blank", "Filter Blank"))
+all_data2 <- anti_join(all_data1, blank_samples)
 
 
 # Field Duplicates --------------------------------------------------------
 
 # Make a new df with the Field Duplicate Samples
-FieldDups <- filter(AllData, StationName == "Field Duplicate Sample")
+field_dups <- filter(all_data2, StationName == "Field Duplicate Sample")
   
-# Remove Field Duplicate Samples from AllData df
-NoFieldDups <- filter(AllData, StationName != "Field Duplicate Sample")
+# Remove Field Duplicate Samples from all_data2 df
+no_field_dups <- filter(all_data2, StationName != "Field Duplicate Sample")
 
 # Create a df with all of the parent sample codes
-ParentSamples <- FieldDups %>% 
+parent_samples <- field_dups %>% 
   count(ParentSample) %>% 
   select(-n) %>% 
   filter(!is.na(ParentSample))
   
 # Create a df with all Station-Date combos for the Field Duplicate pairs
-FD_StationDates <- inner_join(NoFieldDups, ParentSamples, by = c("SampleCode" = "ParentSample")) %>% 
+fd_station_dates <- 
+  inner_join(no_field_dups, parent_samples, by = c("SampleCode" = "ParentSample")) %>% 
   count(StationName, SampleDate) %>% 
   select(-n)
   
-# Inner join FD_StationDates df to NoFieldDups df to pull out all Field Duplicate pairs
-FieldDups2 <- inner_join(NoFieldDups, FD_StationDates)
+# Inner join fd_station_dates df to no_field_dups df to pull out all Field Duplicate pairs
+field_dup_pairs <- inner_join(no_field_dups, fd_station_dates)
 
-# Remove FieldDups2 from NoFieldDups df
-NoFieldDups <- anti_join(NoFieldDups, FieldDups2, by = c("StationName", "SampleDate"))
+# Remove field_dup_pairs from no_field_dups df
+no_field_dups <- anti_join(no_field_dups, field_dup_pairs, by = c("StationName", "SampleDate"))
   
-# Bind FieldDups and FieldDups2 together
-FieldDups <- bind_rows(FieldDups, FieldDups2)
+# Bind field_dups and field_dup_pairs together
+field_dups_all <- bind_rows(field_dups, field_dup_pairs)
   
-# Remove FieldDups2
-rm(FieldDups2)
+# Clean up
+rm(parent_samples, fd_station_dates, field_dups, field_dup_pairs)
   
 # Remove some Field Duplicate Samples that were collected on same day but different location
 # to be processed separately
   # Find these samples
-  FieldDupsSameDay <- FieldDups %>% 
+  field_dups_same_day <- field_dups_all %>% 
     count(SampleDate, Analyte) %>% 
     filter(n > 2) %>% 
     select(-n)
     
-  # Inner join with FieldDups df to isolate these samples and export to .csv file- only needed once
-  # FieldDups %>% inner_join(FieldDupsSameDay) %>% 
-    # write_excel_csv("FieldDupsUnusual.csv")
-    
-  # Anti join with FieldDups df to remove these samples from the FieldDups df
-  FieldDups <- anti_join(FieldDups, FieldDupsSameDay)
+  # Inner join with field_dups_all df to isolate these samples
+  field_dups_same_day <- inner_join(field_dups_all, field_dups_same_day)
   
-# Select only variables that are identical in FieldDups df
-FieldDupsI <- FieldDups %>% 
-  select(StationName, SampleDate, Analyte, ResQual, RL, MDL, Units) %>% 
-  # Average ResQual variable for each Replicate group
-  group_by(SampleDate, Analyte) %>% 
-  mutate(ResQual = mean(ResQual)) %>% 
-  ungroup() %>% 
-  # Remove rows with StationName = "Field Duplicate Sample"
+  # Anti join with field_dups_all df to remove these samples from the field_dups df
+  field_dups_all <- anti_join(field_dups_all, field_dups_same_day)
+  
+  # Separate field dups from parent samples, then join together using suffixes
+  field_dups_same_day_fd <- field_dups_same_day %>% 
+    filter(StationName == "Field Duplicate Sample")
+  
+  field_dups_same_day_ps <- field_dups_same_day %>% 
+    filter(StationName != "Field Duplicate Sample")
+  
+  field_dups_same_day_clean <- 
+    left_join(
+      field_dups_same_day_ps, 
+      field_dups_same_day_fd, 
+      by = c("SampleCode" = "ParentSample"),
+      suffix = c("_PS", "_FD")
+    ) %>% 
+    select(
+      SampleCode,
+      SampleCode_FD,
+      StationName_PS,
+      SampleDate_PS,
+      CollectionTime_PS,
+      CollectionTime_FD,
+      Analyte_PS,
+      Result_PS,
+      Result_FD,
+      Conc_PS,
+      Conc_FD,
+      ResQual_PS,
+      ResQual_FD,
+      RL_PS,
+      MDL_PS,
+      Units_PS,
+      LabComments_PS,
+      LabComments_FD,
+      MME_Comments_PS,
+      MME_Comments_FD,
+      n_round_PS
+    ) %>% 
+    rename(
+      SampleCode_PS = SampleCode,
+      StationName = StationName_PS,
+      SampleDate = SampleDate_PS,
+      Analyte = Analyte_PS,
+      RL = RL_PS,
+      MDL = MDL_PS,
+      Units = Units_PS,
+      n_round = n_round_PS
+    )
+  
+  # Clean up
+  rm(field_dups_same_day, field_dups_same_day_fd, field_dups_same_day_ps)
+
+# All other field dups and parent samples:
+# Separate field dups from parent samples, then join together using suffixes
+field_dups_fd <- field_dups_all %>% 
+  filter(StationName == "Field Duplicate Sample")
+
+field_dups_ps <- field_dups_all %>% 
   filter(StationName != "Field Duplicate Sample")
     
-# Select variables that are unique in FieldDups df
-FieldDupsU <- FieldDups %>% 
-  select(-c(ResQual, RL, MDL, Units, ParentSample)) %>% 
-  # Create a Key variable from StationName variable
+field_dups_all <- 
+  left_join(
+    field_dups_ps,
+    field_dups_fd,
+    by = c("SampleDate", "Analyte"),
+    suffix = c("_PS", "_FD")
+  ) %>% 
+  select(
+    SampleCode_PS,
+    SampleCode_FD,
+    StationName_PS,
+    SampleDate,
+    CollectionTime_PS,
+    CollectionTime_FD,
+    Analyte,
+    Result_PS,
+    Result_FD,
+    Conc_PS,
+    Conc_FD,
+    ResQual_PS,
+    ResQual_FD,
+    RL_PS,
+    MDL_PS,
+    Units_PS,
+    LabComments_PS,
+    LabComments_FD,
+    MME_Comments_PS,
+    MME_Comments_FD,
+    n_round_PS
+  ) %>% 
+  rename(
+    StationName = StationName_PS,
+    RL = RL_PS,
+    MDL = MDL_PS,
+    Units = Units_PS,
+    n_round = n_round_PS
+  )
+
+# Clean up 
+rm(field_dups_fd, field_dups_ps)
+
+# Bind all field dup df's back together
+field_dup_data <- bind_rows(field_dups_all, field_dups_same_day_clean) %>% 
+  # Calculate RPD values for each replicate pair and flag if necessary
   mutate(
-    Key = case_when(
-      StationName == "Field Duplicate Sample" ~ "FD",
-      TRUE                                    ~ "PS"
+    rpd = round(abs(Conc_PS - Conc_FD)/((Conc_PS + Conc_FD)/2), 3),
+    flag = case_when(
+      Analyte %in% contract_ana & rpd > 0.25 & (Conc_PS > 10 * MDL | Conc_FD > 10 * MDL) ~ "FV",
+      (!Analyte %in% contract_ana & !Analyte %in% c("DOC", "TOC", "VSS")) & rpd > 0.25 & (Conc_PS > 10 * RL | Conc_FD > 10 * RL) ~ "FV",
+      Analyte %in% c("DOC", "TOC", "VSS") & rpd > 0.3 & (Conc_PS > 10 * RL | Conc_FD > 10 * RL) ~ "FV",
+      TRUE ~ "n"
+    ),
+    # Average ResQual values
+    ResQual = (ResQual_PS + ResQual_FD)/2
+  ) %>% 
+  select(-c(ResQual_PS, ResQual_FD))
+
+# Export field_dup_data to .csv file- only needed once
+# field_dup_data %>%
+#   select(
+#     SampleCode_PS:Result_FD,
+#     rpd,
+#     ResQual,
+#     RL:MME_Comments_FD,
+#     flag
+#   ) %>%
+#   write_excel_csv("FieldDuplicates.csv", na = "")
+  
+# Modify the field_dup_data df
+field_dup_data_mod <- field_dup_data %>% 
+  # Average Concentration values and round
+  mutate(
+    Conc = (Conc_PS + Conc_FD)/2,
+    Conc = case_when(
+      str_detect(Analyte, "^Boron|^MeHg") ~ round(Conc, 3),
+      Analyte %in% c("Iron- filtered", "Manganese- filtered") ~ signif(Conc, 3),
+      TRUE ~ round(Conc, n_round)
+    ),
+    # Add comment about using the average of field duplicates
+    MME_Comments = case_when(
+      is.na(MME_Comments_PS) & is.na(MME_Comments_FD) ~ "Average of Field Duplicates",
+      !is.na(MME_Comments_PS) | !is.na(MME_Comments_FD) ~ "Average of Field Duplicates and Lab Replicates"
+    ),
+    # Consolidate Lab Comments
+    LabComments = case_when(
+      !is.na(LabComments_PS) & !is.na(LabComments_FD) ~ paste0("Parent Sample: ", LabComments_PS, "; Field Dup: ", LabComments_FD),
+      !is.na(LabComments_PS) & is.na(LabComments_FD) ~ paste0("Parent Sample: ", LabComments_PS),
+      is.na(LabComments_PS) & !is.na(LabComments_FD) ~ paste0("Field Dup: ", LabComments_FD)
     )
   ) %>% 
-  # Remove StationName
-  select(-StationName)
-    
-# Create different df to spread out unique variables based on Key variable
-  # SampleCode
-  S_SampleCode <- FieldDupsU %>% 
-    select(SampleDate, Analyte, Key, SampleCode) %>%
-    spread(Key, SampleCode) %>% 
-    rename(SampleCodeFD = FD,
-           SampleCodePS = PS)
-    
-  # CollectionTime
-  S_CollectionTime <- FieldDupsU %>% 
-    select(SampleDate, Analyte, Key, CollectionTime) %>%
-    spread(Key, CollectionTime) %>% 
-    rename(CollectionTimeFD = FD,
-           CollectionTimePS = PS)
-    
-  # Conc
-  S_Conc <- FieldDupsU %>% 
-    select(SampleDate, Analyte, Key, Conc) %>%
-    spread(Key, Conc) %>% 
-    rename(ConcFD = FD,
-           ConcPS = PS)
-    
-  # MME_Comments
-  S_MME_Comments <- FieldDupsU %>% 
-    select(SampleDate, Analyte, Key, MME_Comments) %>%
-    spread(Key, MME_Comments) %>% 
-    rename(MME_CommentsFD = FD,
-           MME_CommentsPS = PS)
-    
-  # Result
-  S_Result <- FieldDupsU %>% 
-    select(SampleDate, Analyte, Key, Result) %>%
-    spread(Key, Result) %>% 
-    rename(ResultFD = FD,
-           ResultPS = PS)
-    
-  # LabComments
-  S_LabComments <- FieldDupsU %>% 
-    select(SampleDate, Analyte, Key, LabComments) %>%
-    spread(Key, LabComments) %>% 
-    rename(LabCommentsFD = FD,
-           LabCommentsPS = PS)
-    
-# Join all of the spreaded df back together with FieldDupsI
-FieldDupData <-
-  left_join(FieldDupsI, S_SampleCode) %>%
-  left_join(S_CollectionTime) %>% 
-  left_join(S_Conc) %>% 
-  left_join(S_MME_Comments) %>%
-  left_join(S_Result) %>%
-  left_join(S_LabComments)
-    
-# Export FieldDupData to .csv file for further analysis- only needed once
-# FieldDupData %>% write_excel_csv("FieldDuplicates.csv")
-
-# Bind back Unusual FD's
-# Import unusual FD data
-FieldDupsUnusual <- read_excel(path = "Concentrations/FieldDupsUnusual.xlsx") %>% 
-  # Correct data types so df can be bound to FieldDupData df
-  mutate(SampleDate = as_date(SampleDate),
-         CollectionTimeFD = hms::as.hms(CollectionTimeFD, tz = "UTC"),
-         CollectionTimePS = hms::as.hms(CollectionTimePS, tz = "UTC")) %>%
-  convert(chr(ResultFD, ResultPS))
-         
-FieldDupData <- bind_rows(FieldDupData, FieldDupsUnusual)
-  
-# Modify the FieldDupData df
-FieldDupData <- FieldDupData %>% 
-  mutate(Conc = (ConcFD + ConcPS)/2,
-         MME_Comments = paste0("Average of Field Duplicates: ", ResultPS, ", ", ResultFD),
-         LabComments = paste(LabCommentsPS, LabCommentsFD, sep = "; ")) %>% 
+  # Rename some variables
+  rename(
+    SampleCode = SampleCode_PS,
+    CollectionTime = CollectionTime_PS
+  ) %>% 
   # Delete a few variables
-  select(-c(ConcFD, ConcPS, ResultFD, ResultPS, LabCommentsFD, LabCommentsPS, SampleCodeFD, CollectionTimeFD)) %>% 
-  # Rename a few variables
-  rename(SampleCode = SampleCodePS,
-         CollectionTime = CollectionTimePS) %>% 
-  # Round the Conc variable to 3 significant digits
-  mutate(Conc = signif(Conc, 3)) %>% 
+  select(
+    -c(
+      ends_with("_PS"),
+      ends_with("_FD"),
+      rpd,
+      flag
+    )
+  ) %>% 
   # Add Result variable back to df
-  mutate(Result = if_else(ResQual == 1, "< DL", as.character(Conc)))
+  mutate(
+    Result = case_when(
+      ResQual == 1 & Analyte %in% contract_ana ~ "< MDL",
+      ResQual == 1 & !Analyte %in% contract_ana ~ "< RL",
+      TRUE ~ as.character(Conc)
+    )
+  )
 
-# Bind the FieldDupData df back with the NoFieldDups df
-AllData <- bind_rows(FieldDupData, NoFieldDups)
+# Bind the field_dup_data_mod df back with the no_field_dups df
+all_data3 <- bind_rows(no_field_dups, field_dup_data_mod) %>% 
+  select(-ParentSample)
 
 # Remove df that are no longer necessary
-rm(FieldDups, NoFieldDups, ParentSamples, FD_StationDates, FieldDupsSameDay,
-   FieldDupsI, FieldDupsU, FieldDupData, FieldDupsUnusual, S_CollectionTime,
-   S_Conc, S_LabComments, S_MME_Comments, S_Result, S_SampleCode)
+rm(field_dup_data_mod, field_dups_all, field_dups_same_day_clean, no_field_dups)
 
+# START HERE
+# remove all samples before Dec 22, 2014
+# find missing field duplicates and blank samples
+# add comment about using MDL value when calculating RPD
 
 # Companion Grab Samples --------------------------------------------------
 
