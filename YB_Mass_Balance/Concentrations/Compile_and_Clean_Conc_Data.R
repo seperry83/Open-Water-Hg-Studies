@@ -155,12 +155,16 @@ rm(list= ls()[!(ls() %in% c("contract_data_clean", "contract_ana"))])
 
 # Bryte Lab Data ----------------------------------------------------------
 
-# Import Bryte Lab dataset
+# Import Bryte Lab datasets
 bryte_data_orig <- read_excel(path = "M:/Data/Lab/Bryte_Lab/Open_Water/YB_Inlet-Outlet_Data_Bryte_all.xlsx")
+bryte_data_tFe_orig <- read_excel(path = "M:/Data/Lab/Bryte_Lab/Open_Water/YB_Inlet-Outlet_Data_Bryte_tFe.xlsx")
  
-# Clean up bryte_data_orig df
+# Clean up bryte_data_orig and bryte_data_tFe_orig df's
   # Clean up variable names
   names(bryte_data_orig) <- str_replace_all(names(bryte_data_orig), "[:space:]", "")
+  names(bryte_data_tFe_orig) <- str_replace_all(names(bryte_data_tFe_orig), "[:space:]", "")
+  bryte_data_tFe_orig <- bryte_data_tFe_orig %>% 
+    rename(StationNameStd = StationName)
   
   #Import StationName Standarized Key
   std_station_b <- read_csv("YB_Mass_Balance/Concentrations/StationNameKey_Bryte.csv")
@@ -176,10 +180,12 @@ bryte_data_orig <- read_excel(path = "M:/Data/Lab/Bryte_Lab/Open_Water/YB_Inlet-
       # remove some extra Hg Analyses
       Method != "EPA 200.8 (Hg Total) [1]*"
     ) %>% 
-    # Standardize Analyte Names
-    left_join(std_analyte_b) %>% 
     # Standardize StationNames
     left_join(std_station_b) %>% 
+    # bind tFe data from 2017
+    bind_rows(bryte_data_tFe_orig) %>% 
+    # Standardize Analyte Names
+    left_join(std_analyte_b) %>% 
     # Separate Collection Date into 2 variables- one for date, other for time
     mutate(
       SampleDate = as_date(CollectionDate), 
@@ -226,13 +232,15 @@ bryte_data_orig <- read_excel(path = "M:/Data/Lab/Bryte_Lab/Open_Water/YB_Inlet-
     )
     
 # Clean up 
-rm(bryte_data_orig, std_analyte_b, std_station_b)
+rm(bryte_data_orig, bryte_data_tFe_orig, std_analyte_b, std_station_b)
   
 
 # All Data ----------------------------------------------------------------
 
 # Combine Contract and Bryte Lab Data
 all_data <- bind_rows(contract_data_clean, bryte_data_clean) %>% 
+  # remove data earlier than first sampling event on Dec 22-23, 2014
+  filter(SampleDate >= "2014-12-22") %>% 
   # Create a new variable Conc, which is a numeric version of Result with the MDL and RL for the ND values
   add_num_result()
 
@@ -355,18 +363,18 @@ lab_rep_data_mod <- lab_rep_data %>%
   
   # Remove df that are no longer necessary
   rm(lab_rep_data_mod, lab_reps, lab_reps_i, lab_reps_u, no_lab_reps, S_Conc, S_Result)
-    
+  
 
 # Blanks and QA Information -----------------------------------------------
 
 # Create a .csv file that summarizes the Lab Methods used for each analyte- only needed once
-# all_data1 %>% 
+# all_data1 %>%
 #   count(Analyte, Method) %>%
-#   select(-n) %>% 
+#   select(-n) %>%
 #   write_excel_csv("AnalyteMethods.csv", na = "")
   
 # Export a .csv file for Lab QA batches- only needed once
-# all_data1 %>% 
+# all_data1 %>%
 #   select(LabBatch, SampleCode, Analyte) %>%
 #   write_excel_csv("Lab_QA_Batch.csv", na = "")
 
@@ -549,7 +557,13 @@ field_dup_data <- bind_rows(field_dups_all, field_dups_same_day_clean) %>%
       TRUE ~ "n"
     ),
     # Average ResQual values
-    ResQual = (ResQual_PS + ResQual_FD)/2
+    ResQual = (ResQual_PS + ResQual_FD)/2,
+    # Add one comment regarding using the MDL value to calculate the RPD of one of the duplicate pairs
+    MME_Comments_PS = if_else(
+      ResQual == 0.5, 
+      "Used the MDL value to calculate RPD of the Duplicates",
+      MME_Comments_PS
+    )
   ) %>% 
   select(-c(ResQual_PS, ResQual_FD))
 
@@ -576,8 +590,10 @@ field_dup_data_mod <- field_dup_data %>%
     ),
     # Add comment about using the average of field duplicates
     MME_Comments = case_when(
+      ResQual == 1 ~ "Average of Field Duplicates, both values were < MDL",
       is.na(MME_Comments_PS) & is.na(MME_Comments_FD) ~ "Average of Field Duplicates",
-      !is.na(MME_Comments_PS) | !is.na(MME_Comments_FD) ~ "Average of Field Duplicates and Lab Replicates"
+      ResQual == 0.5 ~ "Average of Field Duplicates, used the MDL value for the Parent Sample",
+      ResQual == 0 & (!is.na(MME_Comments_PS) | !is.na(MME_Comments_FD)) ~ "Average of Field Duplicates and Lab Replicates"
     ),
     # Consolidate Lab Comments
     LabComments = case_when(
@@ -611,157 +627,159 @@ field_dup_data_mod <- field_dup_data %>%
 
 # Bind the field_dup_data_mod df back with the no_field_dups df
 all_data3 <- bind_rows(no_field_dups, field_dup_data_mod) %>% 
-  select(-ParentSample)
+  # remove Conc and n_round variables
+  select(-c(Conc, n_round))
 
 # Remove df that are no longer necessary
 rm(field_dup_data_mod, field_dups_all, field_dups_same_day_clean, no_field_dups)
 
-# START HERE
-# remove all samples before Dec 22, 2014
-# find missing field duplicates and blank samples
-# add comment about using MDL value when calculating RPD
 
 # Companion Grab Samples --------------------------------------------------
 
 # Make a new df with the Companion Grab Samples
-CompanionGrab <- filter(AllData, StationName == "Companion Grab Sample")
+comp_grab <- filter(all_data3, StationName == "Companion Grab Sample")
 
 # Remove Companion Samples from AllData df
-NoCompanionGrab <- filter(AllData, StationName != "Companion Grab Sample")
+no_comp_grab <- filter(all_data3, StationName != "Companion Grab Sample")
 
 # Create a df with all of the parent sample codes
-ParentSamples <- CompanionGrab %>% 
+parent_samples <- comp_grab %>% 
   count(ParentSample) %>% 
   select(-n) %>% 
   filter(!is.na(ParentSample))
 
 # Create a df with all Station-Date combos for the Companion Grab pairs
-CG_StationDates <- inner_join(NoCompanionGrab, ParentSamples, by = c("SampleCode" = "ParentSample")) %>% 
+cg_station_dates <- inner_join(no_comp_grab, parent_samples, by = c("SampleCode" = "ParentSample")) %>% 
   count(StationName, SampleDate) %>% 
   select(-n)
 
-# Inner join CG_StationDates df to NoCompanionGrab df to pull out all Companion Grab pairs
-CompanionGrab2 <- inner_join(NoCompanionGrab, CG_StationDates)
+# Inner join cg_station_dates df to no_comp_grab df to pull out all Companion Grab pairs
+comp_grab_pairs <- inner_join(no_comp_grab, cg_station_dates)
 
-# Remove one sample from CompanionGrab2 since it doesn't have a Companion Grab pair associated with it
-CompanionGrab2 <- filter(CompanionGrab2, !(SampleDate == "2017-02-01" & Analyte == "Boron- total"))
+# Remove one sample from comp_grab_pairs since it doesn't have a Companion Grab pair associated with it
+comp_grab_pairs <- filter(comp_grab_pairs, !(SampleDate == "2017-02-01" & Analyte == "Boron- total"))
 
-# Remove CompanionGrab2 from NoCompanionGrab df
-NoCompanionGrab <- anti_join(NoCompanionGrab, CompanionGrab2, by = c("StationName", "SampleDate", "Analyte"))
+# Remove comp_grab_pairs from no_comp_grab df
+no_comp_grab <- anti_join(no_comp_grab, comp_grab_pairs, by = c("StationName", "SampleDate", "Analyte"))
 
-# Bind CompanionGrab and CompanionGrab2 together
-CompanionGrab <- bind_rows(CompanionGrab, CompanionGrab2)
+# Bind comp_grap and comp_grab_pairs together
+comp_grab_all <- bind_rows(comp_grab, comp_grab_pairs)
 
-# Remove CompanionGrab2
-rm(CompanionGrab2)
+# Clean up
+rm(cg_station_dates, comp_grab, comp_grab_pairs, parent_samples)
 
-# Select only variables that are identical in CompanionGrab df
-CompanionGrabI <- CompanionGrab %>% 
-  select(StationName, SampleDate, Analyte, RL, MDL, Units) %>% 
-  # Remove rows with StationName = "Companion Grab Sample"
+# Separate companion grabs from parent samples, then join together using suffixes
+comp_grab_cg <- comp_grab_all %>% 
+  filter(StationName == "Companion Grab Sample")
+
+comp_grab_ps <- comp_grab_all %>% 
   filter(StationName != "Companion Grab Sample")
 
-# Select variables that are unique in CompanionGrab df
-CompanionGrabU <- CompanionGrab %>% 
-  select(-c(RL, MDL, Units, ParentSample, MME_CommentsFD, MME_CommentsPS)) %>% 
-  # Create a Key variable from StationName variable
-  mutate(
-    Key = case_when(
-      StationName == "Companion Grab Sample" ~ "CG",
-      TRUE                                   ~ "PS"
-    )
+comp_grab_all <- 
+  left_join(
+    comp_grab_ps,
+    comp_grab_cg,
+    by = c("SampleDate", "Analyte"),
+    suffix = c("_PS", "_CG")
   ) %>% 
-  # Remove StationName
-  select(-StationName)
+  select(
+    SampleCode_PS,
+    SampleCode_CG,
+    StationName_PS,
+    SampleDate,
+    CollectionTime_PS,
+    CollectionTime_CG,
+    Analyte,
+    Result_PS,
+    Result_CG,
+    ResQual_PS,
+    ResQual_CG,
+    RL_PS,
+    MDL_PS,
+    Units_PS,
+    LabComments_PS,
+    LabComments_CG,
+    MME_Comments_PS,
+    MME_Comments_CG
+  ) %>% 
+  rename(
+    StationName = StationName_PS,
+    RL = RL_PS,
+    MDL = MDL_PS,
+    Units = Units_PS
+  )
 
-# Create different df to spread out unique variables based on Key variable
-# ResQual
-S_ResQual <- CompanionGrabU %>% 
-  select(SampleDate, Analyte, Key, ResQual) %>%
-  spread(Key, ResQual) %>% 
-  rename(ResQualCG = CG,
-         ResQualPS = PS)
+# Clean up 
+rm(comp_grab_cg, comp_grab_ps)
 
-# SampleCode
-S_SampleCode <- CompanionGrabU %>% 
-  select(SampleDate, Analyte, Key, SampleCode) %>%
-  spread(Key, SampleCode) %>% 
-  rename(SampleCodeCG = CG,
-         SampleCodePS = PS)
+# Export CompanionGrabData to .csv file- only needed once
+# comp_grab_all %>% 
+#   # Add comment about some questionable companion grab data
+#   mutate(
+#     MME_Comments_CG = case_when(
+#       SampleDate == "2017-04-26" & Analyte == "MeHg- filtered" ~ "Sample appears to be unfiltered",
+#       SampleDate == "2017-04-26" & Analyte == "THg- total" ~ "Value appears to be biased low possibly because of inadequate mixing of the bulk sample",
+#       TRUE ~ MME_Comments_CG
+#     )
+#   ) %>% 
+#   write_excel_csv("CompanionGrabSamples.csv", na = "")
 
-# CollectionTime
-S_CollectionTime <- CompanionGrabU %>% 
-  select(SampleDate, Analyte, Key, CollectionTime) %>%
-  spread(Key, CollectionTime) %>% 
-  rename(CollectionTimeCG = CG,
-         CollectionTimePS = PS)
+# Decided to use Companion Grab samples to represent the actual values since they were 
+# collected by hand which is how all other samples were collected from the boat. The 
+# parent sample pairs were collected with a bucket sampler. Only the parent samples from 
+# the 4/26/2017 event were used to represent the actual values since some of the companion
+# grab values were questionable during this event.
 
-# Conc
-S_Conc <- CompanionGrabU %>% 
-  select(SampleDate, Analyte, Key, Conc) %>%
-  spread(Key, Conc) %>% 
-  rename(ConcCG = CG,
-         ConcPS = PS)
-
-# MME_Comments
-S_MME_Comments <- CompanionGrabU %>% 
-  select(SampleDate, Analyte, Key, MME_Comments) %>%
-  spread(Key, MME_Comments) %>% 
-  rename(MME_CommentsCG = CG,
-         MME_CommentsPS = PS)
-
-# Result
-S_Result <- CompanionGrabU %>% 
-  select(SampleDate, Analyte, Key, Result) %>%
-  spread(Key, Result) %>% 
-  rename(ResultCG = CG,
-         ResultPS = PS)
-
-# LabComments
-S_LabComments <- CompanionGrabU %>% 
-  select(SampleDate, Analyte, Key, LabComments) %>%
-  spread(Key, LabComments) %>% 
-  rename(LabCommentsCG = CG,
-         LabCommentsPS = PS)
-
-# Join all of the spreaded df back together with CompanionGrabI
-CompanionGrabData <-
-  left_join(CompanionGrabI, S_ResQual) %>%
-  left_join(S_SampleCode) %>%
-  left_join(S_CollectionTime) %>% 
-  left_join(S_Conc) %>% 
-  left_join(S_MME_Comments) %>%
-  left_join(S_Result) %>%
-  left_join(S_LabComments)
-
-# Export CompanionGrabData to .csv file for further analysis- only needed once
-# CompanionGrabData %>% write_excel_csv("CompanionGrabSamples.csv")
-
-# Modify the CompanionGrabData df
-CompanionGrabData <- CompanionGrabData %>% 
+# Modify the comp_grab_all df to switch the CGS and normal samples, except for the 4/26/2017 event
+comp_grab_all_mod1 <- comp_grab_all %>% 
+  filter(SampleDate != "2017-04-26") %>% 
+  # Remove the variables for the parent samples
+  select(-ends_with("_PS")) %>% 
   # Add a comment explaining that the CGS and Normal samples are switched
-  mutate(MME_Comments = paste("This sample was entered as a CGS in FLIMS and was collected by hand", 
-                              MME_CommentsCG, sep = "; ")) %>% 
-  # Delete a few variables
-  select(-c(ResQualPS, SampleCodePS, CollectionTimePS, ConcPS, 
-            MME_CommentsCG, MME_CommentsPS, ResultPS, LabCommentsPS)) %>% 
-  # Rename a few variables
-  rename(ResQual = ResQualCG,
-         SampleCode = SampleCodeCG,
-         CollectionTime = CollectionTimeCG,
-         Conc = ConcCG,
-         Result = ResultCG,
-         LabComments = LabCommentsCG)
+  mutate(
+    MME_Comments_CG = if_else(
+      is.na(MME_Comments_CG),
+      "This sample was entered as a Companion Grab Sample in FLIMS and was collected by hand",
+      paste0("This sample was entered as a Companion Grab Sample in FLIMS and was collected by hand; ", MME_Comments_CG)
+    )
+  )
   
-# Bind the CompanionGrabData df back with the NoCompanionGrab df
-AllData <- bind_rows(CompanionGrabData, NoCompanionGrab) %>% 
+# Rename a few variables of comp_grab_all_mod1
+names(comp_grab_all_mod1) <- str_replace_all(names(comp_grab_all_mod1), "_CG$", "")
+
+# Modify the comp_grab_all df keeping the normal samples for the 4/26/2017 event
+comp_grab_all_mod2 <- comp_grab_all %>% 
+  filter(SampleDate == "2017-04-26") %>% 
+  # Remove the variables for the companion grab samples
+  select(-ends_with("_CG")) %>% 
+  # Add a comment explaining that the Normal samples were used since some of the CGS were questionable
+  mutate(
+    MME_Comments_PS = "This sample was entered as a normal sample in FLIMS and was collected with a bucket sampler; used these values for this station on this date since the some of the data for the CGS were questionable (the fMeHg sample appeared to be unfiltered and the tTHg value appeared to be biased low mabye due to inadequate mixing of the bulk sample)"
+  )
+
+# Rename a few variables of comp_grab_all_mod2
+names(comp_grab_all_mod2) <- str_replace_all(names(comp_grab_all_mod2), "_PS$", "")
+  
+# Bind the comp_grab_all_mod1, comp_grab_all_mod2 and no_comp_grab df's
+all_data4 <- bind_rows(comp_grab_all_mod1, comp_grab_all_mod2, no_comp_grab) %>% 
   # Delete ParentSample variable
   select(-ParentSample)
 
 # Remove df that are no longer necessary
-rm(CompanionGrab, NoCompanionGrab, ParentSamples, CG_StationDates,
-   CompanionGrabI, CompanionGrabU, CompanionGrabData, S_CollectionTime,
-   S_Conc, S_LabComments, S_MME_Comments, S_ResQual, S_Result, S_SampleCode)
+rm(comp_grab_all, comp_grab_all_mod1, comp_grab_all_mod2, no_comp_grab)
+
+
+# QA Checks ---------------------------------------------------------------
+
+# Qualify Detected Blank Samples
+
+# Qualify samples with high field variability (RPD's from Field Duplicates)
+
+# Check for any filtered values that are greater than their associated total values
+
+# Flag any other data to exclude from analyses
+# CCSB low flow channel 3/15/2016 - Sample was collected inside of the CCSB- not representative of this station
+
 
 # Export AllData to .csv file- only needed once
 # AllData %>% write_excel_csv("NormalSamples.csv")
