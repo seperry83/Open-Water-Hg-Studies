@@ -10,7 +10,7 @@ library(lubridate)
 library(openwaterhg)
 
 
-# Contract Lab Data -------------------------------------------------------
+# 1.0 Contract Lab Data -------------------------------------------------------
 
 # Define paths for data files
 mlml_path <- "M:/Data/Lab/MLML/Open_Water/YB_In-Out_Study"
@@ -21,8 +21,10 @@ mlml_files <- dir(mlml_path, pattern = "\\.xls$", recursive = T, full.names = T)
 pnnl_files <- dir(pnnl_path, pattern = "SWAMP.xlsx$", full.names = T)
   
 # Remove some of the files from the vectors
-mlml_files <- mlml_files[!str_detect(mlml_files, "2014|2016-Dec20")] #2014 file is in the wrong format, 2016 file has data unrelated to flood event sampling
-pnnl_files <- pnnl_files[!str_detect(pnnl_files, "QA_Samples")] #Remove QA data file
+# 2014 file is in the wrong format, 2016 file has data unrelated to flood event sampling
+mlml_files <- mlml_files[!str_detect(mlml_files, "2014|2016-Dec20")] 
+# Remove QA data file
+pnnl_files <- pnnl_files[!str_detect(pnnl_files, "QA_Samples")] 
   
 # Combine all of the data
 mlml_data_orig <- map_dfr(mlml_files, read_excel)
@@ -124,20 +126,6 @@ contract_data <- bind_rows(mlml_data_clean, pnnl_data_clean, mlml2)
     # remove data earlier than first sampling event on Dec 22-23, 2014
     filter(SampleDate >= "2014-12-22")
   
-# Rename one mislabeled Field Blank that was actually a Filter Blank
-mis_field_blank <- contract_data_clean %>% 
-  filter(
-    StationName == "Field Blank",
-    Analyte == "MeHg- filtered"
-  )
-
-mis_field_blank_cor <- mis_field_blank %>% 
-  mutate(StationName = "Filter Blank")
-
-contract_data_clean <- contract_data_clean %>% 
-  anti_join(mis_field_blank) %>% 
-  bind_rows(mis_field_blank_cor)
-
 # Change StationNames of two boron samples that were switched
 contract_data_temp <- contract_data_clean %>% 
   filter(
@@ -167,10 +155,11 @@ contract_data_clean <-
 contract_ana <- sort(unique(contract_data_clean$Analyte))
     
 # Clean up
-rm(list= ls()[!(ls() %in% c("contract_data_clean", "contract_ana"))])
+df_keep <- c("contract_data_clean", "contract_ana", "df_keep")
+rm(list= ls()[!(ls() %in% df_keep)])
 
 
-# Bryte Lab Data ----------------------------------------------------------
+# 2.0 Bryte Lab Data ----------------------------------------------------------
 
 # Define path for data files
 bryte_path <- "M:/Data/Lab/Bryte_Lab/Open_Water/WDL_Downloads"
@@ -265,10 +254,11 @@ bryte_data_tFe_orig <- read_excel(path = "M:/Data/Lab/Bryte_Lab/Open_Water/YB_In
     )
     
 # Clean up 
-rm(bryte_data_orig, bryte_data_tFe_orig, std_analyte_b, std_station_b)
+df_keep <- append(df_keep, "bryte_data_clean")
+rm(list= ls()[!(ls() %in% df_keep)])
   
 
-# All Data ----------------------------------------------------------------
+# 3.0 All Data ----------------------------------------------------------------
 
 # Combine Contract and Bryte Lab Data
 all_data <- bind_rows(contract_data_clean, bryte_data_clean) %>% 
@@ -276,7 +266,7 @@ all_data <- bind_rows(contract_data_clean, bryte_data_clean) %>%
   add_num_result()
 
 
-# Lab Replicates ----------------------------------------------------------
+# 4.0 Lab Replicates ----------------------------------------------------------
 
 # Create a df of all Lab Replicates
 lab_reps <- all_data %>% 
@@ -389,14 +379,15 @@ lab_rep_data_mod <- lab_rep_data %>%
     )
   )
   
-  # Bind the lab_rep_data_mod df back with the no_lab_reps df
-  all_data1 <- bind_rows(no_lab_reps, lab_rep_data_mod)
+# Bind the lab_rep_data_mod df back with the no_lab_reps df
+all_data1 <- bind_rows(no_lab_reps, lab_rep_data_mod)
   
-  # Remove df that are no longer necessary
-  rm(lab_rep_data_mod, lab_reps, lab_reps_i, lab_reps_u, no_lab_reps, S_Conc, S_Result)
-  
+# Remove df that are no longer necessary
+df_keep <- append(df_keep, c("all_data", "all_data1", "lab_rep_data"))
+rm(list= ls()[!(ls() %in% df_keep)])
 
-# Blanks and QA Information -----------------------------------------------
+
+# 5.0 Blanks and QA Information -----------------------------------------------
 
 # Create a .csv file that summarizes the Lab Methods used for each analyte- only needed once
 # all_data1 %>%
@@ -424,13 +415,14 @@ all_data1 <- all_data1 %>%
   
 # Pull out Blank Samples and save for QA validation
 blank_samples <- all_data1 %>% 
-  filter(str_detect(StationName, "Blank$"))
+  filter(str_detect(StationName, "Blank$")) %>% 
+  select(-c(ResQual, ParentSample:Conc))
 
 # Remove Blank samples from all_data df
 all_data2 <- anti_join(all_data1, blank_samples)
 
 
-# Field Duplicates --------------------------------------------------------
+# 6.0 Field Duplicates --------------------------------------------------------
 
 # Make a new df with the Field Duplicate Samples
 field_dups <- filter(all_data2, StationName == "Field Duplicate Sample")
@@ -596,10 +588,11 @@ all_data3 <- bind_rows(no_field_dups, field_dup_data_mod) %>%
   select(-c(Conc, n_round))
 
 # Remove df that are no longer necessary
-rm(field_dup_data_mod, field_dups_all, no_field_dups)
+df_keep <- append(df_keep, c("all_data2", "all_data3", "blank_samples", "field_dup_data"))
+rm(list= ls()[!(ls() %in% df_keep)])
 
 
-# Companion Grab Samples --------------------------------------------------
+# 7.0 Companion Grab Samples --------------------------------------------------
 
 # Make a new df with the Companion Grab Samples
 comp_grab <- filter(all_data3, StationName == "Companion Grab Sample")
@@ -731,23 +724,227 @@ all_data4 <- bind_rows(comp_grab_all_mod1, comp_grab_all_mod2, no_comp_grab) %>%
   select(-ParentSample)
 
 # Remove df that are no longer necessary
-rm(comp_grab_all, comp_grab_all_mod1, comp_grab_all_mod2, no_comp_grab)
+df_keep <- append(df_keep, "all_data4")
+rm(list= ls()[!(ls() %in% df_keep)])
 
 
-# QA Checks ---------------------------------------------------------------
+# 8.0 QA Checks ---------------------------------------------------------------
 
-# Qualify Detected Blank Samples
+# 8.1 Qualify Detected Blank Samples --------------------------------------
 
-# Qualify samples with high field variability (RPD's from Field Duplicates)
+# Import df with Locations where Field Blanks were collected for each SampleDate
+field_blanks_loc <- read_csv("YB_Mass_Balance/Concentrations/Field_Blank_collection_loc.csv")
 
-# Check for any filtered values that are greater than their associated total values
+# Find Field Blanks with detected values
+field_blanks_det <- blank_samples %>% 
+  filter(
+    !str_detect(Result, "^<"),
+    str_detect(StationName, "^Field")
+  ) %>% 
+  # Add StationNames where each Field Blank was collected
+  left_join(field_blanks_loc, by = "SampleDate", suffix = c("_qa", "_amb"))
 
-# Flag any other data to exclude from analyses
-# CCSB low flow channel 3/15/2016 - Sample was collected inside of the CCSB- not representative of this station
+# Add concentration values for the ambient samples
+field_blanks_det <- all_data4 %>% 
+  select(StationName, SampleDate, Analyte, Result) %>% 
+  right_join(
+    field_blanks_det,
+    by = c("StationName" = "StationName_amb", "SampleDate", "Analyte"),
+    suffix = c("_amb", "_qa")
+  ) %>% 
+  # Calculate the Blank Conc:Ambient Conc ratio, and flag any that are greater than 0.2
+  mutate(
+    Result_amb = as.numeric(Result_amb),
+    Result_qa = as.numeric(Result_qa),
+    blank_amb_ratio = round(Result_qa/Result_amb, 3),
+    flag = if_else(blank_amb_ratio >= 0.2, "BD", "n")
+  ) %>% 
+  # Clean up df
+  select(-StationName) %>% 
+  rename(
+    StationName = StationName_qa,
+    Result = Result_qa
+  ) %>% 
+  mutate(Result = as.character(Result))
+
+# Find Filter Blanks with detected values
+filter_blanks_det <- blank_samples %>% 
+  filter(
+    !str_detect(Result, "^<"),
+    str_detect(StationName, "^Filter")
+  )
+  
+# Create a new filter_blanks_det df with a new variable with SampleDate subtracted 
+# by 1 to match to the ambient data
+filter_blanks_det1 <- filter_blanks_det %>% 
+  mutate(SampleDate = SampleDate - 1) %>% 
+  select(SampleDate, Analyte)
+  
+# Pull out all ambient data associated with the detected filter blanks
+amb_samples <- all_data4 %>% 
+  inner_join(filter_blanks_det1) %>% 
+  # Convert Result to numeric
+  mutate(Result = as.numeric(Result)) %>% 
+  # Calculate average concentrations
+  group_by(SampleDate, Analyte) %>% 
+  summarize(Result_amb = mean(Result)) %>% 
+  ungroup() %>% 
+  # Round averages to proper number of digits
+  mutate(
+    Result_amb = if_else(
+      str_detect(Analyte, "^MeHg"), 
+      round(Result_amb, 3),
+      round(Result_amb, 1)
+    )
+  )
+
+# Add ambient data to filter_blanks_det df
+filter_blanks_det <- filter_blanks_det %>% 
+  # add a new SampleDate variable to use in join
+  mutate(SampleDate_mod = SampleDate - 1) %>%
+  left_join(amb_samples, by = c("SampleDate_mod" = "SampleDate", "Analyte")) %>% 
+  # Calculate the Blank Conc:Ambient Conc ratio, and flag any that are greater than 0.2
+  mutate(
+    Result = as.numeric(Result),
+    blank_amb_ratio = round(Result/Result_amb, 3),
+    flag = if_else(blank_amb_ratio >= 0.2, "BD", "n")
+  ) %>% 
+  # Clean up df
+  select(-SampleDate_mod) %>% 
+  mutate(Result = as.character(Result))
+
+# Bind all blank sample data back together
+blank_samples <- blank_samples %>% 
+  filter(str_detect(Result, "^<")) %>% 
+  bind_rows(field_blanks_det, filter_blanks_det) %>% 
+  select(SampleCode:Analyte, Result, RL, MDL, Units, LabComments:flag)
+
+# Export blank_samples to .csv file- only needed once
+# blank_samples %>% write_excel_csv("BlankSamples.csv")
+
+# Clean up
+rm(field_blanks_det, field_blanks_loc, filter_blanks_det, filter_blanks_det1, amb_samples)
+
+# Add QualCodes to ambient samples with associated blank samples with a "BD" flag
+# Pull out Blanks with "BD" flag
+blank_samples_flag <- blank_samples %>% 
+  filter(flag == "BD") %>% 
+  select(SampleDate, Analyte) %>% 
+  # Subtract one day from SampleDate for the THg- filtered blank
+  mutate(SampleDate = if_else(Analyte == "THg- filtered", SampleDate - 1, SampleDate))
+
+# Pull out matching ambient samples and add QualCode variable
+all_data4_flag_bd <- all_data4 %>% 
+  inner_join(blank_samples_flag) %>% 
+  mutate(QualCode = "J- BD")
+
+# Bind data back together
+all_data4 <- all_data4 %>% 
+  anti_join(blank_samples_flag) %>% 
+  bind_rows(all_data4_flag_bd)
+
+# Clean up
+rm(blank_samples_flag, all_data4_flag_bd)
 
 
-# Export AllData to .csv file- only needed once
-# AllData %>% write_excel_csv("NormalSamples.csv")
+# 8.2 Qualify samples with high Field Variability -------------------------
+
+# Pull out Field Duplicates with "FV" flag
+field_dup_flag <- field_dup_data %>% 
+  filter(flag == "FV") %>% 
+  select(SampleDate, Analyte)
+
+# Pull out matching ambient samples and add comment to QualCode variable
+all_data4_flag_fv <- all_data4 %>% 
+  inner_join(field_dup_flag) %>% 
+  mutate(
+    QualCode = case_when(
+      Analyte == "Potassium- total" ~ "R- FV",
+      QualCode == "J- BD" ~ "J- BD, FV",
+      TRUE ~ "J- FV"
+    )
+  )
+
+# Bind data back together
+all_data4 <- all_data4 %>% 
+  anti_join(field_dup_flag) %>% 
+  bind_rows(all_data4_flag_fv)
+
+# Clean up
+rm(field_dup_flag, all_data4_flag_fv)
+
+
+# 8.3 Check for filtered values that are greater than the total values --------
+
+# Pull out all analytes with associated filtered and total measurements and find filtered
+# that are greater than the total values
+filt_g_total <- all_data4 %>% 
+  add_num_result() %>% 
+  select(SampleCode, Analyte, Conc) %>% 
+  filter(str_detect(Analyte, "^MeHg|^THg|OC$")) %>% 
+  # Separate analyte and fraction into 2 individual variables
+  mutate(
+    Analyte = case_when(
+      Analyte == "TOC" ~ "OrgC- total",
+      Analyte == "DOC" ~ "OrgC- filtered",
+      TRUE ~ Analyte
+    )
+  ) %>% 
+  separate(Analyte, into = c("Analyte", "Fraction"), sep = "- ") %>% 
+  pivot_wider(names_from = Fraction, values_from = Conc) %>% 
+  # Look for filtered > total
+  filter(filtered > total) %>% 
+  # Restructure dataframe to use in a join
+  select(-c(total, filtered)) %>% 
+  mutate(Analyte = if_else(Analyte == "MeHg", "MeHg- total/MeHg- filtered", "TOC/DOC")) %>% 
+  separate_rows(Analyte, sep = "/")
+
+# Pull out samples and add comment to QualCode variable
+all_data4_flag_fgt <- all_data4 %>% 
+  inner_join(filt_g_total) %>% 
+  mutate(QualCode = "R- FGT")
+
+# Bind data back together
+all_data4 <- all_data4 %>% 
+  anti_join(filt_g_total) %>% 
+  bind_rows(all_data4_flag_fgt)
+
+# Clean up
+rm(filt_g_total, all_data4_flag_fgt)
+
+
+# 8.4 Flag any other data to exclude from analyses ------------------------
+
+# CCSB low flow channel on 3/15/2016 - 
+# Sample was collected inside of the CCSB, which is not representative of this station
+# Pull out these samples
+nr_sample <- all_data4 %>% 
+  filter(
+    SampleDate == "2016-03-15",
+    StationName == "CCSB- Low Flow Channel"
+  )
+
+# Add Qual Codes and Comments
+all_data4_flag_nrs <- nr_sample %>% 
+  mutate(
+    QualCode = if_else(is.na(QualCode), "R- NRS", "R- NRS, FV"),
+    MME_Comments = if_else(
+      is.na(MME_Comments),
+      "Sample was collected inside of the CCSB- not representative of this station",
+      paste0("Sample was collected inside of the CCSB- not representative of this station; ", MME_Comments)
+    )
+  )
+
+# Bind data back together
+all_data4 <- all_data4 %>% 
+  anti_join(nr_sample) %>% 
+  bind_rows(all_data4_flag_nrs)
+
+# Clean up
+rm(nr_sample, all_data4_flag_nrs)
+
+# Export all_data4 to .csv file- only needed once
+all_data4 %>% write_excel_csv("NormalSamples.csv")
 
 # The final copy of the Lab concentration data for the Yolo Bypass Inlet-Outlet Study is located here:
 # M:\Data\Lab_Final\YB_Inlet-Outlet_Conc_Data.xlsx
