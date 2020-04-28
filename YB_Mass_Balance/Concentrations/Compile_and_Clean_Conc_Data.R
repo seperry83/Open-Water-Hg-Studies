@@ -1,5 +1,6 @@
 # Yolo Bypass Inlet-Outlet Study
-# Purpose: Compile, combine, and clean all of the concentration data
+# Purpose: Compile, combine, and clean all of the concentration data collected
+# during sampling events to characterize Yolo Bypass flood events 
 # Author: Dave Bosworth
 
 # Load packages
@@ -20,7 +21,7 @@ mlml_files <- dir(mlml_path, pattern = "\\.xls$", recursive = T, full.names = T)
 pnnl_files <- dir(pnnl_path, pattern = "SWAMP.xlsx$", full.names = T)
   
 # Remove some of the files from the vectors
-mlml_files <- mlml_files[!str_detect(mlml_files, "2014")] #Remove 2014 data file since it's in the wrong format
+mlml_files <- mlml_files[!str_detect(mlml_files, "2014|2016-Dec20")] #2014 file is in the wrong format, 2016 file has data unrelated to flood event sampling
 pnnl_files <- pnnl_files[!str_detect(pnnl_files, "QA_Samples")] #Remove QA data file
   
 # Combine all of the data
@@ -119,7 +120,23 @@ contract_data <- bind_rows(mlml_data_clean, pnnl_data_clean, mlml2)
       LabComments = LabResultComments
     ) %>% 
     # Add "C" to the end of the SampleCodes to be consistent with Bryte reporting
-    mutate(SampleCode = if_else(SampleDate > "2014-12-31", paste0(SampleCode, "C"), SampleCode))
+    mutate(SampleCode = if_else(SampleDate > "2014-12-31", paste0(SampleCode, "C"), SampleCode)) %>% 
+    # remove data earlier than first sampling event on Dec 22-23, 2014
+    filter(SampleDate >= "2014-12-22")
+  
+# Rename one mislabeled Field Blank that was actually a Filter Blank
+mis_field_blank <- contract_data_clean %>% 
+  filter(
+    StationName == "Field Blank",
+    Analyte == "MeHg- filtered"
+  )
+
+mis_field_blank_cor <- mis_field_blank %>% 
+  mutate(StationName = "Filter Blank")
+
+contract_data_clean <- contract_data_clean %>% 
+  anti_join(mis_field_blank) %>% 
+  bind_rows(mis_field_blank_cor)
 
 # Change StationNames of two boron samples that were switched
 contract_data_temp <- contract_data_clean %>% 
@@ -155,8 +172,29 @@ rm(list= ls()[!(ls() %in% c("contract_data_clean", "contract_ana"))])
 
 # Bryte Lab Data ----------------------------------------------------------
 
-# Import Bryte Lab datasets
-bryte_data_orig <- read_excel(path = "M:/Data/Lab/Bryte_Lab/Open_Water/YB_Inlet-Outlet_Data_Bryte_all.xlsx")
+# Define path for data files
+bryte_path <- "M:/Data/Lab/Bryte_Lab/Open_Water/WDL_Downloads"
+
+# Create a character vector of all data files
+bryte_files <- dir(bryte_path, full.names = T)
+
+# Remove some of the files from the vector- these have data unrelated to flood event sampling
+bryte_files <- bryte_files[!str_detect(bryte_files, "E-W_Transect|Pasture")]
+
+# Combine all of the data
+bryte_data_orig <- map_dfr(
+  bryte_files, 
+  read_excel, 
+  col_types = c(
+    rep("guess", 7),
+    "text",
+    rep("guess", 6),
+    "text",
+    rep("guess", 2)
+  )
+)
+
+# Import additional Bryte Lab data - total Iron, which was provided separately 
 bryte_data_tFe_orig <- read_excel(path = "M:/Data/Lab/Bryte_Lab/Open_Water/YB_Inlet-Outlet_Data_Bryte_tFe.xlsx")
  
 # Clean up bryte_data_orig and bryte_data_tFe_orig df's
@@ -173,13 +211,8 @@ bryte_data_tFe_orig <- read_excel(path = "M:/Data/Lab/Bryte_Lab/Open_Water/YB_In
   std_analyte_b <- read_csv("YB_Mass_Balance/Concentrations/AnalyteKey_Bryte.csv")
   
   bryte_data_clean <- bryte_data_orig %>% 
-    # Filter data
-    filter(
-      # remove data earlier than first sampling event on Dec 22-23, 2014
-      CollectionDate >= "2014-12-22",
-      # remove some extra Hg Analyses
-      Method != "EPA 200.8 (Hg Total) [1]*"
-    ) %>% 
+    # Remove a some Hg samples analyzed by an unwanted method
+    filter(Method != "EPA 200.8 (Hg Total) [1]*") %>% 
     # Standardize StationNames
     left_join(std_station_b) %>% 
     # bind tFe data from 2017
@@ -239,8 +272,6 @@ rm(bryte_data_orig, bryte_data_tFe_orig, std_analyte_b, std_station_b)
 
 # Combine Contract and Bryte Lab Data
 all_data <- bind_rows(contract_data_clean, bryte_data_clean) %>% 
-  # remove data earlier than first sampling event on Dec 22-23, 2014
-  filter(SampleDate >= "2014-12-22") %>% 
   # Create a new variable Conc, which is a numeric version of Result with the MDL and RL for the ND values
   add_num_result()
 
@@ -379,12 +410,12 @@ lab_rep_data_mod <- lab_rep_data %>%
 #   write_excel_csv("Lab_QA_Batch.csv", na = "")
 
 # Export a .csv file for Analysis dates for Lab QA batches- only needed once
-# all_data1 %>% 
-#   select(LabBatch, AnalysisDate) %>% 
-#   distinct() %>% 
+# all_data1 %>%
+#   select(LabBatch, AnalysisDate) %>%
+#   distinct() %>%
 #   # removing Lab Batch: MPSL-DFG_20160427_W_MeHg with AnalysisDate of 4/28/2016, since all
 #   # but one sample in this batch were analyzed on 4/27/2016
-#   filter(!(LabBatch == "MPSL-DFG_20160427_W_MeHg" & AnalysisDate == "2016-04-28")) %>% 
+#   filter(!(LabBatch == "MPSL-DFG_20160427_W_MeHg" & AnalysisDate == "2016-04-28")) %>%
 #   write_excel_csv("Lab_QA_Batch_AnaDate.csv", na = "")
 
 # Remove a few QA related variables
@@ -431,72 +462,6 @@ field_dups_all <- bind_rows(field_dups, field_dup_pairs)
 # Clean up
 rm(parent_samples, fd_station_dates, field_dups, field_dup_pairs)
   
-# Remove some Field Duplicate Samples that were collected on same day but different location
-# to be processed separately
-  # Find these samples
-  field_dups_same_day <- field_dups_all %>% 
-    count(SampleDate, Analyte) %>% 
-    filter(n > 2) %>% 
-    select(-n)
-    
-  # Inner join with field_dups_all df to isolate these samples
-  field_dups_same_day <- inner_join(field_dups_all, field_dups_same_day)
-  
-  # Anti join with field_dups_all df to remove these samples from the field_dups df
-  field_dups_all <- anti_join(field_dups_all, field_dups_same_day)
-  
-  # Separate field dups from parent samples, then join together using suffixes
-  field_dups_same_day_fd <- field_dups_same_day %>% 
-    filter(StationName == "Field Duplicate Sample")
-  
-  field_dups_same_day_ps <- field_dups_same_day %>% 
-    filter(StationName != "Field Duplicate Sample")
-  
-  field_dups_same_day_clean <- 
-    left_join(
-      field_dups_same_day_ps, 
-      field_dups_same_day_fd, 
-      by = c("SampleCode" = "ParentSample"),
-      suffix = c("_PS", "_FD")
-    ) %>% 
-    select(
-      SampleCode,
-      SampleCode_FD,
-      StationName_PS,
-      SampleDate_PS,
-      CollectionTime_PS,
-      CollectionTime_FD,
-      Analyte_PS,
-      Result_PS,
-      Result_FD,
-      Conc_PS,
-      Conc_FD,
-      ResQual_PS,
-      ResQual_FD,
-      RL_PS,
-      MDL_PS,
-      Units_PS,
-      LabComments_PS,
-      LabComments_FD,
-      MME_Comments_PS,
-      MME_Comments_FD,
-      n_round_PS
-    ) %>% 
-    rename(
-      SampleCode_PS = SampleCode,
-      StationName = StationName_PS,
-      SampleDate = SampleDate_PS,
-      Analyte = Analyte_PS,
-      RL = RL_PS,
-      MDL = MDL_PS,
-      Units = Units_PS,
-      n_round = n_round_PS
-    )
-  
-  # Clean up
-  rm(field_dups_same_day, field_dups_same_day_fd, field_dups_same_day_ps)
-
-# All other field dups and parent samples:
 # Separate field dups from parent samples, then join together using suffixes
 field_dups_fd <- field_dups_all %>% 
   filter(StationName == "Field Duplicate Sample")
@@ -545,8 +510,8 @@ field_dups_all <-
 # Clean up 
 rm(field_dups_fd, field_dups_ps)
 
-# Bind all field dup df's back together
-field_dup_data <- bind_rows(field_dups_all, field_dups_same_day_clean) %>% 
+# Modify field dup df
+field_dup_data <- field_dups_all %>% 
   # Calculate RPD values for each replicate pair and flag if necessary
   mutate(
     rpd = round(abs(Conc_PS - Conc_FD)/((Conc_PS + Conc_FD)/2), 3),
@@ -631,7 +596,7 @@ all_data3 <- bind_rows(no_field_dups, field_dup_data_mod) %>%
   select(-c(Conc, n_round))
 
 # Remove df that are no longer necessary
-rm(field_dup_data_mod, field_dups_all, field_dups_same_day_clean, no_field_dups)
+rm(field_dup_data_mod, field_dups_all, no_field_dups)
 
 
 # Companion Grab Samples --------------------------------------------------
