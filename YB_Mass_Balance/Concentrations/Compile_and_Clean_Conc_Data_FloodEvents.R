@@ -949,7 +949,7 @@ rm(nr_sample, all_data4_flag_nrs)
 # The final copy of the Lab concentration data for the Yolo Bypass Inlet-Outlet Study is located here:
 # M:\Data\Lab_Final\YB_Inlet-Outlet_Conc_Data.xlsx
 
-# all_data4, blank_samples, and field_dup_data dataframes are passed on to the 
+# all_data, blank_samples, and field_dup_data dataframes are passed on to the 
 # wrangle_data_for_data_package.R script file to be added as datasets to the openwaterhg
 # package
 
@@ -957,4 +957,6 @@ rm(nr_sample, all_data4_flag_nrs)
 df_keep <- c("all_data4", "blank_samples", "field_dup_data")
 rm(list= ls()[!(ls() %in% df_keep)])
 
- 
+# Rename all_data
+all_data <- all_data4
+
