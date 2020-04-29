@@ -1,84 +1,82 @@
 # Yolo Bypass Inlet-Outlet Study
-# Calculate particulate fractions of THg, MeHg, and OC to be used throughout the analysis of this data
+# Purpose: Calculate particulate fractions of THg, MeHg, and OC to be used throughout 
+# the analysis of this data
+# Author: Dave Bosworth
 
+# Load packages
 library(tidyverse)
-library(readxl)
-library(lubridate)
 
-# Load common functions
-source("inlet_outlet_common_functions.R")
+# Define path on SharePoint site for data
+sharepoint_path <- normalizePath(
+  file.path(
+    Sys.getenv("USERPROFILE"),
+    "California Department of Water Resources/DWR Documents - Open Water Final Report - Documents/Technical Appendices/Technical Appendix-B_Inlet-Outlet/Data/Final"
+  )
+)
 
 # Import Concentration Data
-conc <- read_excel("../../../Data/Lab_Final/YB_Inlet-Outlet_Conc_Data.xlsx", sheet = "For R Analysis") %>% 
+conc_orig <- 
+  read_csv(
+    paste0(sharepoint_path, "/NormalSamples.csv"),
+    col_types = "????????????c"
+  )
+
+# Calculate the particulate concentrations
+conc_part <- conc_orig %>% 
   # Just keep MeHg, THg, TOC, and DOC; remove samples with QualCode "R"
   filter(
-    str_detect(Analyte, "^MeHg|^THg|^DOC|^TOC"),
+    str_detect(Analyte, "^MeHg|^THg|OC$"),
     is.na(QualCode) | !str_detect(QualCode, "^R")
   ) %>% 
-  # Clean up date and time formatting- extract date and time from dttm variables
-  mutate(
-    SampleDate = as_date(SampleDate),
-    CollectionTimePST = hms::as_hms(CollectionTimePST)
-  ) %>%
   # Create a new variable Conc, which is a numeric version of Result with the MDL and RL for the ND values
-  mod_result() %>% 
+  mutate(
+    Conc = case_when(
+      Result == "< RL"  ~ RL,
+      Result == "< MDL" ~ MDL,
+      TRUE              ~ as.numeric(Result)
+    )
+  ) %>% 
   # Keep only necessary variables
   select(
     StationName,
     SampleDate,
-    CollectionTimePST,
+    CollectionTime,
     Analyte,
     Conc
-  )
-
-# Widen df and rename the Analytes to allow for subtraction
-conc.part <- conc %>%
-  pivot_wider(names_from = Analyte, values_from = Conc) %>% 
-  rename(
-    fMeHg = "MeHg- filtered",
-    tMeHg = "MeHg- total",
-    fTHg = "THg- filtered",
-    tTHg = "THg- total"
-  )
-
-# Search for any cases when the total fraction is less than the filtered fraction
-# All of these cases were dealt with in the YB_Inlet-Outlet_Conc_Data.xlsx file
-# TOC and DOC
-  conc.part %>% filter(TOC < DOC)  
-# THg
-  conc.part %>% filter(tTHg < fTHg)  
-# MeHg
-  conc.part %>% filter(tMeHg < fMeHg)
-  
-# Calculate the particulate concentrations by subtraction
-conc.part <- conc.part %>% 
-  mutate(
-    POC = TOC - DOC,
-    pMeHg = tMeHg - fMeHg,
-    pTHg = tTHg - fTHg
   ) %>% 
-  # Only keep particulate concentration variables
-  select(-c(DOC:tMeHg)) %>% 
-  # Rename Analytes
-  rename(
-    "MeHg- particulate" = pMeHg,
-    "THg- particulate" = pTHg
-  ) %>%
-  # Pivot df back into long format
-  pivot_longer(cols =  POC:"THg- particulate", names_to = "Analyte", values_to = "Conc") %>% 
-  # Remove NA values in Conc variable
-  filter(!is.na(Conc)) %>% 
-  # Add a Units variable
+  # Separate analyte and fraction into 2 individual variables
   mutate(
+    Analyte = case_when(
+      Analyte == "TOC" ~ "OrgC- total",
+      Analyte == "DOC" ~ "OrgC- filtered",
+      TRUE ~ Analyte
+    )
+  ) %>% 
+  separate(Analyte, into = c("Analyte", "Fraction"), sep = "- ") %>% 
+  # Widen df and rename the Analytes to allow for subtraction
+  pivot_wider(names_from = Fraction, values_from = Conc) %>% 
+  # Calculate the particulate concentrations by subtraction
+  mutate(particulate = total - filtered) %>% 
+  # Rename Analytes and add a units variable
+  mutate(
+    Analyte = case_when(
+      Analyte == "MeHg" ~ "MeHg- particulate",
+      Analyte == "THg" ~ "THg- particulate",
+      Analyte == "OrgC" ~ "POC"
+    ),
     Units = if_else(
       str_detect(Analyte, "Hg-"),
       "ng/L",
       "mg/L as C"
     )
   ) %>% 
-  # Round Conc to 3 significant figures
-  mutate(Conc = signif(Conc, 3))
-
-# Export conc.part df to a .csv file to be used in other scripts/analyses
-conc.part %>% write_excel_csv("Concentrations/Particulate_Conc.csv")  # moved to SharePoint site
+  # Remove total and filtered variables
+  select(-c(total, filtered)) %>% 
+  # Rename particulate variable
+  rename(Conc = particulate) %>% 
+  # Remove NA values in Conc variable
+  filter(!is.na(Conc))
+  
+# Export conc_part df to a .csv file to be used in other scripts/analyses
+conc_part %>% write_excel_csv("Particulate_Conc.csv")  # moved to SharePoint site
 
