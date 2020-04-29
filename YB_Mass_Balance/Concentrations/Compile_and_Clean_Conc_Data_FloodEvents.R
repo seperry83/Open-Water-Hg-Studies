@@ -953,10 +953,19 @@ rm(nr_sample, all_data4_flag_nrs)
 # wrangle_data_for_data_package.R script file to be added as datasets to the openwaterhg
 # package
 
-# Remove all other files
-df_keep <- c("all_data4", "blank_samples", "field_dup_data")
-rm(list= ls()[!(ls() %in% df_keep)])
-
 # Rename all_data
 all_data <- all_data4
+
+# Remove all other files
+rm(all_data1,
+   all_data2,
+   all_data3,
+   all_data4,
+   bryte_data_clean,
+   contract_data_clean,
+   lab_rep_data,
+   contract_ana,
+   df_keep
+)
+
 
