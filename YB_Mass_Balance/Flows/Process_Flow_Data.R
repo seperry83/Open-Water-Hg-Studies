@@ -1,9 +1,10 @@
 # Yolo Bypass Inlet-Outlet Study
+# Purpose: Calculate the daily averages of the continuous flow data of each station 
+# to be used for hydrographs. Pull out flow data for just the sampling events. The 
+# resulting .csv files are used to calculate loads and create plots
+# Author: Dave Bosworth
 
-# Calculate the daily averages of the continuous flow data of each station to be used for hydrographs
-# Pull out flow data for just the sampling events
-# The resulting .csv files are used to calculate loads and create plots
-
+# Load packages
 library(tidyverse)
 library(readxl)
 library(lubridate)
@@ -15,7 +16,7 @@ library(lubridate)
 sharepoint_path <- normalizePath(
   file.path(
     Sys.getenv("USERPROFILE"),
-    "California Department of Water Resources/DWR Documents - Open Water Final Report - Documents/Technical Appendices/Technical Appendix-B_Inlet-Outlet/Data"
+    "California Department of Water Resources/DWR Documents - Open Water Final Report - Documents/Technical Appendices/Technical Appendix-B_Inlet-Outlet/Data/Raw"
   )
 )  
 
@@ -365,10 +366,10 @@ flow.all <-
   ungroup() %>% 
   # Bind flow data for Putah Creek and Sacramento Weir
   bind_rows(PutahCk.14, PutahCk.16, PutahCk.17, sw.17) %>% 
-  # Clean up date formatting; round Flow to 1 decimal place; and add a Year variable
+  # Clean up date formatting; round Flow to nearest whole number; and add a Year variable
   mutate(
     Date = as_date(Date),
-    Flow = round(Flow, 1),
+    Flow = round(Flow),
     Year = year(Date)
   )
 
@@ -405,7 +406,7 @@ flow.all <- flow.all %>%
   select(Date, Year, StationName, LocType, Flow)
 
 # Export flow.all
-flow.all %>% write_excel_csv("DailyAvgFlows_All.csv")
+flow.all %>% write_excel_csv("DailyAvgFlows_All.csv")  # moved to SharePoint site
 
 # Pull out daily average flow data for just the sampling events -----------
 # Create vectors of the sampling event dates for the inlet and outlet stations
@@ -474,9 +475,6 @@ flow.se <- bind_rows(flow.se.in, flow.se.out) %>%
   select(SamplingEvent, Year, StationName, LocType, Flow)
 
 # Export flow.se
-flow.se %>% write_excel_csv("DailyAvgFlows_SE.csv")
-
-# The daily average flow data for the flooding periods and for just the sampling events
-# are in the following file: Flows/DailyAvgFlows_All_and_SE.xlsx
+flow.se %>% write_excel_csv("DailyAvgFlows_SE.csv")  # moved to SharePoint site
   
   
