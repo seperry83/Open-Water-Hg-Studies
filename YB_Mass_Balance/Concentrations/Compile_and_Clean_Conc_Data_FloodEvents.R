@@ -539,7 +539,7 @@ field_dup_data %>%
     RL:MME_Comments_FD,
     Flag
   ) %>%
-  write_excel_csv("FieldDuplicates.csv", na = "")
+  write_excel_csv("FieldDuplicates.csv", na = "")  # moved to SharePoint site
   
 # Modify the field_dup_data df
 field_dup_data_mod <- field_dup_data %>% 
@@ -827,7 +827,7 @@ blank_samples <- blank_samples %>%
 
 # Export blank_samples to .csv file- added to Final data spreadsheet, and kept as a separate
 # .csv file to be added as a dataset to the openwaterhg package
-blank_samples %>% write_excel_csv("BlankSamples.csv", na = "")
+blank_samples %>% write_excel_csv("BlankSamples.csv", na = "")  # moved to SharePoint site
 
 # Clean up
 rm(field_blanks_det, field_blanks_loc, filter_blanks_det, filter_blanks_det1, amb_samples)
@@ -958,7 +958,7 @@ rm(nr_sample, all_data4_flag_nrs)
 
 # Export all_data4 to .csv file- added to Final data spreadsheet, and kept as a separate
 # .csv file to be added as a dataset to the openwaterhg package
-all_data4 %>% write_excel_csv("NormalSamples.csv", na = "")
+all_data4 %>% write_excel_csv("NormalSamples.csv", na = "")  # moved to SharePoint site
 
 # The final copy of the Lab concentration data for the Yolo Bypass Inlet-Outlet Study is 
 # located here: M:\Data\Lab_Final\YB_Inlet-Outlet_Conc_Data.xlsx
