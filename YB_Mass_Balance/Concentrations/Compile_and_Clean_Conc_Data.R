@@ -314,7 +314,7 @@ lab_rep_data <-
   # Calculate RPD values for each replicate pair and flag if necessary
   mutate(
     rpd = round(abs(Conc1 - Conc2)/((Conc1 + Conc2)/2), 3),
-    flag = case_when(
+    Flag = case_when(
       Analyte %in% contract_ana & rpd > 0.25 & (Conc1 > 10 * MDL | Conc2 > 10 * MDL) ~ "y",
       !Analyte %in% contract_ana & rpd > 0.25 & (Conc1 > 10 * RL | Conc2 > 10 * RL) ~ "y",
       TRUE ~ "n"
@@ -338,7 +338,7 @@ lab_rep_data <-
 #     MDL,
 #     Units,
 #     MME_Comments,
-#     flag
+#     Flag
 #   ) %>%
 #   write_excel_csv("LabReplicates.csv", na = "")
     
@@ -367,7 +367,7 @@ lab_rep_data_mod <- lab_rep_data %>%
       Result1, 
       Result2,
       rpd,
-      flag
+      Flag
     )
   ) %>% 
   # Add Result variable back to df
@@ -507,7 +507,7 @@ field_dup_data <- field_dups_all %>%
   # Calculate RPD values for each replicate pair and flag if necessary
   mutate(
     rpd = round(abs(Conc_PS - Conc_FD)/((Conc_PS + Conc_FD)/2), 3),
-    flag = case_when(
+    Flag = case_when(
       Analyte %in% contract_ana & rpd > 0.25 & (Conc_PS > 10 * MDL | Conc_FD > 10 * MDL) ~ "FV",
       (!Analyte %in% contract_ana & !Analyte %in% c("DOC", "TOC", "VSS")) & rpd > 0.25 & (Conc_PS > 10 * RL | Conc_FD > 10 * RL) ~ "FV",
       Analyte %in% c("DOC", "TOC", "VSS") & rpd > 0.3 & (Conc_PS > 10 * RL | Conc_FD > 10 * RL) ~ "FV",
@@ -531,7 +531,7 @@ field_dup_data <- field_dups_all %>%
 #     rpd,
 #     ResQual,
 #     RL:MME_Comments_FD,
-#     flag
+#     Flag
 #   ) %>%
 #   write_excel_csv("FieldDuplicates.csv", na = "")
   
@@ -570,7 +570,7 @@ field_dup_data_mod <- field_dup_data %>%
       ends_with("_PS"),
       ends_with("_FD"),
       rpd,
-      flag
+      Flag
     )
   ) %>% 
   # Add Result variable back to df
@@ -757,7 +757,7 @@ field_blanks_det <- all_data4 %>%
     Result_amb = as.numeric(Result_amb),
     Result_qa = as.numeric(Result_qa),
     blank_amb_ratio = round(Result_qa/Result_amb, 3),
-    flag = if_else(blank_amb_ratio >= 0.2, "BD", "n")
+    Flag = if_else(blank_amb_ratio >= 0.2, "BD", "n")
   ) %>% 
   # Clean up df
   select(-StationName) %>% 
@@ -807,7 +807,7 @@ filter_blanks_det <- filter_blanks_det %>%
   mutate(
     Result = as.numeric(Result),
     blank_amb_ratio = round(Result/Result_amb, 3),
-    flag = if_else(blank_amb_ratio >= 0.2, "BD", "n")
+    Flag = if_else(blank_amb_ratio >= 0.2, "BD", "n")
   ) %>% 
   # Clean up df
   select(-SampleDate_mod) %>% 
@@ -817,10 +817,10 @@ filter_blanks_det <- filter_blanks_det %>%
 blank_samples <- blank_samples %>% 
   filter(str_detect(Result, "^<")) %>% 
   bind_rows(field_blanks_det, filter_blanks_det) %>% 
-  select(SampleCode:Analyte, Result, RL, MDL, Units, LabComments:flag)
+  select(SampleCode:Analyte, Result, RL, MDL, Units, LabComments:Flag)
 
 # Export blank_samples to .csv file- only needed once
-# blank_samples %>% write_excel_csv("BlankSamples.csv")
+# blank_samples %>% write_excel_csv("BlankSamples.csv", na = "")
 
 # Clean up
 rm(field_blanks_det, field_blanks_loc, filter_blanks_det, filter_blanks_det1, amb_samples)
@@ -828,7 +828,7 @@ rm(field_blanks_det, field_blanks_loc, filter_blanks_det, filter_blanks_det1, am
 # Add QualCodes to ambient samples with associated blank samples with a "BD" flag
 # Pull out Blanks with "BD" flag
 blank_samples_flag <- blank_samples %>% 
-  filter(flag == "BD") %>% 
+  filter(Flag == "BD") %>% 
   select(SampleDate, Analyte) %>% 
   # Subtract one day from SampleDate for the THg- filtered blank
   mutate(SampleDate = if_else(Analyte == "THg- filtered", SampleDate - 1, SampleDate))
@@ -851,7 +851,7 @@ rm(blank_samples_flag, all_data4_flag_bd)
 
 # Pull out Field Duplicates with "FV" flag
 field_dup_flag <- field_dup_data %>% 
-  filter(flag == "FV") %>% 
+  filter(Flag == "FV") %>% 
   select(SampleDate, Analyte)
 
 # Pull out matching ambient samples and add comment to QualCode variable
@@ -944,8 +944,17 @@ all_data4 <- all_data4 %>%
 rm(nr_sample, all_data4_flag_nrs)
 
 # Export all_data4 to .csv file- only needed once
-all_data4 %>% write_excel_csv("NormalSamples.csv")
+# all_data4 %>% write_excel_csv("NormalSamples.csv", na = "")
 
 # The final copy of the Lab concentration data for the Yolo Bypass Inlet-Outlet Study is located here:
 # M:\Data\Lab_Final\YB_Inlet-Outlet_Conc_Data.xlsx
-  
+
+# all_data4, blank_samples, and field_dup_data dataframes are passed on to the 
+# wrangle_data_for_data_package.R script file to be added as datasets to the openwaterhg
+# package
+
+# Remove all other files
+df_keep <- c("all_data4", "blank_samples", "field_dup_data")
+rm(list= ls()[!(ls() %in% df_keep)])
+
+ 
