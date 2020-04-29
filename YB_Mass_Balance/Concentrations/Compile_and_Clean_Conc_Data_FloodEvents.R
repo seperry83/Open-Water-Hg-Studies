@@ -7,7 +7,6 @@
 library(tidyverse)
 library(readxl)
 library(lubridate)
-library(openwaterhg)
 
 
 # 1.0 Contract Lab Data -------------------------------------------------------
@@ -263,7 +262,13 @@ rm(list= ls()[!(ls() %in% df_keep)])
 # Combine Contract and Bryte Lab Data
 all_data <- bind_rows(contract_data_clean, bryte_data_clean) %>% 
   # Create a new variable Conc, which is a numeric version of Result with the MDL and RL for the ND values
-  add_num_result()
+  mutate(
+    Conc = case_when(
+      Result == "< RL"  ~ RL,
+      Result == "< MDL" ~ MDL,
+      TRUE              ~ as.numeric(Result)
+    )
+  )
 
 
 # 4.0 Lab Replicates ----------------------------------------------------------
@@ -506,11 +511,11 @@ rm(field_dups_fd, field_dups_ps)
 field_dup_data <- field_dups_all %>% 
   # Calculate RPD values for each replicate pair and flag if necessary
   mutate(
-    rpd = round(abs(Conc_PS - Conc_FD)/((Conc_PS + Conc_FD)/2), 3),
+    RPD = round(abs(Conc_PS - Conc_FD)/((Conc_PS + Conc_FD)/2), 3),
     Flag = case_when(
-      Analyte %in% contract_ana & rpd > 0.25 & (Conc_PS > 10 * MDL | Conc_FD > 10 * MDL) ~ "FV",
-      (!Analyte %in% contract_ana & !Analyte %in% c("DOC", "TOC", "VSS")) & rpd > 0.25 & (Conc_PS > 10 * RL | Conc_FD > 10 * RL) ~ "FV",
-      Analyte %in% c("DOC", "TOC", "VSS") & rpd > 0.3 & (Conc_PS > 10 * RL | Conc_FD > 10 * RL) ~ "FV",
+      Analyte %in% contract_ana & RPD > 0.25 & (Conc_PS > 10 * MDL | Conc_FD > 10 * MDL) ~ "FV",
+      (!Analyte %in% contract_ana & !Analyte %in% c("DOC", "TOC", "VSS")) & RPD > 0.25 & (Conc_PS > 10 * RL | Conc_FD > 10 * RL) ~ "FV",
+      Analyte %in% c("DOC", "TOC", "VSS") & RPD > 0.3 & (Conc_PS > 10 * RL | Conc_FD > 10 * RL) ~ "FV",
       TRUE ~ "n"
     ),
     # Average ResQual values
@@ -524,16 +529,17 @@ field_dup_data <- field_dups_all %>%
   ) %>% 
   select(-c(ResQual_PS, ResQual_FD))
 
-# Export field_dup_data to .csv file- only needed once
-# field_dup_data %>%
-#   select(
-#     SampleCode_PS:Result_FD,
-#     rpd,
-#     ResQual,
-#     RL:MME_Comments_FD,
-#     Flag
-#   ) %>%
-#   write_excel_csv("FieldDuplicates.csv", na = "")
+# Export field_dup_data to .csv file- added to Final data spreadsheet, and kept as a separate
+# .csv file to be added as a dataset to the openwaterhg package
+field_dup_data %>%
+  select(
+    SampleCode_PS:Result_FD,
+    RPD,
+    ResQual,
+    RL:MME_Comments_FD,
+    Flag
+  ) %>%
+  write_excel_csv("FieldDuplicates.csv", na = "")
   
 # Modify the field_dup_data df
 field_dup_data_mod <- field_dup_data %>% 
@@ -569,7 +575,7 @@ field_dup_data_mod <- field_dup_data %>%
     -c(
       ends_with("_PS"),
       ends_with("_FD"),
-      rpd,
+      RPD,
       Flag
     )
   ) %>% 
@@ -819,8 +825,9 @@ blank_samples <- blank_samples %>%
   bind_rows(field_blanks_det, filter_blanks_det) %>% 
   select(SampleCode:Analyte, Result, RL, MDL, Units, LabComments:Flag)
 
-# Export blank_samples to .csv file- only needed once
-# blank_samples %>% write_excel_csv("BlankSamples.csv", na = "")
+# Export blank_samples to .csv file- added to Final data spreadsheet, and kept as a separate
+# .csv file to be added as a dataset to the openwaterhg package
+blank_samples %>% write_excel_csv("BlankSamples.csv", na = "")
 
 # Clean up
 rm(field_blanks_det, field_blanks_loc, filter_blanks_det, filter_blanks_det1, amb_samples)
@@ -879,7 +886,13 @@ rm(field_dup_flag, all_data4_flag_fv)
 # Pull out all analytes with associated filtered and total measurements and find filtered
 # that are greater than the total values
 filt_g_total <- all_data4 %>% 
-  add_num_result() %>% 
+  mutate(
+    Conc = case_when(
+      Result == "< RL"  ~ RL,
+      Result == "< MDL" ~ MDL,
+      TRUE              ~ as.numeric(Result)
+    )
+  ) %>% 
   select(SampleCode, Analyte, Conc) %>% 
   filter(str_detect(Analyte, "^MeHg|^THg|OC$")) %>% 
   # Separate analyte and fraction into 2 individual variables
@@ -943,29 +956,10 @@ all_data4 <- all_data4 %>%
 # Clean up
 rm(nr_sample, all_data4_flag_nrs)
 
-# Export all_data4 to .csv file- only needed once
-# all_data4 %>% write_excel_csv("NormalSamples.csv", na = "")
+# Export all_data4 to .csv file- added to Final data spreadsheet, and kept as a separate
+# .csv file to be added as a dataset to the openwaterhg package
+all_data4 %>% write_excel_csv("NormalSamples.csv", na = "")
 
-# The final copy of the Lab concentration data for the Yolo Bypass Inlet-Outlet Study is located here:
-# M:\Data\Lab_Final\YB_Inlet-Outlet_Conc_Data.xlsx
-
-# all_data, blank_samples, and field_dup_data dataframes are passed on to the 
-# wrangle_data_for_data_package.R script file to be added as datasets to the openwaterhg
-# package
-
-# Rename all_data
-all_data <- all_data4
-
-# Remove all other files
-rm(all_data1,
-   all_data2,
-   all_data3,
-   all_data4,
-   bryte_data_clean,
-   contract_data_clean,
-   lab_rep_data,
-   contract_ana,
-   df_keep
-)
-
+# The final copy of the Lab concentration data for the Yolo Bypass Inlet-Outlet Study is 
+# located here: M:\Data\Lab_Final\YB_Inlet-Outlet_Conc_Data.xlsx
 
