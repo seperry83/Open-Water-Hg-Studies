@@ -337,7 +337,7 @@ rm(flow_data, flow_data1, OutFlow_Apr12, Flow_Lis_Apr12)
 
 # 2.1 Create a new Flow df for the balanced flows approach ----------------
 # Make a new df that summarizes the total input and output flows for each sampling event
-FlowSummary <- flow_data_f %>%
+flow_summ <- flow_data_f %>%
   filter(LocType != "Below Liberty") %>% 
   group_by(SamplingEvent, Year, LocType) %>% 
   summarize(TotalFlow = sum(Flow)) %>% 
@@ -348,7 +348,7 @@ OutFlow <- flow_data_f %>%
   # Pull out the flow data for outlet locations
   filter(LocType == "Outlet") %>% 
   # Join summary df
-  left_join(FlowSummary) %>% 
+  left_join(flow_summ) %>% 
   # Create a new variable for the adjusted flow values: (flow at site/total outflow) * total inflow
   mutate(FlowB = (Flow/Outlet) * Inlet) %>% 
   # Remove a few variables
@@ -368,12 +368,11 @@ rm(OutFlow)
 
 
 # 3. Calculate Loads ---------------------------------------------------------
-# START HERE
 # Remove concentration data for a few samples since they won't be used in load calculations
 # I decided to not calculate loads for Cache and Miner Sloughs for the 2016 sampling event since
 # the Below Liberty flows during this flood event were much lower than the sum of the input flows
 
-ConcData <- ConcData %>%
+conc_clean_f <- conc_clean_f %>%
   filter(
     !(
       Year == 2016 &
@@ -384,30 +383,63 @@ ConcData <- ConcData %>%
     )
   )
 
-# Split ConcData into 3 df based on LocType to calculate loads
-ConcData.split <- ConcData %>% split(.$LocType)
+# Calculate the number of significant digits in the Conc values to then use for rounding
+# the load values
+conc_digits <- conc_clean_f %>% 
+  select(SamplingEvent, StationName, Analyte, Conc) %>% 
+  mutate(
+    digits = case_when(
+      Analyte %in% c("Iron- filtered", "Manganese- filtered") ~ 3,
+      str_detect(Analyte, "^MeHg") & Conc < 0.01 ~ 1,
+      str_detect(Analyte, "^MeHg") & Conc < 0.1 ~ 2,
+      str_detect(Analyte, "^MeHg") ~ 3,
+      Analyte %in% c("Chloride- filtered", "TSS", "VSS") & Conc < 10 ~ 1,
+      Analyte %in% c("Chloride- filtered", "TSS", "VSS") & Conc < 100 ~ 2,
+      Analyte %in% c("Chloride- filtered", "TSS", "VSS") ~ 3,
+      str_detect(Analyte, "^THg|OC$") & Conc < 1 ~ 1,
+      str_detect(Analyte, "^THg|OC$") & Conc < 10 ~ 2,
+      str_detect(Analyte, "^THg|OC$") & Conc ~ 3
+    )
+  )
 
-Loads <- 
+# Resolve digits for Cache and Miner Sloughs
+conc_digits_bl <- conc_digits %>% 
+  filter(str_detect(StationName, "^Cache|^Miner")) %>% 
+  group_by(SamplingEvent, Analyte) %>% 
+  summarize(digits = min(digits)) %>% 
+  ungroup() %>% 
+  mutate(StationName = "Below Liberty Island")
+
+# Bind conc_digits and conc_digits_bl
+conc_digits <- conc_digits %>% 
+  filter(!str_detect(StationName, "^Cache|^Miner")) %>%
+  bind_rows(conc_digits_bl) %>% 
+  select(-Conc)
+
+# Split ConcData into 3 df based on LocType to calculate loads
+conc_clean_split <- conc_clean_f %>% split(.$LocType)
+
+loads <- 
   list(
-    Inlet = ConcData.split$Inlet,
-    Outlet.SCHISM = ConcData.split$Outlet,
-    Outlet.Bal = ConcData.split$Outlet,
-    BelowLib = ConcData.split$BelowLiberty
+    Inlet = conc_clean_split$Inlet,
+    Outlet.SCHISM = conc_clean_split$Outlet,
+    Outlet.Bal = conc_clean_split$Outlet,
+    BelowLib = conc_clean_split$BelowLiberty
   ) %>% 
   map_at(
     c("Inlet", "Outlet.SCHISM", "BelowLib"), 
-    ~ left_join(.x, FlowData, by = c("SamplingEvent", "Year", "StationName"))
+    ~ left_join(.x, flow_data_f, by = c("SamplingEvent", "Year", "StationName"))
   ) %>% 
   map_at(
     c("Outlet.Bal"), 
-    ~ left_join(.x, FlowDataBalanced, by = c("SamplingEvent", "Year", "StationName"))
+    ~ left_join(.x, flow_data_bal, by = c("SamplingEvent", "Year", "StationName"))
   ) %>% 
   bind_rows(.id = "Calc.type") %>% 
   select(-LocType.x) %>% 
   rename(LocType = LocType.y) %>% 
   # Create a new variable to calculate loads
   mutate(
-    Load = signif(Conc * Flow * 28.317*60*60*24/1e9, 4),  #The same conversion factor is used for all calculations
+    Load = Conc * Flow * 28.317*60*60*24/1e9,  #The same conversion factor is used for all calculations
     LoadUnits = case_when(
       str_detect(Units, "mg/L") ~ "1,000 kg/day",
       Units == "ug/L"           ~ "kg/day",
@@ -416,7 +448,7 @@ Loads <-
   )
 
 # Calculate Below Liberty Island loads using subtraction (Cache Sl - Miner Sl)
-Loads.bl <- Loads %>% 
+loads_bl <- loads %>% 
   filter(LocType == "Below Liberty") %>% 
   select(-c(Conc, Units, Flow)) %>% 
   pivot_wider(names_from = StationName, values_from = Load) %>% 
@@ -425,14 +457,14 @@ Loads.bl <- Loads %>%
     Miner = "Miner Slough near Sac River"
   ) %>% 
   mutate(
-    Load = signif(Cache - Miner, 4),
+    Load = Cache - Miner,
     StationName = "Below Liberty Island"
   ) %>% 
   select(-c(Cache, Miner))
 
 # Calculate Below Liberty Island loads using a balanced flows approach (Below Liberty flow = sum of input flows)
   # Make a new df that summarizes the Below Liberty Island flows for each sampling event
-  FlowSummary.bl <- FlowData %>% 
+  flow_summ_bl <- flow_data_f %>% 
     filter(LocType == "Below Liberty") %>% 
     select(-LocType) %>% 
     pivot_wider(names_from = StationName, values_from = Flow) %>% 
@@ -444,30 +476,52 @@ Loads.bl <- Loads %>%
     select(-c(Cache, Miner))
     
   # Calculate loads for Below Liberty Island that are scaled to the sum of the input flows
-  Loads.bl.Bal <- FlowSummary %>% 
+  loads_bl_bal <- flow_summ %>% 
     select(-Outlet) %>% 
     #Join the Below Liberty Island and Input flows for each sampling event
-    right_join(FlowSummary.bl) %>% 
+    right_join(flow_summ_bl) %>% 
     #Join the Below Liberty Island loads for each sampling event
-    right_join(Loads.bl) %>%  
-    mutate(ScaledLoad = signif(Load * (Inlet/BelowLibertyFlow), 4)) %>% 
+    right_join(loads_bl) %>%  
+    mutate(ScaledLoad = Load * (Inlet/BelowLibertyFlow)) %>% 
     select(-c(BelowLibertyFlow, Inlet, Load)) %>% 
     rename(Load = ScaledLoad)
   
 # Bind df's for each of the load calculation approaches into a list
-Loads.list <- Loads %>% split(.$Calc.type) 
-Loads.list[["BelowLib"]] <- NULL
-Loads.list <- Loads.list %>% 
+loads_list <- loads %>% split(.$Calc.type) 
+loads_list[["BelowLib"]] <- NULL
+loads_list <- loads_list %>% 
   append(
     list(
-      BelowLib = Loads.bl,
-      BelowLib.Bal = Loads.bl.Bal
+      BelowLib = loads_bl,
+      BelowLib.Bal = loads_bl_bal
     )
-  )
+  ) %>% 
+  # Round loads to appropriate number of significant figures
+  map(~left_join(.x, conc_digits)) %>% 
+  map(~mutate(.x, Load = signif(Load, digits = digits)))
 
 # Clean up
-rm(ConcData.split, FlowSummary.bl, Loads, Loads.bl, Loads.bl.Bal)
+rm(conc_clean_split, flow_summ_bl, loads, loads_bl, loads_bl_bal, conc_digits, conc_digits_bl)
 
+# Export calculated loads
+# Keep the Outlet and Below Liberty loads using the Balanced approach for both
+loads_f <- 
+  bind_rows(loads_list$Inlet, loads_list$Outlet.Bal, loads_list$BelowLib.Bal) %>% 
+  select(
+    SamplingEvent,
+    Year,
+    StationName,
+    LocType,
+    Analyte,
+    Load,
+    LoadUnits,
+    digits
+  )
+  
+# This .csv will be used to create plots and summary statistics
+loads_f %>% write_excel_csv("All_YB_Loads.csv", na = "")  # moved to SharePoint
+
+# THE REMAINDER OF THIS SCRIPT HAS NOT BEEN UPDATED
 
 # 4. Compare the two load calculation approaches -----------------------------
 
