@@ -349,13 +349,14 @@ lab_rep_data <-
     
 # Modify the lab_rep_data df
 lab_rep_data_mod <- lab_rep_data %>% 
-  # Average Concentration values and round
   mutate(
+    # Average Concentration values
     Conc = (Conc1 + Conc2)/2,
-    Conc = case_when(
-      str_detect(Analyte, "^Boron|^MeHg") ~ round(Conc, 3),
-      Analyte %in% c("Iron- filtered", "Manganese- filtered") ~ signif(Conc, 3),
-      TRUE ~ round(Conc, n_round)
+    # Add Result variable back to df
+    Result = case_when(
+      ResQual == 1 & Analyte %in% contract_ana ~ "< MDL",
+      ResQual == 1 & !Analyte %in% contract_ana ~ "< RL",
+      TRUE ~ as.character(Conc)
     ),
     # Add comment about using the average of lab replicates
     MME_Comments = if_else(
@@ -373,14 +374,6 @@ lab_rep_data_mod <- lab_rep_data %>%
       Result2,
       rpd,
       Flag
-    )
-  ) %>% 
-  # Add Result variable back to df
-  mutate(
-    Result = case_when(
-      ResQual == 1 & Analyte %in% contract_ana ~ "< MDL",
-      ResQual == 1 & !Analyte %in% contract_ana ~ "< RL",
-      TRUE ~ as.character(Conc)
     )
   )
   
@@ -421,10 +414,23 @@ all_data1 <- all_data1 %>%
 # Pull out Blank Samples and save for QA validation
 blank_samples <- all_data1 %>% 
   filter(str_detect(StationName, "Blank$")) %>% 
+  # Round Conc variable and update Result variable with rounded values
+  mutate(
+    Conc = case_when(
+      str_detect(Analyte, "^Boron|^MeHg") ~ round(Conc, 3),
+      Analyte %in% c("Iron- filtered", "Manganese- filtered") ~ signif(Conc, 3),
+      TRUE ~ round(Conc, n_round)
+    ),
+    Result = case_when(
+      ResQual == 1 & Analyte %in% contract_ana ~ "< MDL",
+      ResQual == 1 & !Analyte %in% contract_ana ~ "< RL",
+      TRUE ~ as.character(Conc)
+    )
+  ) %>% 
   select(-c(ResQual, ParentSample:Conc))
 
 # Remove Blank samples from all_data df
-all_data2 <- anti_join(all_data1, blank_samples)
+all_data2 <- anti_join(all_data1, blank_samples, by = c("SampleCode", "Analyte"))
 
 
 # 6.0 Field Duplicates --------------------------------------------------------
@@ -543,14 +549,9 @@ field_dup_data %>%
   
 # Modify the field_dup_data df
 field_dup_data_mod <- field_dup_data %>% 
-  # Average Concentration values and round
+  # Average Concentration values
   mutate(
     Conc = (Conc_PS + Conc_FD)/2,
-    Conc = case_when(
-      str_detect(Analyte, "^Boron|^MeHg") ~ round(Conc, 3),
-      Analyte %in% c("Iron- filtered", "Manganese- filtered") ~ signif(Conc, 3),
-      TRUE ~ round(Conc, n_round)
-    ),
     # Add comment about using the average of field duplicates
     MME_Comments = case_when(
       ResQual == 1 ~ "Average of Field Duplicates, both values were < MDL",
@@ -578,18 +579,23 @@ field_dup_data_mod <- field_dup_data %>%
       RPD,
       Flag
     )
-  ) %>% 
-  # Add Result variable back to df
+  )
+
+# Bind the field_dup_data_mod df back with the no_field_dups df
+all_data3 <- bind_rows(no_field_dups, field_dup_data_mod) %>% 
+  # Round Conc variable and update Result variable with rounded values
   mutate(
+    Conc = case_when(
+      str_detect(Analyte, "^Boron|^MeHg") ~ round(Conc, 3),
+      Analyte %in% c("Iron- filtered", "Manganese- filtered") ~ signif(Conc, 3),
+      TRUE ~ round(Conc, n_round)
+    ),
     Result = case_when(
       ResQual == 1 & Analyte %in% contract_ana ~ "< MDL",
       ResQual == 1 & !Analyte %in% contract_ana ~ "< RL",
       TRUE ~ as.character(Conc)
     )
-  )
-
-# Bind the field_dup_data_mod df back with the no_field_dups df
-all_data3 <- bind_rows(no_field_dups, field_dup_data_mod) %>% 
+  ) %>% 
   # remove Conc and n_round variables
   select(-c(Conc, n_round))
 
@@ -677,7 +683,7 @@ comp_grab_all <-
 rm(comp_grab_cg, comp_grab_ps)
 
 # Export CompanionGrabData to .csv file- only needed once
-# comp_grab_all %>% 
+# comp_grab_all %>%
 #   # Add comment about some questionable companion grab data
 #   mutate(
 #     MME_Comments_CG = case_when(
@@ -685,7 +691,7 @@ rm(comp_grab_cg, comp_grab_ps)
 #       SampleDate == "2017-04-26" & Analyte == "THg- total" ~ "Value appears to be biased low possibly because of inadequate mixing of the bulk sample",
 #       TRUE ~ MME_Comments_CG
 #     )
-#   ) %>% 
+#   ) %>%
 #   write_excel_csv("CompanionGrabSamples.csv", na = "")
 
 # Decided to use Companion Grab samples to represent the actual values since they were 
