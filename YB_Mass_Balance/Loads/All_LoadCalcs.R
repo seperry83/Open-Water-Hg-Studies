@@ -1,43 +1,21 @@
 # Yolo Bypass Inlet-Outlet Study
+# Purpose: 
+  # 1. Calculate Loads for all sampling events
+  # 2. Compare two different approaches to calculate loads for:
+    # Outlet- SCHISM vs. Balanced (Outlet flow = sum of Inlet flows)
+    # Below Liberty Island- raw vs. scaled (adjusted using the sum of Inlet flows)
+# Author: Dave Bosworth
 
-# Calculate Loads for all sampling events
-# Compare two different approaches to calculate loads for:
-  # Outlet- SCHISM vs. Balanced (Outlet flow = sum of Inlet flows)
-  # Below Liberty Island- raw vs. scaled (adjusted using the sum of Inlet flows)
-
+# Load packages
 library(tidyverse)
-library(readxl)
 library(lubridate)
-
-# Load common functions
-source("inlet_outlet_common_functions.R")
 
 # 1. Concentration Data ------------------------------------------------------
 
 # 1.1 Import and Clean data -----------------------------------------------
+
 # Import concentration data
-ConcData <- read_excel("../../../Data/Lab_Final/YB_Inlet-Outlet_Conc_Data.xlsx", sheet = "For R Analysis") %>%
-  # Remove samples with QualCode "R"
-  filter(is.na(QualCode) | !str_detect(QualCode, "^R")) %>% 
-  # Clean up date formatting- extract date from dttm variable
-  mutate(SampleDate = as_date(SampleDate)) %>% 
-  # Create a new variable Conc, which is a numeric version of Result with the MDL and RL for the ND values
-  mod_result() %>% 
-  # Select only necessary variables
-  select(
-    StationName,
-    SampleDate,
-    Analyte,
-    Conc,
-    Units
-  )
-
-# Import calculated particulate concentration data
-PartData <- read_csv("Concentrations/Particulate_Conc.csv") %>% 
-  select(-CollectionTimePST)
-
-# Bind particulate concentration data to all other data
-ConcData <- bind_rows(ConcData, PartData)
+source("YB_Mass_Balance/Concentrations/Import_Conc_Data.R")
 
 # Create a vector of all stations to include
 Stations <- c(
@@ -75,17 +53,31 @@ Analytes <- c(
   "VSS"
 )
 
-# Structure ConcData df to be used for load calculations
-ConcData <- ConcData %>% 
+# Structure all_conc df to be used for load calculations
+conc_clean <- all_conc %>% 
   # Keep only necessary data
   filter(
-    SampleDate != "2014-12-12",  #exclude data from this date
     StationName %in% Stations,
     Analyte %in% Analytes
   ) %>% 
   # Create a standardized variable to identify each unique sampling event, and a Year variable
-  mutate(Year = year(SampleDate)) %>%
-  add_samplingevent() %>% 
+  mutate(
+    Year = year(SampleDate),
+    SampleDate = as.character(SampleDate),
+    SamplingEvent = case_when(
+      SampleDate %in% c("2014-12-22", "2014-12-23") ~ "Dec 22-23, 2014",
+      SampleDate %in% c("2016-03-15", "2016-03-16") ~ "Mar 15-16, 2016",
+      SampleDate %in% c("2017-01-11", "2017-01-12") ~ "Jan 11-12, 2017",
+      SampleDate %in% c("2017-01-24", "2017-01-25") ~ "Jan 24-25, 2017",
+      SampleDate %in% c("2017-01-31", "2017-02-01") ~ "Jan 31-Feb 1, 2017",
+      SampleDate %in% c("2017-02-14", "2017-02-16") ~ "Feb 14-15, 2017",
+      SampleDate %in% c("2017-03-01", "2017-03-02") ~ "Mar 1-2, 2017",
+      SampleDate %in% c("2017-03-15", "2017-03-16") ~ "Mar 15-16, 2017",
+      SampleDate %in% c("2017-03-28", "2017-03-29") ~ "Mar 28-29, 2017",
+      SampleDate %in% c("2017-04-11", "2017-04-12") ~ "Apr 11-12, 2017",
+      SampleDate %in% c("2017-04-25", "2017-04-26") ~ "Apr 25-26, 2017"
+    )
+  ) %>%
   # Keep only necessary variables
   select(
     SamplingEvent,
@@ -96,13 +88,10 @@ ConcData <- ConcData %>%
     Units
   )
 
-# Clean up
-rm(PartData)
-
 
 # 1.2 Average Concentration data for a few of the Input stations ------------
 # CCSB Overflow Weir- North and South
-CCSB <- ConcData %>% 
+CCSB <- conc_clean %>% 
   filter(str_detect(StationName, "Overflow")) %>% 
   # Group and summarize to average the North and South stations
   group_by(SamplingEvent, Year, Analyte, Units) %>% 
@@ -116,7 +105,7 @@ CCSB <- ConcData %>%
   )
 
 # Fremont Weir
-Fremont <- ConcData %>% 
+Fremont <- conc_clean %>% 
   # Filter out Fremont Weir stations
   filter(str_detect(StationName, "^Fremont Weir")) %>% 
   # Group and summarize to average the Fremont Weir stations
@@ -131,7 +120,7 @@ Fremont <- ConcData %>%
   )
 
 # Add back CCSB and Fremont Weir df's to ConcData df
-ConcData <- ConcData %>% 
+conc_clean1 <- conc_clean %>% 
   filter(!str_detect(StationName, "Overflow|^Fremont")) %>% 
   bind_rows(CCSB, Fremont)
 
@@ -143,26 +132,27 @@ rm(CCSB, Fremont)
 # The DOC concentration was greater than the TOC concentration at Liberty Cut on 2/16/2017
 # Need to estimate these values in order to calculate loads by using the averages of
 # the Toe Drain at 1/2 Lisbon and Shag Slough stations
-oc_out_feb16 <- ConcData %>% 
+oc_out_feb16 <- conc_clean1 %>% 
   filter(
     StationName %in% c("Toe Drain at 1/2 Lisbon", "Shag Slough below Stairsteps"),
     Analyte %in% c("TOC", "DOC", "POC"),
     SamplingEvent == "Feb 14-15, 2017"
   ) %>% 
   group_by(SamplingEvent, Year, Analyte, Units) %>% 
-  summarize(Conc = signif(mean(Conc), 2)) %>% 
+  summarize(Conc = mean(Conc)) %>% 
   ungroup() %>% 
   mutate(StationName = "Liberty Cut below Stairsteps")
 
-ConcData <- bind_rows(ConcData, oc_out_feb16)
+conc_clean2 <- bind_rows(conc_clean1, oc_out_feb16)
 
 # Clean up
 rm(oc_out_feb16)
 
+
 # 1.4 Create some additional outlet sampling locations ----------------------
 # This is necessary to match the flow data from the SCHISM model
 # 2016 sampling event
-OutSta_2016 <- ConcData %>% 
+OutSta_2016 <- conc_clean2 %>% 
   # Filter out the outlet stations
   filter(
     Year == 2016,
@@ -187,16 +177,16 @@ OutSta_2016 <- ConcData %>%
     "Liberty Island Breach 3" = Toe  #this breach is closest to the Toe Drain at 1/2 Lisbon site
   ) %>% 
   # Remove Liberty, Shag, and Toe since they are no longer necessary
-  select(-c(Liberty:Toe)) %>% 
+  select(-c(Toe, Liberty, Shag)) %>% 
   # Pivot df back into long format
   pivot_longer(
-    cols = "Liberty Island Breach 1":"Liberty Island Breach 3",
+    cols = c("Liberty Island Breach 1", "Liberty Island Breach 2", "Liberty Island Breach 3"),
     names_to = "StationName",
     values_to = "Conc"
   )
 
 # 2017 sampling events
-OutSta_2017 <- ConcData %>% 
+OutSta_2017 <- conc_clean2 %>% 
   # Filter out the outlet stations
   filter(
     Year == 2017,
@@ -217,7 +207,7 @@ OutSta_2017 <- ConcData %>%
   # Create a new variable for Little Holland and assign values
   mutate(
     "Little Holland" = if_else(
-      SamplingEvent != "Apr 11-12",
+      SamplingEvent != "Apr 11-12, 2017",
       (Toe + Liberty)/2,
       NULL  #only sampled Toe Drain on April 12
     )
@@ -226,17 +216,17 @@ OutSta_2017 <- ConcData %>%
   mutate(
     "Main Liberty" = case_when(
       #Sampling events with good mixing across the Bypass- take the average of Liberty Cut and Shag Slough
-      SamplingEvent %in% c("Jan 11-12", "Jan 31-Feb 1", "Feb 14-15", "Mar 1-2", "Mar 15-16") ~ (Liberty + Shag)/2,
+      SamplingEvent %in% c("Jan 11-12, 2017", "Jan 31-Feb 1, 2017", "Feb 14-15, 2017", "Mar 1-2, 2017", "Mar 15-16, 2017") ~ (Liberty + Shag)/2,
       #Sampling events when Shag Slough was much different- use the concentrations from Liberty Cut
-      SamplingEvent %in% c("Jan 24-25", "Mar 28-29", "Apr 25-26") ~ Liberty
+      SamplingEvent %in% c("Jan 24-25, 2017", "Mar 28-29, 2017", "Apr 25-26, 2017") ~ Liberty
       #Only sampled Toe Drain on April 12, so not necessary to assign value for this event
     )
   ) %>% 
   # Remove Liberty, Shag, and Toe since they are no longer necessary
-  select(-c(Liberty:Toe)) %>% 
+  select(-c(Shag, Liberty, Toe)) %>% 
   # Pivot df back into long format
   pivot_longer(
-    cols = "Little Holland":"Main Liberty",
+    cols = c("Little Holland", "Main Liberty"),
     names_to = "StationName",
     values_to = "Conc"
   ) %>% 
@@ -244,11 +234,8 @@ OutSta_2017 <- ConcData %>%
   filter(!is.na(Conc))
   
 # Add OutSta2016 and OutSta2017 df's to ConcData df
-ConcData <- 
-  bind_rows(ConcData, OutSta_2016, OutSta_2017) %>% 
-  # Round Conc data to 3 significant digits
-  mutate(Conc = signif(Conc, 3))
-
+conc_clean3 <- bind_rows(conc_clean2, OutSta_2016, OutSta_2017) 
+ 
 # Create vectors to identify Inlet and Outlet stations
 inlet.sta <- c(
   "CCSB- Low Flow Channel",
@@ -271,7 +258,7 @@ outlet.sta <- c(
 )
 
 # Add a new variable LocType to identify inlet, outlet, and Below Liberty stations
-ConcData <- ConcData %>% 
+conc_clean_f <- conc_clean3 %>% 
   mutate(
     LocType = case_when(
       StationName %in% inlet.sta ~ "Inlet",
@@ -281,19 +268,29 @@ ConcData <- ConcData %>%
   )
 
 # Clean up
-rm(OutSta_2016, OutSta_2017)
+rm(all_conc, conc_clean, conc_clean1, conc_clean2, conc_clean3, OutSta_2016, OutSta_2017)
 
 
 # 2. Flow Data ------------------------------------------------------------
+
+# Dataset is on SharePoint site for the Open Water Final Report
+# Define path on SharePoint site for data
+sharepoint_path <- normalizePath(
+  file.path(
+    Sys.getenv("USERPROFILE"),
+    "California Department of Water Resources/DWR Documents - Open Water Final Report - Documents/Technical Appendices/Technical Appendix-B_Inlet-Outlet/Data/Final"
+  )
+)
+
 # Import Flow data
-FlowData <- read_excel("Flows/DailyAvgFlows_All_and_SE.xlsx", sheet = "Just Sampling Events")
+flow_data <- read_csv(paste0(sharepoint_path, "/DailyAvgFlows_SE.csv"))
 
 # Sum the CCSB flows for the sampling events where we didn't collect the Low Flow Channel
-ccsb.flow <- FlowData %>% 
+ccsb.flow <- flow_data %>% 
   # Filter out CCSB stations
   filter(
     str_detect(StationName, "^CCSB") &
-    !SamplingEvent %in% c("Mar 28-29", "Apr 11-12", "Apr 25-26")
+    !SamplingEvent %in% c("Mar 28-29, 2017", "Apr 11-12, 2017", "Apr 25-26, 2017")
   ) %>% 
   # Group and summarize to sum the flows of the LFC and Overflow Weir stations
   group_by(SamplingEvent, Year, LocType) %>% 
@@ -307,12 +304,12 @@ ccsb.flow <- FlowData %>%
   )
 
 # Add the CCSB flow data back to the FlowData df
-FlowData <- FlowData %>% 
+flow_data1 <- flow_data %>% 
   # Remove the CCSB Stations in FlowData df to prevent duplicates
   filter(
     !(
       str_detect(StationName, "^CCSB") &
-      !SamplingEvent %in% c("Mar 28-29", "Apr 11-12", "Apr 25-26")
+      !SamplingEvent %in% c("Mar 28-29, 2017", "Apr 11-12, 2017", "Apr 25-26, 2017")
     )
   ) %>%
   # Bind all df back together
@@ -322,45 +319,45 @@ FlowData <- FlowData %>%
 rm(ccsb.flow)
 
 # Sum flows for all outlet stations for April 11-12 sampling event and assign to 1/2 Lisbon station
-OutFlow_Apr12 <- FlowData %>% filter(SamplingEvent == "Apr 11-12", LocType == "Outlet")
+OutFlow_Apr12 <- flow_data1 %>% filter(SamplingEvent == "Apr 11-12, 2017", LocType == "Outlet")
 Flow_Lis_Apr12 <- sum(OutFlow_Apr12$Flow)
 OutFlow_Apr12 <- OutFlow_Apr12 %>% filter(StationName == "Toe Drain at 1/2 Lisbon")
 OutFlow_Apr12$Flow <- Flow_Lis_Apr12
 
 # Add the April 12 outflow data back to the FlowData df
-FlowData <- FlowData %>% 
+flow_data_f <- flow_data1 %>% 
   # Remove the Outlet stations for the April 11-12 sampling event in FlowData df to prevent duplicates
-  filter(!(SamplingEvent == "Apr 11-12" & LocType == "Outlet")) %>%
+  filter(!(SamplingEvent == "Apr 11-12, 2017" & LocType == "Outlet")) %>%
   # Bind all df back together
   bind_rows(OutFlow_Apr12)
 
 # Clean up
-rm(OutFlow_Apr12, Flow_Lis_Apr12)
+rm(flow_data, flow_data1, OutFlow_Apr12, Flow_Lis_Apr12)
 
 
 # 2.1 Create a new Flow df for the balanced flows approach ----------------
 # Make a new df that summarizes the total input and output flows for each sampling event
-FlowSummary <- FlowData %>%
+FlowSummary <- flow_data_f %>%
   filter(LocType != "Below Liberty") %>% 
   group_by(SamplingEvent, Year, LocType) %>% 
   summarize(TotalFlow = sum(Flow)) %>% 
   ungroup() %>% 
   pivot_wider(names_from = LocType, values_from = TotalFlow)
 
-OutFlow <- FlowData %>% 
+OutFlow <- flow_data_f %>% 
   # Pull out the flow data for outlet locations
   filter(LocType == "Outlet") %>% 
   # Join summary df
   left_join(FlowSummary) %>% 
   # Create a new variable for the adjusted flow values: (flow at site/total outflow) * total inflow
-  mutate(FlowB = round((Flow/Outlet)*Inlet, 1)) %>% 
+  mutate(FlowB = (Flow/Outlet) * Inlet) %>% 
   # Remove a few variables
   select(-c(Flow, Inlet, Outlet)) %>% 
   # Rename FlowB
   rename(Flow = FlowB)
 
 # Add the adjusted outflow data back to the inflow data
-FlowDataBalanced <- FlowData %>% 
+flow_data_bal <- flow_data_f %>% 
   # Remove the flow data for outlet locations to prevent duplicates
   filter(LocType != "Outlet") %>%
   # Bind OutFlow to FlowData
@@ -371,10 +368,10 @@ rm(OutFlow)
 
 
 # 3. Calculate Loads ---------------------------------------------------------
-
+# START HERE
 # Remove concentration data for a few samples since they won't be used in load calculations
-  #I decided to not calculate loads for Cache and Miner Sloughs for the 2016 sampling event since
-    #the Below Liberty flows during this flood event were much lower than the sum of the input flows
+# I decided to not calculate loads for Cache and Miner Sloughs for the 2016 sampling event since
+# the Below Liberty flows during this flood event were much lower than the sum of the input flows
 
 ConcData <- ConcData %>%
   filter(
