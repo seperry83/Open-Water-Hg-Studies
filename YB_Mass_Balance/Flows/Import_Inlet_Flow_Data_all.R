@@ -19,7 +19,7 @@ ccsb_flow_sum <- ccsb_flow %>%
   ungroup() %>% 
   mutate(StationName = "CCSB")
 
-# Add back the summed CCSB flows and prepare data for plots
+# Add back the summed CCSB flows and format for further analysis
 inlet_flows_all <- inlet_flows_orig %>% 
   anti_join(ccsb_flow) %>% 
   bind_rows(ccsb_flow_sum) %>% 
