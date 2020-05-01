@@ -5,7 +5,7 @@
 \alias{daily_flow_data_se}
 \title{Daily Average Flow Data for the Sampling Events}
 \format{
-data frame with 132 rows and 5 columns
+data frame with 134 rows and 5 columns
 \describe{
 \item{SamplingEvent}{The sampling event for the daily average flow data}
 \item{Year}{The year of the flood}

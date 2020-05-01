@@ -5,7 +5,7 @@
 \alias{daily_flow_data_all}
 \title{Daily Average Flow Data for the 2014, 2016, and 2017 Floods}
 \format{
-data frame with 1,900 rows and 5 columns
+data frame with 1,962 rows and 5 columns
 \describe{
 \item{Date}{The date for the daily average flow data}
 \item{Year}{The year of the flood}

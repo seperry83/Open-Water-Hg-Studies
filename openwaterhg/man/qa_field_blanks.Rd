@@ -5,14 +5,14 @@
 \alias{qa_field_blanks}
 \title{Field and Filter Blanks Collected in Association with \code{conc_data}}
 \format{
-data frame with 524 rows and 14 columns
+data frame with 460 rows and 14 columns
 \describe{
 \item{SampleCode}{The unique identifier for each field or filter blank sample
     produced by Bryte Lab}
 \item{StationName}{The name of the blank sample, either Field Blank or Filter
     Blank}
 \item{SampleDate}{The collection date of the blank sample}
-\item{CollectionTimePST}{The collection time of the blank sample in PST}
+\item{CollectionTime}{The collection time of the blank sample in PST}
 \item{Analyte}{The analytical parameter measured}
 \item{Result}{The analytical result}
 \item{RL}{The analytical reporting limit of the sample}
@@ -24,18 +24,13 @@ data frame with 524 rows and 14 columns
 \item{AmbSampConc}{The concentration of the ambient or environmental sample
     collected at the same station and date as the blank sample. This value is
     only provided for blanks that had a detected value.}
-\item{Perc_BlankConc_AmbConc}{The ratio of the blank sample concentration to the
+\item{Blank_Amb_ratio}{The ratio of the blank sample concentration to the
     \code{AmbSampConc} value expressed as a percent. Samples with percentages
     of 20% and below were not flagged as a blank detection. If this percentage
     was greater than 20%, all samples collected on the same day were flagged as
-    "BD" in \code{QualCode}.}
-\item{QualCode}{Qualification code(s) for the sample. "J" indicates that there
-    was an issue with the sample, but it is still being used in analyses. "R"
-    indicates that there was an issue with the sample, and it is not being used
-    in analyses. "BD" indicates that there was a detection in a blank sample
-    associated with the sample. "FV" indicates that there was a RPD value greater
-    than its acceptable limit in a field duplicate pair associated with the
-    sample.}
+    "BD" in \code{Flag}.}
+\item{Flag}{Flag for the sample. "BD" indicates that there was a detection in
+    the blank sample.}
 }
 }
 \usage{

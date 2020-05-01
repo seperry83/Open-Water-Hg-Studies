@@ -5,13 +5,11 @@
 \alias{comb_param_calc}
 \title{Combined Parameter Data}
 \format{
-data frame with 2,487 rows and 8 columns
+data frame with 2,477 rows and 6 columns
 \describe{
 \item{StationName}{The station name}
 \item{SampleDate}{The sampling date}
-\item{CollectionTimePST}{The collection time in PST}
-\item{Year}{The year of the sampling date}
-\item{SamplingEvent}{The sampling event}
+\item{CollectionTime}{The collection time in PST}
 \item{Parameter}{The name of the calculated parameter}
 \item{Value}{Calculated value}
 \item{Units}{The units of the value}

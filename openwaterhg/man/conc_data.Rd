@@ -5,12 +5,12 @@
 \alias{conc_data}
 \title{Concentration Data in Water}
 \format{
-data frame with 3,582 rows and 13 columns
+data frame with 3,398 rows and 13 columns
 \describe{
 \item{SampleCode}{The unique identifier for each sample produced by Bryte Lab}
 \item{StationName}{The station name where the water samples were collected}
 \item{SampleDate}{The sampling date}
-\item{CollectionTimePST}{The sample collection time in PST}
+\item{CollectionTime}{The sample collection time in PST}
 \item{Analyte}{The analytical parameter measured}
 \item{Result}{The analytical result}
 \item{ResQual}{A numeric variable that represents whether the result was below
@@ -31,7 +31,10 @@ data frame with 3,582 rows and 13 columns
     associated with the sample. "FV" indicates that there was a RPD value greater
     than its acceptable limit in a field duplicate pair associated with the
     sample, which could be due to variablity in the sampling method or the
-    water being sampled.}
+    water being sampled. "FGT" indicates that the value of the filtered sample
+    was greater than its associated total sample. "NRS" indicates that the sample
+    may not have been representative of waterbody. The reason is explained in
+    the MME Comments.}
 }
 }
 \usage{
@@ -40,6 +43,6 @@ conc_data
 \description{
 Contains all water concentration data collected for the Yolo Bypass
     Mass Balance Study. The raw data for this dataset were integrated,
-    cleaned, and QA'ed in the "Compile_and_Clean_Conc_Data.R" script file.
+    cleaned, and QA'ed in the "Compile_and_Clean_Conc_Data_FloodEvents.R" script file.
 }
 \keyword{datasets}

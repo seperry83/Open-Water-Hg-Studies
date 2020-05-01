@@ -9,7 +9,7 @@ data frame with 165 rows and 7 columns
 \describe{
 \item{StationName}{The station name where the measurement was collected}
 \item{SampleDate}{The sampling date of the field measurement}
-\item{CollectionTimePST}{The collection time of the field measurement in PST}
+\item{CollectionTime}{The collection time of the field measurement in PST}
 \item{WaterTempC}{The water temperature in degrees Celcius}
 \item{SpCond}{The specific conductance in uS/cm}
 \item{DissOxy}{The dissolved oxygen concentration in mg/L}

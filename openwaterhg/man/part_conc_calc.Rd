@@ -5,11 +5,11 @@
 \alias{part_conc_calc}
 \title{Calculated Particulate Concentrations}
 \format{
-data frame with 500 rows and 6 columns
+data frame with 488 rows and 6 columns
 \describe{
 \item{StationName}{The station name}
 \item{SampleDate}{The sampling date}
-\item{CollectionTimePST}{The sample collection time in PST}
+\item{CollectionTime}{The sample collection time in PST}
 \item{Analyte}{The name of the calculated particulate parameter}
 \item{Conc}{The calculated particulate concentration}
 \item{Units}{The units of the \code{Conc} variable}

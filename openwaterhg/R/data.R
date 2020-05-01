@@ -26,13 +26,11 @@
 #'     concentration divided by the TSS concentration multiplied by 1,000.}
 #' }
 #'
-#' @format data frame with 2,487 rows and 8 columns
+#' @format data frame with 2,477 rows and 6 columns
 #' \describe{
 #' \item{StationName}{The station name}
 #' \item{SampleDate}{The sampling date}
-#' \item{CollectionTimePST}{The collection time in PST}
-#' \item{Year}{The year of the sampling date}
-#' \item{SamplingEvent}{The sampling event}
+#' \item{CollectionTime}{The collection time in PST}
 #' \item{Parameter}{The name of the calculated parameter}
 #' \item{Value}{Calculated value}
 #' \item{Units}{The units of the value}
@@ -44,14 +42,14 @@
 #' @title Concentration Data in Water
 #' @description Contains all water concentration data collected for the Yolo Bypass
 #'     Mass Balance Study. The raw data for this dataset were integrated,
-#'     cleaned, and QA'ed in the "Compile_and_Clean_Conc_Data.R" script file.
+#'     cleaned, and QA'ed in the "Compile_and_Clean_Conc_Data_FloodEvents.R" script file.
 #'
-#' @format data frame with 3,582 rows and 13 columns
+#' @format data frame with 3,398 rows and 13 columns
 #' \describe{
 #' \item{SampleCode}{The unique identifier for each sample produced by Bryte Lab}
 #' \item{StationName}{The station name where the water samples were collected}
 #' \item{SampleDate}{The sampling date}
-#' \item{CollectionTimePST}{The sample collection time in PST}
+#' \item{CollectionTime}{The sample collection time in PST}
 #' \item{Analyte}{The analytical parameter measured}
 #' \item{Result}{The analytical result}
 #' \item{ResQual}{A numeric variable that represents whether the result was below
@@ -72,7 +70,10 @@
 #'     associated with the sample. "FV" indicates that there was a RPD value greater
 #'     than its acceptable limit in a field duplicate pair associated with the
 #'     sample, which could be due to variablity in the sampling method or the
-#'     water being sampled.}
+#'     water being sampled. "FGT" indicates that the value of the filtered sample
+#'     was greater than its associated total sample. "NRS" indicates that the sample
+#'     may not have been representative of waterbody. The reason is explained in
+#'     the MME Comments.}
 #' }
 #'
 "conc_data"
@@ -84,7 +85,7 @@
 #'     for this dataset were integrated, cleaned, and averaged in the
 #'     "YB_Mass_Balance/Flows/Process_Flow_Data.R" script file.
 #'
-#' @format data frame with 1,900 rows and 5 columns
+#' @format data frame with 1,962 rows and 5 columns
 #' \describe{
 #' \item{Date}{The date for the daily average flow data}
 #' \item{Year}{The year of the flood}
@@ -105,7 +106,7 @@
 #'     were integrated, cleaned, and averaged in the
 #'     "YB_Mass_Balance/Flows/Process_Flow_Data.R" script file.
 #'
-#' @format data frame with 132 rows and 5 columns
+#' @format data frame with 134 rows and 5 columns
 #' \describe{
 #' \item{SamplingEvent}{The sampling event for the daily average flow data}
 #' \item{Year}{The year of the flood}
@@ -127,7 +128,7 @@
 #' \describe{
 #' \item{StationName}{The station name where the measurement was collected}
 #' \item{SampleDate}{The sampling date of the field measurement}
-#' \item{CollectionTimePST}{The collection time of the field measurement in PST}
+#' \item{CollectionTime}{The collection time of the field measurement in PST}
 #' \item{WaterTempC}{The water temperature in degrees Celcius}
 #' \item{SpCond}{The specific conductance in uS/cm}
 #' \item{DissOxy}{The dissolved oxygen concentration in mg/L}
@@ -147,15 +148,12 @@
 #' \item{SamplingEvent}{The sampling event for the mass load value}
 #' \item{Year}{The year of the flood}
 #' \item{StationName}{The station name}
-#' \item{Analyte}{The analytical parameter for the mass load value}
-#' \item{Conc}{The water concentration of the analyte used in the load calculation}
-#' \item{ConcUnits}{The units of the \code{Conc} variable}
-#' \item{Flow}{The daily average flow value in cubic feet per second used in the
-#'     load calculations}
 #' \item{LocType}{A categorical variable indicating whether the station was an
 #'     inlet, outlet, or Below Liberty Island location}
+#' \item{Analyte}{The analytical parameter for the mass load value}
 #' \item{Load}{The calculated mass load value}
 #' \item{LoadUnits}{The units of the load value}
+#' \item{digits}{The number of sigificant figures for the calculated mass load value}
 #' }
 #'
 "loads_calc"
@@ -189,11 +187,11 @@
 #'     are in the "YB_Mass_Balance/Concentrations/Calculate_Particulate_Fractions.R"
 #'     script file.
 #'
-#' @format data frame with 500 rows and 6 columns
+#' @format data frame with 488 rows and 6 columns
 #' \describe{
 #' \item{StationName}{The station name}
 #' \item{SampleDate}{The sampling date}
-#' \item{CollectionTimePST}{The sample collection time in PST}
+#' \item{CollectionTime}{The sample collection time in PST}
 #' \item{Analyte}{The name of the calculated particulate parameter}
 #' \item{Conc}{The calculated particulate concentration}
 #' \item{Units}{The units of the \code{Conc} variable}
@@ -210,14 +208,14 @@
 #'     were separated from the raw data files in the "Compile_and_Clean_Conc_Data.R"
 #'     script file.
 #'
-#' @format data frame with 524 rows and 14 columns
+#' @format data frame with 460 rows and 14 columns
 #' \describe{
 #' \item{SampleCode}{The unique identifier for each field or filter blank sample
 #'     produced by Bryte Lab}
 #' \item{StationName}{The name of the blank sample, either Field Blank or Filter
 #'     Blank}
 #' \item{SampleDate}{The collection date of the blank sample}
-#' \item{CollectionTimePST}{The collection time of the blank sample in PST}
+#' \item{CollectionTime}{The collection time of the blank sample in PST}
 #' \item{Analyte}{The analytical parameter measured}
 #' \item{Result}{The analytical result}
 #' \item{RL}{The analytical reporting limit of the sample}
@@ -229,18 +227,13 @@
 #' \item{AmbSampConc}{The concentration of the ambient or environmental sample
 #'     collected at the same station and date as the blank sample. This value is
 #'     only provided for blanks that had a detected value.}
-#' \item{Perc_BlankConc_AmbConc}{The ratio of the blank sample concentration to the
+#' \item{Blank_Amb_ratio}{The ratio of the blank sample concentration to the
 #'     \code{AmbSampConc} value expressed as a percent. Samples with percentages
 #'     of 20% and below were not flagged as a blank detection. If this percentage
 #'     was greater than 20%, all samples collected on the same day were flagged as
-#'     "BD" in \code{QualCode}.}
-#' \item{QualCode}{Qualification code(s) for the sample. "J" indicates that there
-#'     was an issue with the sample, but it is still being used in analyses. "R"
-#'     indicates that there was an issue with the sample, and it is not being used
-#'     in analyses. "BD" indicates that there was a detection in a blank sample
-#'     associated with the sample. "FV" indicates that there was a RPD value greater
-#'     than its acceptable limit in a field duplicate pair associated with the
-#'     sample.}
+#'     "BD" in \code{Flag}.}
+#' \item{Flag}{Flag for the sample. "BD" indicates that there was a detection in
+#'     the blank sample.}
 #' }
 #'
 "qa_field_blanks"
@@ -253,7 +246,7 @@
 #'     The duplicates and their associated parent samples were separated from
 #'     the raw data files in the "Compile_and_Clean_Conc_Data.R" script file.
 #'
-#' @format data frame with 513 rows and 17 columns
+#' @format data frame with 460 rows and 19 columns
 #' \describe{
 #' \item{SampleCode_PS}{The unique identifier for the associated parent sample
 #'     produced by Bryte Lab}
@@ -263,9 +256,9 @@
 #'     collected}
 #' \item{SampleDate}{The collection date of the field duplicate and parent
 #'     samples}
-#' \item{CollectionTimePST_PS}{The collection time of the associated parent
+#' \item{CollectionTime_PS}{The collection time of the associated parent
 #'     sample in PST}
-#' \item{CollectionTimePST_FD}{The collection time of the field duplicate
+#' \item{CollectionTime_FD}{The collection time of the field duplicate
 #'     sample in PST}
 #' \item{Analyte}{The analytical parameter measured}
 #' \item{Result_PS}{The analytical result of the associated parent sample}
@@ -274,7 +267,7 @@
 #'     and the associated parent sample. This was calculated as the absolute
 #'     diference between the two values divided by their average and expressed as
 #'     a percent. RPD's greater than their Measurement Quality Objectives were
-#'     flagged as "FV" in \code{QualCode}. This only applied to duplicate pairs
+#'     flagged as "FV" in \code{Flag}. This only applied to duplicate pairs
 #'     where at least one value was greater than ten times the Reporting Limit.}
 #' \item{ResQual}{A numeric variable that represents whether either of the results
 #'     were below the detection limit (RL or MDL). A value of "0" indicates that
@@ -285,16 +278,16 @@
 #' \item{RL}{The analytical reporting limit of the sample}
 #' \item{MDL}{The analytical method detection limit of the sample}
 #' \item{Units}{The units of the result}
-#' \item{LabComments}{Comments provided by the analytical laboratory}
-#' \item{MME_Comments}{Comments provided by staff from the Mercury Monitoring and
-#'     Evaluation section}
-#' \item{QualCode}{Qualification code(s) for the sample. "J" indicates that there
-#'     was an issue with the sample, but it is still being used in analyses. "R"
-#'     indicates that there was an issue with the sample, and it is not being used
-#'     in analyses. "BD" indicates that there was a detection in a blank sample
-#'     associated with the sample. "FV" indicates that there was a RPD value greater
-#'     than its acceptable limit in a field duplicate pair associated with the
-#'     sample.}
+#' \item{LabComments_PS}{Comments provided by the analytical laboratory for the
+#'     associated parent sample}
+#' \item{LabComments_FD}{Comments provided by the analytical laboratory for the
+#'     field duplicate sample}
+#' \item{MME_Comments_PS}{Comments provided by staff from the Mercury Monitoring and
+#'     Evaluation section for the associated parent sample}
+#' \item{MME_Comments_FD}{Comments provided by staff from the Mercury Monitoring and
+#'     Evaluation section for the field duplicate sample}
+#' \item{Flag}{Flag for the sample pair. "FV" indicates that the pair has a RPD value
+#'     greater than its acceptable limit.}
 #' }
 #'
 "qa_field_dups"

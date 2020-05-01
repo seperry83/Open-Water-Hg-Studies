@@ -10,15 +10,12 @@ data frame with 1,460 rows and 10 columns
 \item{SamplingEvent}{The sampling event for the mass load value}
 \item{Year}{The year of the flood}
 \item{StationName}{The station name}
-\item{Analyte}{The analytical parameter for the mass load value}
-\item{Conc}{The water concentration of the analyte used in the load calculation}
-\item{ConcUnits}{The units of the \code{Conc} variable}
-\item{Flow}{The daily average flow value in cubic feet per second used in the
-    load calculations}
 \item{LocType}{A categorical variable indicating whether the station was an
     inlet, outlet, or Below Liberty Island location}
+\item{Analyte}{The analytical parameter for the mass load value}
 \item{Load}{The calculated mass load value}
 \item{LoadUnits}{The units of the load value}
+\item{digits}{The number of sigificant figures for the calculated mass load value}
 }
 }
 \usage{

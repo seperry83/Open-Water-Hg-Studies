@@ -5,7 +5,7 @@
 \alias{qa_field_dups}
 \title{Field Duplicates Collected in Association with \code{conc_data}}
 \format{
-data frame with 513 rows and 17 columns
+data frame with 460 rows and 19 columns
 \describe{
 \item{SampleCode_PS}{The unique identifier for the associated parent sample
     produced by Bryte Lab}
@@ -15,9 +15,9 @@ data frame with 513 rows and 17 columns
     collected}
 \item{SampleDate}{The collection date of the field duplicate and parent
     samples}
-\item{CollectionTimePST_PS}{The collection time of the associated parent
+\item{CollectionTime_PS}{The collection time of the associated parent
     sample in PST}
-\item{CollectionTimePST_FD}{The collection time of the field duplicate
+\item{CollectionTime_FD}{The collection time of the field duplicate
     sample in PST}
 \item{Analyte}{The analytical parameter measured}
 \item{Result_PS}{The analytical result of the associated parent sample}
@@ -26,7 +26,7 @@ data frame with 513 rows and 17 columns
     and the associated parent sample. This was calculated as the absolute
     diference between the two values divided by their average and expressed as
     a percent. RPD's greater than their Measurement Quality Objectives were
-    flagged as "FV" in \code{QualCode}. This only applied to duplicate pairs
+    flagged as "FV" in \code{Flag}. This only applied to duplicate pairs
     where at least one value was greater than ten times the Reporting Limit.}
 \item{ResQual}{A numeric variable that represents whether either of the results
     were below the detection limit (RL or MDL). A value of "0" indicates that
@@ -37,16 +37,16 @@ data frame with 513 rows and 17 columns
 \item{RL}{The analytical reporting limit of the sample}
 \item{MDL}{The analytical method detection limit of the sample}
 \item{Units}{The units of the result}
-\item{LabComments}{Comments provided by the analytical laboratory}
-\item{MME_Comments}{Comments provided by staff from the Mercury Monitoring and
-    Evaluation section}
-\item{QualCode}{Qualification code(s) for the sample. "J" indicates that there
-    was an issue with the sample, but it is still being used in analyses. "R"
-    indicates that there was an issue with the sample, and it is not being used
-    in analyses. "BD" indicates that there was a detection in a blank sample
-    associated with the sample. "FV" indicates that there was a RPD value greater
-    than its acceptable limit in a field duplicate pair associated with the
-    sample.}
+\item{LabComments_PS}{Comments provided by the analytical laboratory for the
+    associated parent sample}
+\item{LabComments_FD}{Comments provided by the analytical laboratory for the
+    field duplicate sample}
+\item{MME_Comments_PS}{Comments provided by staff from the Mercury Monitoring and
+    Evaluation section for the associated parent sample}
+\item{MME_Comments_FD}{Comments provided by staff from the Mercury Monitoring and
+    Evaluation section for the field duplicate sample}
+\item{Flag}{Flag for the sample pair. "FV" indicates that the pair has a RPD value
+    greater than its acceptable limit.}
 }
 }
 \usage{
