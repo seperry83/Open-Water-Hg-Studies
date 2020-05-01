@@ -8,10 +8,10 @@ library(tidyverse)
 library(openwaterhg)
 
 # Import daily average flow data for the inlets
-inlet_flows_orig <- daily_flow_data_se %>% filter(LocType == "Inlet")
+flows_inlet_orig <- daily_flow_data_se %>% filter(LocType == "Inlet")
 
 # Sum the CCSB Flows
-ccsb_flow <- filter(inlet_flows_orig, str_detect(StationName, "^CCSB"))
+ccsb_flow <- filter(flows_inlet_orig, str_detect(StationName, "^CCSB"))
 
 ccsb_flow_sum <- ccsb_flow %>%                      
   group_by(SamplingEvent, Year, LocType) %>% 
@@ -20,7 +20,7 @@ ccsb_flow_sum <- ccsb_flow %>%
   mutate(StationName = "CCSB")
 
 # Add back the summed CCSB flows and format data for further analysis
-inlet_flows_se <- inlet_flows_orig %>% 
+flows_inlet_se <- flows_inlet_orig %>% 
   anti_join(ccsb_flow, by = c("SamplingEvent", "StationName")) %>% 
   bind_rows(ccsb_flow_sum) %>% 
   # rename some station names
@@ -34,5 +34,5 @@ inlet_flows_se <- inlet_flows_orig %>%
   )
 
 # Clean up
-rm(inlet_flows_orig, ccsb_flow, ccsb_flow_sum)
+rm(flows_inlet_orig, ccsb_flow, ccsb_flow_sum)
 
