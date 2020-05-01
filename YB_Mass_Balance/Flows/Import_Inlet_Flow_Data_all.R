@@ -21,7 +21,7 @@ ccsb_flow_sum <- ccsb_flow %>%
 
 # Add back the summed CCSB flows and format for further analysis
 inlet_flows_all <- inlet_flows_orig %>% 
-  anti_join(ccsb_flow) %>% 
+  anti_join(ccsb_flow, by = c("Date", "StationName")) %>% 
   bind_rows(ccsb_flow_sum) %>% 
   # rename some station names
   mutate(
