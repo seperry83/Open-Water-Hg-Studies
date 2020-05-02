@@ -29,16 +29,19 @@ library(tidyverse)
 library(openwaterhg)
 library(knitr)
 library(kableExtra)
+library(gt)
 ```
 
 ## Water Balances section
 
 Calculate percentage of each tributary's inflow to the total inflow. This is for the entire 2017 flood event from 1/9/2017 to 5/4/2017.
 ```{r per inflow}
+# Bring in daily flow data for the inlets
+source("YB_Mass_Balance/Flows/Import_Inlet_Flow_Data_all.R")
+
 # Calculate the total inflow of each tributary for the entire 2017 flood event
-inlet_flow <- daily_flow_data_all %>% 
+flows_inlet_total_2017 <- flows_inlet_all %>% 
   filter(
-    LocType == "Inlet",
     Date >= "2017-01-09",
     Date <= "2017-05-04"
   ) %>% 
@@ -47,146 +50,94 @@ inlet_flow <- daily_flow_data_all %>%
   arrange(StationName)
 
 # Calculate the total inflow to the Bypass
-total_inflow <- sum(inlet_flow$total_flow)
+total_inflow <- sum(flows_inlet_total_2017$total_flow)
 
-# Fremont Weir percentage
-fre_per_flow <- round((inlet_flow %>% slice(3) %>% pull(total_flow))/total_inflow * 100)
+# Calculate the percentage of each tributary's inflow to the total inflow
+flows_inlet_perc_2017 <- flows_inlet_total_2017 %>% 
+  mutate(perc_flow = round(total_flow/total_inflow, 2))
 
-# Sacramento Weir percentage
-sw_per_flow <- round((inlet_flow %>% slice(6) %>% pull(total_flow))/total_inflow * 100)
+# Generate a gt table
+gt(flows_inlet_perc_2017, rowname_col = "StationName") %>% 
+  fmt_number(columns = vars(total_flow), decimals = 0) %>% 
+  fmt_percent(columns = vars(perc_flow), decimals = 0) %>% 
+  cols_label(
+    total_flow = html("Total Flow<br>(cfs)"),
+    perc_flow = html("Percentage of<br>total inflow")
+  ) %>% 
+  tab_header(
+    title = "Inflow to the Yolo Bypass during the 2017 flood event",
+    subtitle = "1/9/2017 to 5/4/2017"
+  ) %>% 
+  grand_summary_rows(
+    columns = everything(), 
+    fns = list("Total" = "sum"),
+    drop_trailing_zeros = TRUE
+  )
 ```
-When spilling, the Fremont weir was the largest contributor of water to the Yolo Bypass accounting for an average of `r fre_per_flow`% of tributary inflows, followed by the Sacramento weir at `r sw_per_flow`%
 
-Same as in report.
+<br>
+Same as in report, except for percentage for CCSB which is probably due to rounding. I would probably still use 5% for CCSB since the sum of the percentages in the table above is 101%.
 
 ***
 
-Pull out the percentage for CCSB on March 15, 2017.
+Pull out the percentage for CCSB on March 15, 2017:
 ```{r per ccsb mar 15}
-inlet_flow_mar15 <- daily_flow_data_se %>% 
-  filter(
-    LocType == "Inlet",
-    SamplingEvent == "Mar 15-16, 2017"
-  ) %>% 
+inlet_flow_mar15 <- flows_inlet_all %>% 
+  filter(Date == "2017-03-15") %>% 
   arrange(StationName)
 
 # Calculate total inflow for that day
 total_flow_mar15 <- sum(inlet_flow_mar15$Flow)
 
 # CCSB percentage
-ccsb_mar15 <- inlet_flow_mar15$Flow[1] + inlet_flow_mar15$Flow[2]
-ccsb_per_flow_mar15 <- round(ccsb_mar15/total_flow_mar15 * 100)
+ccsb_per_flow_mar15 <- round(inlet_flow_mar15$Flow[1]/total_flow_mar15 * 100)
 ```
 On the one occasion when the Fremont weir was not overtopping (March 15, 2017), the CCSB became the dominant source (`r ccsb_per_flow_mar15`%) of water into the Yolo Bypass
 
 Same as in report.
 
-***
-
-Calculate percentage of SCHISM location outflow to the total outflow. This is for the entire 2017 flood event from 1/10/2017 to 5/5/2017.
-```{r per schism outflow}
-# Calculate the total outflow of each SCHISM location for the entire 2017 flood event
-outlet_flow <- daily_flow_data_all %>% 
-  filter(
-    Date >= "2017-01-10",
-    Date <= "2017-05-05",
-    LocType == "Outlet"
-  ) %>% 
-  group_by(StationName) %>% 
-  summarize(total_flow = sum(Flow)) %>% 
-  arrange(StationName)
-
-# Calculate the total SCHISM outflow from the Bypass
-total_outflow <- sum(outlet_flow$total_flow)
-
-# Shag Slough percentage
-shag_per_flow <- round((outlet_flow %>% slice(4) %>% pull(total_flow))/total_outflow * 100)
-```
-Modeled water mass balances estimated that approximately `r shag_per_flow`% of the water leaves the Yolo Bypass via Shag Slough.
-
-18% instead of 19%
-
 ```{r clean up flow data}
-rm(inlet_flow_mar15, ccsb_mar15, ccsb_per_flow_mar15, fre_per_flow, shag_per_flow, sw_per_flow, total_flow_mar15, total_inflow, total_outflow)
+rm(list = ls())
 ```
 
 
 ## Tributary Input Loads section
 
 Process input load data:
-```{r process input load data}
+```{r process input load data, message = FALSE}
+# Bring in load data for the inlets
+source("YB_Mass_Balance/Loads/Import_Inlet_Load_Data.R")
+
 # Filter just inlet loads for 2017
-inlet_loads <- loads_calc %>% 
-  filter(
-    Year == 2017,
-    LocType == "Inlet"
-  ) %>% 
-  select(SamplingEvent, StationName, Analyte, Load)
-
-# Create a df of CCSB load data
-ccsb_loads <- filter(inlet_loads, str_detect(StationName, "^CCSB"))
-
-# Sum the CCSB loads
-ccsb_loads_total <- ccsb_loads %>% 
-  group_by(SamplingEvent, Analyte) %>% 
-  summarize(Load = sum(Load)) %>% 
-  mutate(StationName = "CCSB")
-
-# Add the summed CCSB loads to the inlet_loads df
-inlet_loads <- inlet_loads %>% 
-  anti_join(ccsb_loads, by = "StationName") %>% 
-  bind_rows(ccsb_loads_total)
-
-rm(ccsb_loads, ccsb_loads_total)
-
-# Create tibbles of zero load values for Fremont and Sacramento Weirs and add to loads df
-analytes <- unique(inlet_loads$Analyte)
-
-fre_mar15 <- tibble(
-  SamplingEvent = "Mar 15-16, 2017",
-  StationName = "Fremont Weir",
-  Analyte = analytes,
-  Load = 0
-)
-
-sw_zeros <- tibble(
-  SamplingEvent = rep(
-    c(
-      "Jan 31-Feb 1, 2017", 
-      "Mar 15-16, 2017",
-      "Mar 28-29, 2017",
-      "Apr 11-12, 2017",
-      "Apr 25-26, 2017"
-    ), 
-    14
-  ), 
-  StationName = "Sac River above the Sacramento Weir",
-  Analyte = rep(analytes, 5),
-  Load = 0
-)
-
-inlet_loads <- bind_rows(inlet_loads, fre_mar15, sw_zeros)
-rm(analytes)
+loads_inlet_2017 <- loads_inlet %>% 
+  filter(Year == 2017) %>% 
+  select(SamplingEvent, StationName, Analyte, Load, digits)
 ```
 
-Calculate percentage of each tributary's input load to the total input load. This is for the all 9 sampling events during the 2017 flood event.
+Calculate percentage of each tributary's input load to the total input load. This is for the all 9 sampling events during the 2017 flood event:
 ```{r per input loads, message = FALSE}
 # Calculate total inlet loads of each parameter for each sampling event
-total_inlet_loads <- inlet_loads %>% 
+total_inlet_loads <- loads_inlet_2017 %>% 
   group_by(SamplingEvent, Analyte) %>% 
-  summarize(total_load = sum(Load)) %>% 
+  summarize(
+    digits = min(digits, na.rm = TRUE),
+    total_load = sum(Load)
+  ) %>% 
   ungroup()
 
 # Calculate percentage of total load for each tributary
-inlet_loads_per <- inlet_loads %>% 
+inlet_loads_per <- loads_inlet_2017 %>% 
+  select(-digits) %>% 
   left_join(total_inlet_loads) %>% 
-  mutate(load_per = Load/total_load * 100)
+  mutate(load_per = Load/total_load * 100) %>% 
+  select(-digits)
 
 # Calculate averages of the percentages across all sampling events in 2017
 inlet_loads_per_avg <- inlet_loads_per %>% 
   group_by(StationName, Analyte) %>% 
   summarize(avg_load_per = round(mean(load_per))) %>% 
   ungroup()
+ 
 
 # Pull out average percentages for Fremont Weir
 fre_avg_per_load_uhg <- inlet_loads_per_avg %>%
@@ -212,22 +163,13 @@ fre_avg_per_load_tss <- inlet_loads_per_avg %>%
 ```
 Fremont weir was the largest contributor of water to the Yolo Bypass and, on average, was the largest contributor of uHg (`r fre_avg_per_load_uhg`%), uMeHg (`r fre_avg_per_load_umehg`%), and TSS (`r fre_avg_per_load_tss`%) to the Yolo Bypass
 
-**These numbers are different than those in the report.**
+Same as in the report.
 
 ***
 
 Look at how Sacramento Weir ranks with other inputs when it was open.
 ```{r sac weir rank}
 inlet_loads_per_sw <- inlet_loads_per %>% 
-  # change some of the station names
-  mutate(
-    StationName = case_when(
-      StationName == "Knights Landing Ridge Cut" ~ "KLRC",
-      StationName == "Putah Creek at Mace Blvd" ~ "Putah Creek",
-      StationName == "Sac River above the Sacramento Weir" ~ "Sacramento Weir",
-      TRUE ~ StationName
-    )
-  ) %>% 
   # Convert SamplingEvent and StationName variables to factors
   conv_fact_samplingevent() %>% 
   conv_fact_inlet_names() %>% 
@@ -241,8 +183,8 @@ inlet_loads_per_sw <- inlet_loads_per %>%
     ),
     Analyte %in% c("THg- total", "MeHg- total", "TSS")
   ) %>% 
-  # Round load_per to 1 decimal place
-  mutate(load_per = round(load_per, 1)) %>% 
+  # Convert load_per to decimal and round to 3 decimal places
+  mutate(load_per = round(load_per/100, 3)) %>% 
   # Remove some variables
   select(-c(Load, total_load)) %>% 
   # Sort by SamplingEvent and StationName
@@ -253,60 +195,36 @@ inlet_loads_per_sw <- inlet_loads_per %>%
     values_from = load_per
   )
 
-# Show a kable for each analyte
-  # uHg
-  inlet_loads_per_sw %>% 
-    filter(Analyte == "THg- total") %>% 
-    select(-Analyte) %>% 
-    kable(caption = "uHg load percentages for each input") %>% 
-    kable_styling("striped")
-  
-  # uMeHg
-  inlet_loads_per_sw %>% 
-    filter(Analyte == "MeHg- total") %>% 
-    select(-Analyte) %>% 
-    kable(caption = "uMeHg load percentages for each input") %>% 
-    kable_styling("striped")
-  
-  # TSS
-  inlet_loads_per_sw %>% 
-    filter(Analyte == "TSS") %>% 
-    select(-Analyte) %>% 
-    kable(caption = "TSS load percentages for each input") %>% 
-    kable_styling("striped")
+# Generate a gt table
+inlet_loads_per_sw %>% 
+  group_by(Analyte) %>% 
+  gt(rowname_col = "SamplingEvent") %>% 
+  fmt_percent(columns = everything(), decimals = 1) %>% 
+  cols_label(
+    `Putah Creek` = html("Putah<br>Creek"),
+    `Sacramento Weir` = html("Sacramento<br>Weir"),
+    `Fremont Weir` = html("Fremont<br>Weir")
+  ) %>% 
+  tab_header(title = "Load percentages for each input")
 ```
+
+<br>
 Of the 4 events when the Sacramento weir was open, it was the second largest contributor of uMeHg for 3 events and of uHg and TSS for 2 events.
 
 ***
 
 Check how the tributary contributions to input loads correspond to their contributions to input flow. Rank of 1 is the highest contributor, and 5 is the lowest. If there is good correspondence, most of the load and flow ranks would be the same. The following plot shows this information.
 ```{r loads vs flow ranks, message = FALSE, fig.width = 9, fig.height = 9}
+# Bring in flow data for the inlets for the sampling events
+source("YB_Mass_Balance/Flows/Import_Inlet_Flow_Data_SE.R")
+
 # Filter just inlet flows for 2017
-inlet_flow_se <- daily_flow_data_se %>% 
-  filter(
-    Year == 2017,
-    LocType == "Inlet"
-  ) %>% 
+flows_inlet_se_2017 <- flows_inlet_se %>% 
+  filter(Year == 2017) %>% 
   select(-c(Year, LocType))
 
-# Create a df of CCSB flow data
-ccsb_flow <- filter(inlet_flow_se, str_detect(StationName, "^CCSB"))
-
-# Sum the CCSB flows
-ccsb_flow_total <- ccsb_flow %>% 
-  group_by(SamplingEvent) %>% 
-  summarize(Flow = sum(Flow)) %>% 
-  mutate(StationName = "CCSB")
-
-# Add the summed CCSB flows to the inlet_flow_se df
-inlet_flow_se <- inlet_flow_se %>% 
-  anti_join(ccsb_flow, by = "StationName") %>% 
-  bind_rows(ccsb_flow_total)
-
-rm(ccsb_flow, ccsb_flow_total)
-
 # Rank flows for each sampling event
-inlet_flow_se_rank <- inlet_flow_se %>% 
+inlet_flow_se_rank <- flows_inlet_se_2017 %>% 
   filter(Flow != 0) %>% 
   group_by(SamplingEvent) %>% 
   mutate(flow_rank = rank(desc(Flow), ties.method = "average")) %>% 
@@ -314,10 +232,10 @@ inlet_flow_se_rank <- inlet_flow_se %>%
   select(-Flow)
 
 # Rank loads for each sampling event and analyte
-inlet_loads_rank <- inlet_loads %>% 
+inlet_loads_rank <- loads_inlet_2017 %>% 
+  select(-digits) %>% 
   # Remove added zeros for events when the weirs weren't spilling
-  anti_join(fre_mar15) %>% 
-  anti_join(sw_zeros) %>% 
+  anti_join(zero_loads) %>% 
   group_by(SamplingEvent, Analyte) %>% 
   mutate(load_rank = rank(desc(Load), ties.method = "average")) %>% 
   ungroup() %>% 
@@ -352,59 +270,109 @@ inlet_flow_load_ranks %>%
 ***
 
 Check numbers in Table 3-2. Averages and Standard deviations:
-```{r check table 3-2 avg and stdev}
+```{r check table 3-2 avg and stdev, message = FALSE}
 # Calculate averages and standard deviations of each input and analyte
-inlet_loads_avg <- inlet_loads %>% 
+inlet_loads_avg <- loads_inlet_2017 %>% 
+  # only include uHg and uMeHg
+  filter(Analyte %in% c("THg- total", "MeHg- total")) %>% 
   group_by(StationName, Analyte) %>% 
   summarize(
-    avg_load = mean(Load),
-    stdev = sd(Load)
+    sign_digits = min(digits, na.rm = TRUE),
+    avg_load = signif(mean(Load), sign_digits),
+    stdev = signif(sd(Load), sign_digits)
   ) %>% 
   ungroup()
 
 # Calculate averages and standard deviations of total input for each analyte
-total_inlet_loads_avg <- total_inlet_loads %>% 
+total_inlet_loads_avg <- total_inlet_loads %>%
+  # only include uHg and uMeHg
+  filter(Analyte %in% c("THg- total", "MeHg- total")) %>% 
   group_by(Analyte) %>% 
   summarize(
-    avg_load = mean(total_load),
-    stdev = sd(total_load)
+    sign_digits = min(digits),
+    avg_load = signif(mean(total_load), sign_digits),
+    stdev = signif(sd(total_load), sign_digits)
   ) %>% 
   mutate(StationName = "Total")
 
-# Bind total inlet loads to inlet loads df for kables
-inlet_loads_avg <- bind_rows(inlet_loads_avg, total_inlet_loads_avg)
+# Bind total inlet loads to inlet loads df
+inlet_loads_avg <- 
+  bind_rows(inlet_loads_avg, total_inlet_loads_avg) %>% 
+  select(-sign_digits)
 
-# Show a kable for each analyte
-  # uHg
-  inlet_loads_avg %>% 
-    filter(Analyte == "THg- total") %>% 
-    select(-Analyte) %>% 
-    mutate(
-      avg_load = signif(avg_load, 3),
-      stdev = signif(stdev, 3)
-    ) %>% 
-    kable(caption = "uHg loads for each input") %>% 
-    kable_styling("striped")
-  
-  # uMeHg
-  inlet_loads_avg %>% 
-    filter(Analyte == "MeHg- total") %>% 
-    select(-Analyte) %>% 
-    mutate(
-      avg_load = round(avg_load, 1),
-      stdev = round(stdev, 1)
-    ) %>%
-    kable(caption = "uMeHg loads for each input") %>% 
-    kable_styling("striped")
+# Restructure inlet_loads_avg df for gt table
+avg_loads <- inlet_loads_avg %>% 
+  pivot_wider(
+    id_cols = StationName,
+    names_from = Analyte,
+    values_from = avg_load
+  ) %>% 
+  rename(
+    MeHg_avg = "MeHg- total",
+    THg_avg = "THg- total"
+  )
+
+sd_loads <- inlet_loads_avg %>% 
+  pivot_wider(
+    id_cols = StationName,
+    names_from = Analyte,
+    values_from = stdev
+  ) %>% 
+  rename(
+    MeHg_sd = "MeHg- total",
+    THg_sd = "THg- total"
+  )
+
+inlet_loads_avg_gt <- 
+  left_join(avg_loads, sd_loads) %>% 
+  mutate(
+    StationName = factor(
+      StationName, 
+      levels = c(
+        "Fremont Weir",
+        "Sacramento Weir",
+        "CCSB",
+        "KLRC",
+        "Putah Creek",
+        "Total"
+      )
+    )
+  ) %>% 
+  arrange(StationName)
+
+# Generate a gt table
+inlet_loads_avg_gt %>% 
+  gt(rowname_col = "StationName") %>% 
+  fmt_number(
+    columns = everything(),
+    drop_trailing_zeros = TRUE
+  ) %>% 
+  cols_merge_uncert(
+    col_val = vars(THg_avg),
+    col_uncert = vars(THg_sd)
+  ) %>%
+  cols_merge_uncert(
+    col_val = vars(MeHg_avg),
+    col_uncert = vars(MeHg_sd)
+  ) %>% 
+  cols_move_to_end(vars(MeHg_avg)) %>% 
+  cols_label(
+    THg_avg = html("uHg Load<br>(g/day)"),
+    MeHg_avg = html("uMeHg Load<br>(g/day)")
+  ) %>% 
+  tab_header(title = "Average uHg and uMeHg loads by tributary")
 ```
-A few numbers in Table 3-2 were incorrect. Corrected them in the report.
+
+<br>
+**Need to update numbers in Table 3-2 with the values in the table above.**
+These are the final numbers rounded to the proper number of significant figures.
 
 ***
-
+START HERE
 Check numbers in Table 3-2. Percentages of the total load in the particulate fraction:
 ```{r check table 3-2 per particulate}
 # Create df to be used to calculate percentages in the particulate fraction
-inlet_loads_hg_frac <- inlet_loads %>% 
+inlet_loads_hg_frac <- loads_inlet_2017 %>% 
   filter(
     str_detect(Analyte, "^MeHg|^THg"),
     Load != 0
