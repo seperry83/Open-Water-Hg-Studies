@@ -54,7 +54,7 @@ loads_net <- temp_loads_total %>%
     Liberty = below_liberty - Outlet,
     Entire = below_liberty - Inlet
   ) %>% 
-  select(-c(Inlet:below_liberty)) %>% 
+  select(-c(Inlet, Outlet, below_liberty)) %>% 
   pivot_longer(
     cols = Upper:Entire,
     names_to = "Reach",
