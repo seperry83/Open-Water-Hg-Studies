@@ -1,7 +1,7 @@
 ---
 title: "Chapter 3 Calculations"
 author: "Dave Bosworth"
-date: "3/27/2020"
+date: "5/4/2020"
 output: 
   html_document: 
     code_folding: hide
@@ -27,8 +27,6 @@ Load R packages necessary for this analysis:
 # Load packages
 library(tidyverse)
 library(openwaterhg)
-library(knitr)
-library(kableExtra)
 library(gt)
 ```
 
@@ -57,7 +55,8 @@ flows_inlet_perc_2017 <- flows_inlet_total_2017 %>%
   mutate(perc_flow = round(total_flow/total_inflow, 2))
 
 # Generate a gt table
-gt(flows_inlet_perc_2017, rowname_col = "StationName") %>% 
+flows_inlet_perc_2017 %>% 
+  gt(rowname_col = "StationName") %>% 
   fmt_number(columns = vars(total_flow), decimals = 0) %>% 
   fmt_percent(columns = vars(perc_flow), decimals = 0) %>% 
   cols_label(
@@ -69,9 +68,15 @@ gt(flows_inlet_perc_2017, rowname_col = "StationName") %>%
     subtitle = "1/9/2017 to 5/4/2017"
   ) %>% 
   grand_summary_rows(
-    columns = everything(), 
+    columns = vars(total_flow), 
     fns = list("Total" = "sum"),
     drop_trailing_zeros = TRUE
+  ) %>% 
+  grand_summary_rows(
+    columns = vars(perc_flow), 
+    fns = list("Total" = "sum"),
+    formatter = fmt_percent,
+    decimals = 0
   )
 ```
 
@@ -116,45 +121,45 @@ loads_inlet_2017 <- loads_inlet %>%
 
 Calculate percentage of each tributary's input load to the total input load. This is for the all 9 sampling events during the 2017 flood event:
 ```{r per input loads, message = FALSE}
+# Round load values before calculating the percentages
+loads_inlet_2017_r <- loads_inlet_2017 %>% 
+  mutate(Load = if_else(!is.na(digits), signif(Load, digits), Load)) %>% 
+  select(-digits)
+
 # Calculate total inlet loads of each parameter for each sampling event
-total_inlet_loads <- loads_inlet_2017 %>% 
+loads_inlet_total_r <- loads_inlet_2017_r %>% 
   group_by(SamplingEvent, Analyte) %>% 
-  summarize(
-    digits = min(digits, na.rm = TRUE),
-    total_load = sum(Load)
-  ) %>% 
+  summarize(total_load = sum(Load)) %>% 
   ungroup()
 
 # Calculate percentage of total load for each tributary
-inlet_loads_per <- loads_inlet_2017 %>% 
-  select(-digits) %>% 
-  left_join(total_inlet_loads) %>% 
-  mutate(load_per = Load/total_load * 100) %>% 
-  select(-digits)
+loads_inlet_per <- loads_inlet_2017_r %>% 
+  left_join(loads_inlet_total_r) %>% 
+  mutate(load_per = Load/total_load * 100)
 
 # Calculate averages of the percentages across all sampling events in 2017
-inlet_loads_per_avg <- inlet_loads_per %>% 
+loads_inlet_per_avg <- loads_inlet_per %>% 
   group_by(StationName, Analyte) %>% 
   summarize(avg_load_per = round(mean(load_per))) %>% 
   ungroup()
  
 
 # Pull out average percentages for Fremont Weir
-fre_avg_per_load_uhg <- inlet_loads_per_avg %>%
+fre_avg_per_load_uhg <- loads_inlet_per_avg %>%
   filter(
     StationName == "Fremont Weir",
     Analyte == "THg- total"
   ) %>% 
   pull(avg_load_per)
 
-fre_avg_per_load_umehg <- inlet_loads_per_avg %>%
+fre_avg_per_load_umehg <- loads_inlet_per_avg %>%
   filter(
     StationName == "Fremont Weir",
     Analyte == "MeHg- total"
   ) %>% 
   pull(avg_load_per)
 
-fre_avg_per_load_tss <- inlet_loads_per_avg %>%
+fre_avg_per_load_tss <- loads_inlet_per_avg %>%
   filter(
     StationName == "Fremont Weir",
     Analyte == "TSS"
@@ -169,7 +174,7 @@ Same as in the report.
 
 Look at how Sacramento Weir ranks with other inputs when it was open.
 ```{r sac weir rank}
-inlet_loads_per_sw <- inlet_loads_per %>% 
+loads_inlet_per_sw <- loads_inlet_per %>% 
   # Convert SamplingEvent and StationName variables to factors
   conv_fact_samplingevent() %>% 
   conv_fact_inlet_names() %>% 
@@ -196,7 +201,7 @@ inlet_loads_per_sw <- inlet_loads_per %>%
   )
 
 # Generate a gt table
-inlet_loads_per_sw %>% 
+loads_inlet_per_sw %>% 
   group_by(Analyte) %>% 
   gt(rowname_col = "SamplingEvent") %>% 
   fmt_percent(columns = everything(), decimals = 1) %>% 
@@ -224,7 +229,7 @@ flows_inlet_se_2017 <- flows_inlet_se %>%
   select(-c(Year, LocType))
 
 # Rank flows for each sampling event
-inlet_flow_se_rank <- flows_inlet_se_2017 %>% 
+flows_inlet_se_rank <- flows_inlet_se_2017 %>% 
   filter(Flow != 0) %>% 
   group_by(SamplingEvent) %>% 
   mutate(flow_rank = rank(desc(Flow), ties.method = "average")) %>% 
@@ -232,8 +237,7 @@ inlet_flow_se_rank <- flows_inlet_se_2017 %>%
   select(-Flow)
 
 # Rank loads for each sampling event and analyte
-inlet_loads_rank <- loads_inlet_2017 %>% 
-  select(-digits) %>% 
+loads_inlet_rank <- loads_inlet_2017_r %>% 
   # Remove added zeros for events when the weirs weren't spilling
   anti_join(zero_loads) %>% 
   group_by(SamplingEvent, Analyte) %>% 
@@ -242,7 +246,7 @@ inlet_loads_rank <- loads_inlet_2017 %>%
   select(-Load)
 
 # Join flow and load ranks together
-inlet_flow_load_ranks <- left_join(inlet_loads_rank, inlet_flow_se_rank) %>% 
+inlet_flow_load_ranks <- left_join(loads_inlet_rank, flows_inlet_se_rank) %>% 
   # Only include parameters we are interested in
   filter(str_detect(Analyte, "^THg|^MeHg|OC$|TSS"))
 
@@ -272,7 +276,7 @@ inlet_flow_load_ranks %>%
 Check numbers in Table 3-2. Averages and Standard deviations:
 ```{r check table 3-2 avg and stdev, message = FALSE}
 # Calculate averages and standard deviations of each input and analyte
-inlet_loads_avg <- loads_inlet_2017 %>% 
+loads_inlet_avg <- loads_inlet_2017 %>% 
   # only include uHg and uMeHg
   filter(Analyte %in% c("THg- total", "MeHg- total")) %>% 
   group_by(StationName, Analyte) %>% 
@@ -284,10 +288,16 @@ inlet_loads_avg <- loads_inlet_2017 %>%
   ungroup()
 
 # Calculate averages and standard deviations of total input for each analyte
-total_inlet_loads_avg <- total_inlet_loads %>%
+loads_inlet_total_avg <- loads_inlet_2017 %>%
   # only include uHg and uMeHg
   filter(Analyte %in% c("THg- total", "MeHg- total")) %>% 
-  group_by(Analyte) %>% 
+  # Sum each analyte and sampling event combination
+  group_by(Analyte, SamplingEvent) %>% 
+  summarize(
+    digits = min(digits, na.rm = TRUE),
+    total_load = sum(Load)
+  ) %>% 
+  # Calculate averages and standard deviations across all sampling events
   summarize(
     sign_digits = min(digits),
     avg_load = signif(mean(total_load), sign_digits),
@@ -296,35 +306,20 @@ total_inlet_loads_avg <- total_inlet_loads %>%
   mutate(StationName = "Total")
 
 # Bind total inlet loads to inlet loads df
-inlet_loads_avg <- 
-  bind_rows(inlet_loads_avg, total_inlet_loads_avg) %>% 
+loads_inlet_avg <- 
+  bind_rows(loads_inlet_avg, loads_inlet_total_avg) %>% 
   select(-sign_digits)
 
-# Restructure inlet_loads_avg df for gt table
-avg_loads <- inlet_loads_avg %>% 
-  pivot_wider(
-    id_cols = StationName,
-    names_from = Analyte,
-    values_from = avg_load
+# Restructure loads_inlet_avg df for gt table
+loads_inlet_avg_gt <- loads_inlet_avg %>% 
+  mutate(Analyte = str_remove_all(Analyte, "- total")) %>% 
+  pivot_longer(
+    cols = avg_load:stdev,
+    names_to = "summ_stat_type",
+    values_to = "value"
   ) %>% 
-  rename(
-    MeHg_avg = "MeHg- total",
-    THg_avg = "THg- total"
-  )
-
-sd_loads <- inlet_loads_avg %>% 
-  pivot_wider(
-    id_cols = StationName,
-    names_from = Analyte,
-    values_from = stdev
-  ) %>% 
-  rename(
-    MeHg_sd = "MeHg- total",
-    THg_sd = "THg- total"
-  )
-
-inlet_loads_avg_gt <- 
-  left_join(avg_loads, sd_loads) %>% 
+  unite(col = "temp_comb", Analyte, summ_stat_type) %>% 
+  pivot_wider(names_from = temp_comb, values_from = value) %>% 
   mutate(
     StationName = factor(
       StationName, 
@@ -341,24 +336,24 @@ inlet_loads_avg_gt <-
   arrange(StationName)
 
 # Generate a gt table
-inlet_loads_avg_gt %>% 
+loads_inlet_avg_gt %>% 
   gt(rowname_col = "StationName") %>% 
   fmt_number(
     columns = everything(),
     drop_trailing_zeros = TRUE
   ) %>% 
   cols_merge_uncert(
-    col_val = vars(THg_avg),
-    col_uncert = vars(THg_sd)
+    col_val = vars(THg_avg_load),
+    col_uncert = vars(THg_stdev)
   ) %>%
   cols_merge_uncert(
-    col_val = vars(MeHg_avg),
-    col_uncert = vars(MeHg_sd)
+    col_val = vars(MeHg_avg_load),
+    col_uncert = vars(MeHg_stdev)
   ) %>% 
-  cols_move_to_end(vars(MeHg_avg)) %>% 
+  cols_move_to_end(vars(MeHg_avg_load)) %>% 
   cols_label(
-    THg_avg = html("uHg Load<br>(g/day)"),
-    MeHg_avg = html("uMeHg Load<br>(g/day)")
+    THg_avg_load = html("uHg Load<br>(g/day)"),
+    MeHg_avg_load = html("uMeHg Load<br>(g/day)")
   ) %>% 
   tab_header(title = "Average uHg and uMeHg loads by tributary")
 ```
@@ -368,164 +363,249 @@ inlet_loads_avg_gt %>%
 These are the final numbers rounded to the proper number of significant figures.
 
 ***
-START HERE
 Check numbers in Table 3-2. Percentages of the total load in the particulate fraction:
 ```{r check table 3-2 per particulate}
 # Create df to be used to calculate percentages in the particulate fraction
-inlet_loads_hg_frac <- loads_inlet_2017 %>% 
+loads_inlet_hg_frac <- loads_inlet_2017 %>% 
   filter(
     str_detect(Analyte, "^MeHg|^THg"),
     Load != 0
   ) %>% 
   separate(Analyte, into = c("Analyte", "Fraction"), sep = "- ") %>% 
-  filter(Fraction != "filtered") %>% 
-  pivot_wider(names_from = Fraction, values_from = Load)
+  filter(Fraction != "filtered")
 
 # Calculate average percentages for each inlet
-inlet_loads_part_avg <- inlet_loads_hg_frac %>% 
-  mutate(per_part = particulate/total * 100) %>% 
+loads_inlet_part_avg <- loads_inlet_hg_frac %>% 
+  # Round each load value before calculating percentages
+  mutate(Load = signif(Load, digits)) %>% 
+  # Calculate percentage of particulate fraction
+  pivot_wider(
+    id_cols = -digits,
+    names_from = Fraction, 
+    values_from = Load
+  ) %>% 
+  mutate(per_part = particulate/total) %>% 
+  # Average the percent particulate fraction for each inlet and analyte
   group_by(StationName, Analyte) %>% 
-  summarize(avg_per_part = round(mean(per_part))) %>% 
+  summarize(avg_per_part = round(mean(per_part), 2)) %>% 
   ungroup()
 
 # Calculate average percentages for total inputs
-inlet_loads_part_avg_total <- inlet_loads_hg_frac %>% 
-  group_by(SamplingEvent, Analyte) %>% 
+loads_inlet_total_part_avg <- loads_inlet_hg_frac %>% 
+  # Sum each Analyte-fraction for each sampling event
+  group_by(SamplingEvent, Analyte, Fraction) %>% 
   summarize(
-    part_sum = sum(particulate),
-    total_sum = sum(total)
+    sign_digits = min(digits),
+    load_sum = signif(sum(Load), sign_digits)
   ) %>% 
-  ungroup() %>% 
-  mutate(per_part = part_sum/total_sum * 100) %>% 
+  ungroup() %>%
+  # Calculate percentage of particulate fraction
+  pivot_wider(
+    id_cols = -sign_digits,
+    names_from = Fraction, 
+    values_from = load_sum
+  ) %>%
+  mutate(per_part = particulate/total) %>% 
+  # Average the percent particulate fraction for each analyte
   group_by(Analyte) %>% 
-  summarize(avg_per_part = round(mean(per_part))) %>% 
-  ungroup() %>% 
+  summarize(avg_per_part = round(mean(per_part), 2)) %>% 
   mutate(StationName = "Total")
 
-# Bind df's together for kables
-inlet_loads_part_avg <- bind_rows(inlet_loads_part_avg, inlet_loads_part_avg_total)
+# Bind df's together
+loads_inlet_part_avg <- bind_rows(loads_inlet_part_avg, loads_inlet_total_part_avg)
 
-# Show a kable for each analyte
-  # uHg
-  inlet_loads_part_avg %>% 
-    filter(Analyte == "THg") %>% 
-    select(-Analyte) %>% 
-    kable(caption = "Hg- Percent in the particulate fraction for each input") %>% 
-    kable_styling("striped")
-  
-  # uMeHg
-  inlet_loads_part_avg %>% 
-    filter(Analyte == "MeHg") %>% 
-    select(-Analyte) %>% 
-    kable(caption = "MeHg- Percent in the particulate fraction for each input") %>% 
-    kable_styling("striped")
+# Generate a gt table
+loads_inlet_part_avg %>% 
+  # Restructure loads_inlet_part_avg df for gt table
+  pivot_wider(names_from = Analyte, values_from = avg_per_part) %>% 
+  mutate(
+    StationName = factor(
+      StationName, 
+      levels = c(
+        "Fremont Weir",
+        "Sacramento Weir",
+        "CCSB",
+        "KLRC",
+        "Putah Creek",
+        "Total"
+      )
+    )
+  ) %>% 
+  arrange(StationName) %>% 
+  # generate table
+  gt(rowname_col = "StationName") %>% 
+  fmt_percent(
+    columns = everything(),
+    decimals = 0
+  ) %>% 
+  cols_move_to_end(vars(MeHg)) %>% 
+  cols_label(
+    THg = "uHg",
+    MeHg = "uMeHg"
+  ) %>% 
+  tab_header(title = html("Percentages of the total load in the<br>particulate fraction"))
 ```
-A few differences in the inlet percentages probably due to rounding differences. 
-**Total percentages were different than those in Table 3-2.** 
+
+<br>
+**Need to update numbers in Table 3-2 with the values in the table above.**
+These are the final percentages with values rounded to the proper number of significant figures before calculating the percentages.
+
+```{r clean up inlet load data}
+rm(list = ls())
+```
+
 
 ## Net Loads section
 
-Check numbers in Table 3-3.
-```{r check table 3-3}
-# Sum input and output loads for each sampling event
-total_loads <- loads_calc %>% 
-  filter(
-    Year == 2017,
-    str_detect(Analyte, "^THg|^MeHg|OC$|TSS")
+Process total and net load data:
+```{r process total and net load data, message = FALSE}
+# Bring in total load data
+source("YB_Mass_Balance/Loads/Import_Total_Load_Data.R")
+
+# Bring in net load data
+source("YB_Mass_Balance/Loads/Import_Net_Load_Data.R")
+
+# Filter total and net loads dataframes
+loads_2017 <- 
+  list(
+    total = loads_total,
+    net = loads_net
   ) %>% 
-  group_by(SamplingEvent, Analyte, LocType) %>% 
-  summarize(total_load = sum(Load)) %>% 
-  ungroup()
-  
+  map(
+    ~filter(
+      .x,
+      Year == 2017,
+      str_detect(Analyte, "^THg|^MeHg|OC$|TSS")
+    )
+  )
+```
+
+Check numbers in Table 3-3:
+```{r check table 3-3, message = FALSE}
 # Calculate averages and stdev for input and output (Stairsteps) loads
-total_loads_summ <- total_loads %>% 
+loads_total_summ <- loads_2017$total %>% 
   filter(LocType != "Below Liberty") %>% 
   group_by(Analyte, LocType) %>% 
   summarize(
-    avg_load = signif(mean(total_load), 3),
-    stdev_load = signif(sd(total_load), 3)  
+    sign_digits = min(digits),
+    avg_load = signif(mean(total_load), sign_digits),
+    stdev_load = signif(sd(total_load), sign_digits)  
   ) %>% 
-  ungroup()
-
-# Show a kable for each LocType
-  # Input
-  total_loads_summ %>% 
-    filter(LocType == "Inlet") %>% 
-    select(-LocType) %>% 
-    kable(caption = "Input Loads- Average and Std Deviations") %>% 
-    kable_styling("striped")
-  
-  # Output
-  total_loads_summ %>% 
-    filter(LocType == "Outlet") %>% 
-    select(-LocType) %>% 
-    kable(caption = "Output Loads- Average and Std Deviations") %>% 
-    kable_styling("striped")
-
-# Calculate averages and stdev for net loads
-net_loads_summ <- total_loads %>% 
-  pivot_wider(names_from = LocType, values_from = total_load) %>% 
-  rename(below_liberty = "Below Liberty") %>% 
-  # Calculate net loads for each reach
-  mutate(
-    upper = Outlet - Inlet,
-    lower = below_liberty - Outlet,
-    entire = below_liberty - Inlet
-  ) %>% 
-  select(-c(Inlet:below_liberty)) %>% 
+  ungroup() %>% 
+  # restructure for gt table
+  select(-sign_digits) %>% 
   pivot_longer(
-    cols = upper:entire,
-    names_to = "reach",
-    values_to = "net_load"
+    cols = avg_load:stdev_load,
+    names_to = "summ_stat_type",
+    values_to = "value"
   ) %>% 
-  filter(!is.na(net_load)) %>% 
-  group_by(Analyte, reach) %>% 
+  unite(col = "temp_comb", LocType, summ_stat_type) %>% 
+  pivot_wider(names_from = temp_comb, values_from = value)
+  
+# Calculate averages and stdev for net loads
+loads_net_summ <- loads_2017$net %>% 
+  group_by(Analyte, Reach) %>% 
   summarize(
-    avg_net_load = signif(mean(net_load), 3),
-    stdev_net_load = signif(sd(net_load), 3)  
+    sign_digits = min(digits),
+    avg_net_load = signif(mean(net_load), sign_digits),
+    stdev_net_load = signif(sd(net_load), sign_digits)  
   ) %>% 
-  ungroup()
+  ungroup() %>% 
+  # restructure for gt table
+  select(-sign_digits) %>% 
+  pivot_longer(
+    cols = avg_net_load:stdev_net_load,
+    names_to = "summ_stat_type",
+    values_to = "value"
+  ) %>% 
+  unite(col = "temp_comb", Reach, summ_stat_type) %>% 
+  pivot_wider(names_from = temp_comb, values_from = value)
 
-# Show a kable for each reach
-  # Upper reach
-  net_loads_summ %>% 
-    filter(reach == "upper") %>% 
-    select(-reach) %>% 
-    kable(caption = "Net Load- Upper Reach (Stairsteps - Input)") %>% 
-    kable_styling("striped")
-  
-  # Lower reach
-  net_loads_summ %>% 
-    filter(reach == "lower") %>% 
-    select(-reach) %>% 
-    kable(caption = "Net Load- Lower Reach (Below Liberty - Stairsteps)") %>% 
-    kable_styling("striped")
-  
-  # Entire Bypass
-  net_loads_summ %>% 
-    filter(reach == "entire") %>% 
-    select(-reach) %>% 
-    kable(caption = "Net Load- Entire Bypass (Below Liberty - Input)") %>% 
-    kable_styling("striped")
+# Define Analyte order for gt table
+analyte_order <- c(
+  "THg- total",
+  "THg- filtered",
+  "THg- particulate",
+  "MeHg- total",
+  "MeHg- filtered",
+  "MeHg- particulate",
+  "TSS",
+  "TOC",
+  "DOC",
+  "POC"
+)
+
+# Join df's together and define parameter order
+loads_summ_gt <- 
+  left_join(loads_total_summ, loads_net_summ) %>% 
+  mutate(Analyte = factor(Analyte, levels = analyte_order)) %>% 
+  arrange(Analyte)
+
+# Generate a gt table
+loads_summ_gt %>% 
+  gt(rowname_col = "Analyte") %>% 
+  fmt_number(
+    columns = everything(),
+    drop_trailing_zeros = TRUE
+  ) %>% 
+  cols_merge_uncert(
+    col_val = vars(Inlet_avg_load),
+    col_uncert = vars(Inlet_stdev_load)
+  ) %>%
+  cols_merge_uncert(
+    col_val = vars(Outlet_avg_load),
+    col_uncert = vars(Outlet_stdev_load)
+  ) %>% 
+  cols_merge_uncert(
+    col_val = vars(Entire_avg_net_load),
+    col_uncert = vars(Entire_stdev_net_load)
+  ) %>% 
+  cols_merge_uncert(
+    col_val = vars(Liberty_avg_net_load),
+    col_uncert = vars(Liberty_stdev_net_load)
+  ) %>% 
+  cols_merge_uncert(
+    col_val = vars(Upper_avg_net_load),
+    col_uncert = vars(Upper_stdev_net_load)
+  ) %>% 
+  cols_move_to_end(vars(Liberty_avg_net_load, Entire_avg_net_load)) %>% 
+  cols_label(
+    Inlet_avg_load = "Input Load",
+    Outlet_avg_load = html("Output Load<br>(at Stairsteps)"),
+    Upper_avg_net_load = html("Net Load-<br>Upper Reach"),
+    Liberty_avg_net_load = html("Liberty Isl<br>Contribution"),
+    Entire_avg_net_load = html("Net Load-<br>Entire Bypass")
+  ) %>% 
+  tab_header("Average Loads entering and leaving the Yolo Bypass in 2017")
 ```
-A few minor differences in Table 3-3 probably due to rounding differences. 
+
+<br>
+**Need to update numbers in Table 3-3 with the values in the table above.**
+These are the final numbers rounded to the proper number of significant figures.
 
 ***
 
 Calculate average export of uMeHg to the Delta from the entire Yolo Bypass
 ```{r avg export of uMeHg}
-mehg_export_entire <- total_loads %>% 
+mehg_export_entire <- loads_2017$total %>% 
   filter(
     Analyte == "MeHg- total",
     LocType == "Below Liberty"
   )
 
 # Calculate average export
-mehg_export_entire_avg <- signif(mean(mehg_export_entire$total_load), 3)
+mehg_export_entire_avg <- 
+  signif(
+    mean(mehg_export_entire$total_load), 
+    min(mehg_export_entire$digits)
+  )
 
 # Calculate std deviation of export
-mehg_export_entire_stdev <- signif(sd(mehg_export_entire$total_load), 3)
+mehg_export_entire_stdev <- 
+  signif(
+    sd(mehg_export_entire$total_load),
+    min(mehg_export_entire$digits)
+  )
 ```
-The lower reach added an additional 3.6 ± 12.2 g/day to the overall average export to the Delta of `r mehg_export_entire_avg` ± `r mehg_export_entire_stdev` g/day of uMeHg.
-
+The lower reach added an additional 3.7 ± 12 g/day to the overall average export to the Delta of `r mehg_export_entire_avg` ± `r mehg_export_entire_stdev` g/day of uMeHg.
 
