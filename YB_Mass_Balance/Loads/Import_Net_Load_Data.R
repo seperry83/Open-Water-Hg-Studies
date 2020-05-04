@@ -8,7 +8,7 @@ library(tidyverse)
 library(openwaterhg)
 
 # Calculate total loads for each LocType
-loads_total <- loads_calc %>% 
+temp_loads_total <- loads_calc %>% 
   # Group and sum load data
   group_by(SamplingEvent, Year, LocType, Analyte, LoadUnits) %>% 
   summarize(
@@ -19,20 +19,20 @@ loads_total <- loads_calc %>%
 
 # Pull out digits variable to be joined after calculating net loads
 # Nest by LocType
-s_digits_nest_lt <- loads_total %>% 
+temp_s_digits_nest_lt <- temp_loads_total %>% 
   select(SamplingEvent, LocType, Analyte, digits) %>% 
   group_nest(LocType) %>% 
   arrange(LocType)
 
 # Make a nested df and summarize the minimum number of digits for each reach, sampling event,
 # analyte combination
-s_digits_nest_r <- 
+temp_s_digits_nest_r <- 
   tibble(
     Reach = c("Upper", "Liberty", "Entire"),
     df = list(
-      bind_rows(s_digits_nest_lt$data[[2]], s_digits_nest_lt$data[[3]]),
-      bind_rows(s_digits_nest_lt$data[[1]], s_digits_nest_lt$data[[3]]),
-      bind_rows(s_digits_nest_lt$data[[1]], s_digits_nest_lt$data[[2]])
+      bind_rows(temp_s_digits_nest_lt$data[[2]], temp_s_digits_nest_lt$data[[3]]),
+      bind_rows(temp_s_digits_nest_lt$data[[1]], temp_s_digits_nest_lt$data[[3]]),
+      bind_rows(temp_s_digits_nest_lt$data[[1]], temp_s_digits_nest_lt$data[[2]])
     )
   ) %>% 
   mutate(
@@ -44,7 +44,7 @@ s_digits_nest_r <-
   select(-df)
 
 # Calcualate net loads for each Reach
-loads_net <- loads_total %>% 
+loads_net <- temp_loads_total %>% 
   select(-digits) %>% 
   pivot_wider(names_from = LocType, values_from = total_load) %>% 
   rename(below_liberty = "Below Liberty") %>% 
@@ -63,11 +63,11 @@ loads_net <- loads_total %>%
   filter(!is.na(net_load)) %>% 
   # Add minimum number of digits
   group_nest(Reach) %>% 
-  left_join(s_digits_nest_r) %>% 
+  left_join(temp_s_digits_nest_r) %>% 
   mutate(df_final = map2(data, df_digits, .f = left_join)) %>% 
   select(Reach, df_final) %>% 
   unnest(df_final)
 
 # Clean up
-rm(loads_total, s_digits_nest_lt, s_digits_nest_r)
+rm(temp_loads_total, temp_s_digits_nest_lt, temp_s_digits_nest_r)
 
