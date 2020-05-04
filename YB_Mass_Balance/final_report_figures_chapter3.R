@@ -9,36 +9,58 @@ library(scales)
 library(openwaterhg)
 
 
+# Functions for script ----------------------------------------------------
+
+# Create a function to rename Analytes for figures of load data
+rename_ana <- function(df) {
+  # define plot order for the analytes
+  analytes_order <- c(
+    "fHg (g/day)",
+    "pHg (g/day)",
+    "uHg (g/day)",
+    "fMeHg (g/day)",
+    "pMeHg (g/day)",
+    "uMeHg (g/day)",
+    "DOC (1,000 kg/day)",
+    "POC (1,000 kg/day)",
+    "TOC (1,000 kg/day)",
+    "TSS (1,000 kg/day)"
+  )
+  
+  # rename analytes and convert to factor to apply plot order
+  df <- df %>% 
+    mutate(
+      Analyte = case_when(
+        str_detect(Analyte, "OC$|^TSS") ~ paste0(Analyte, " (", LoadUnits, ")"),
+        Analyte == "MeHg- filtered" ~ paste0("fMeHg (", LoadUnits, ")"),
+        Analyte == "MeHg- particulate" ~ paste0("pMeHg (", LoadUnits, ")"),
+        Analyte == "MeHg- total" ~ paste0("uMeHg (", LoadUnits, ")"),
+        Analyte == "THg- filtered" ~ paste0("fHg (", LoadUnits, ")"),
+        Analyte == "THg- particulate" ~ paste0("pHg (", LoadUnits, ")"),
+        Analyte == "THg- total" ~ paste0("uHg (", LoadUnits, ")")
+      ),
+      Analyte = factor(Analyte, levels = analytes_order)
+    )
+  
+  return(df)
+}
+
+
 # Figure 3-5 --------------------------------------------------------------
 # Line plot showing daily average flow in cfs for the Fremont Weir and the CCSB
 # Red markers indicate the sampling events
 # Hydrographs arranged horizontally
 # 2017 flood event only
 
+# Bring in daily flow data for the inlets
+source("YB_Mass_Balance/Flows/Import_Inlet_Flow_Data_all.R")
+
 # Filter daily average flow data to only include 2017 and Fremont Weir and CCSB data
-daily_flow_clean1 <- daily_flow_data_all %>% 
+daily_flow_clean <- flows_inlet_all %>% 
   filter(
     Year == 2017,
     str_detect(StationName, "^CCSB|^Fremont")
   )
-
-# Create a df of CCSB flow data
-ccsb_flow <- filter(daily_flow_clean1, str_detect(StationName, "^CCSB"))
-
-# Sum the CCSB flows
-ccsb_flow_total <- ccsb_flow %>% 
-  group_by(Date) %>% 
-  summarize(Flow = sum(Flow)) %>% 
-  mutate(StationName = "Cache Creek Settling Basin")
-
-# Add the summed CCSB flows to the daily flow df
-daily_flow_clean <- daily_flow_clean1 %>% 
-  anti_join(ccsb_flow, by = "StationName") %>% 
-  bind_rows(ccsb_flow_total) %>% 
-  select(Date, StationName, Flow)
-
-# Clean up
-rm(daily_flow_clean1, ccsb_flow, ccsb_flow_total)
 
 # Create a df of sampling events to mark these on the hydrographs
 se_dates <- tibble(
@@ -97,47 +119,25 @@ ggsave(
   units = "in"
 )
   
+# Clean up 
+rm(daily_flow_clean, figure_3_5, flows_inlet_all, se_dates, se_flows)
+
 
 # Figure 3-6 --------------------------------------------------------------
 # Filled bar plot showing percentage of total inflow for each inlet
 # 2017 sampling events only
 
-# Filter sampling event flow data to only include inlet stations and 2017 data
-se_flow_clean1 <- daily_flow_data_se %>% 
-  filter(
-    LocType == "Inlet",
-    Year == 2017
-  )
+# Bring in daily flow data for the inlets for just sampling events
+source("YB_Mass_Balance/Flows/Import_Inlet_Flow_Data_SE.R")
 
-# Create a df of CCSB flow data
-se_ccsb_flow <- filter(se_flow_clean1, str_detect(StationName, "^CCSB"))
-
-# Sum the CCSB flows
-se_ccsb_flow_total <- se_ccsb_flow %>% 
-  group_by(SamplingEvent) %>% 
-  summarize(Flow = sum(Flow)) %>% 
-  mutate(StationName = "CCSB")
-
-# Add the summed CCSB flows to the se_flow df and prepare for plotting
-se_flow_clean <- se_flow_clean1 %>% 
-  anti_join(se_ccsb_flow, by = "StationName") %>% 
-  bind_rows(se_ccsb_flow_total) %>% 
-  # change some of the station names
-  mutate(
-    StationName = case_when(
-      StationName == "Knights Landing Ridge Cut" ~ "KLRC",
-      StationName == "Putah Creek at Mace Blvd" ~ "Putah Creek",
-      StationName == "Sac River above the Sacramento Weir" ~ "Sacramento Weir",
-      TRUE ~ StationName
-    )
-  ) %>% 
+# Prepare data for plotting
+se_flow_clean <- flows_inlet_se %>% 
+  # Filter sampling event flow data to only include 2017 data
+  filter(Year == 2017) %>% 
   # convert variables to factors to apply plot order
   conv_fact_inlet_names() %>% 
   conv_fact_samplingevent() %>% 
   select(SamplingEvent, StationName, Flow)
-
-# Clean up
-rm(se_flow_clean1, se_ccsb_flow, se_ccsb_flow_total)
 
 # Create Figure 3-6
 figure_3_6 <- se_flow_clean %>% 
@@ -161,60 +161,8 @@ ggsave(
   units = "in"
 )
 
-
-# Process Load Data for Figures 3-7 through 3-13 ------------------------------
-
-# Filter load data to only include 2017 data and necessary parameters
-loads_clean1 <- loads_calc %>% 
-  filter(
-    Year == 2017,
-    str_detect(Analyte, "^MeHg|^THg|OC$|^TSS")
-  )
-
-# Create a df of CCSB load data
-ccsb_loads <- filter(loads_clean1, str_detect(StationName, "^CCSB"))
-
-# Sum the CCSB loads
-ccsb_loads_total <- ccsb_loads %>% 
-  group_by(SamplingEvent, Analyte, LoadUnits, LocType) %>% 
-  summarize(Load = sum(Load)) %>% 
-  mutate(StationName = "CCSB")
-
-# Add the summed CCSB loads to the all loads df and prepare for plotting
-loads_clean2 <- loads_clean1 %>% 
-  anti_join(ccsb_loads, by = "StationName") %>% 
-  bind_rows(ccsb_loads_total) %>% 
-  # change some of the station and analyte names
-  mutate(
-    StationName = case_when(
-      StationName == "Knights Landing Ridge Cut" ~ "KLRC",
-      StationName == "Putah Creek at Mace Blvd" ~ "Putah Creek",
-      StationName == "Sac River above the Sacramento Weir" ~ "Sacramento Weir",
-      TRUE ~ StationName
-    ),
-    Analyte = case_when(
-      str_detect(Analyte, "OC$|^TSS") ~ paste0(Analyte, " (", LoadUnits, ")"),
-      Analyte == "MeHg- filtered" ~ paste0("fMeHg (", LoadUnits, ")"),
-      Analyte == "MeHg- particulate" ~ paste0("pMeHg (", LoadUnits, ")"),
-      Analyte == "MeHg- total" ~ paste0("uMeHg (", LoadUnits, ")"),
-      Analyte == "THg- filtered" ~ paste0("fHg (", LoadUnits, ")"),
-      Analyte == "THg- particulate" ~ paste0("pHg (", LoadUnits, ")"),
-      Analyte == "THg- total" ~ paste0("uHg (", LoadUnits, ")")
-    )
-  ) %>% 
-  select(SamplingEvent, StationName, Analyte, LocType, Load)
-
-# Define plotting order for the Analyte variable
-analytes <- sort(unique(loads_clean2$Analyte))
-analytes_order <- analytes[c(2,4,9,3,5,10,1,6:8)]
-
-# Convert variables to factors to apply plot order
-loads_clean <- loads_clean2 %>% 
-  mutate(Analyte = factor(Analyte, levels = analytes_order)) %>% 
-  conv_fact_samplingevent()
-
 # Clean up
-rm(loads_clean1, loads_clean2, ccsb_loads, ccsb_loads_total, analytes, analytes_order)
+rm(figure_3_6, flows_inlet_se, se_flow_clean)
 
 
 # Figure 3-7 --------------------------------------------------------------
@@ -222,18 +170,27 @@ rm(loads_clean1, loads_clean2, ccsb_loads, ccsb_loads_total, analytes, analytes_
 # Facets for each analyte/parameter
 # 2017 sampling events only
 
-# Prepare loads_clean df for figure 3-7
-in_loads_clean_total <- loads_clean %>% 
-  # filter data
-  filter(LocType == "Inlet") %>% 
-  # sum input loads
-  group_by(SamplingEvent, Analyte) %>% 
-  summarize(Load = sum(Load)) %>% 
-  ungroup()
+# Bring in total load data
+source("YB_Mass_Balance/Loads/Import_Total_Load_Data.R")
+
+# Prepare total load data for figure 3-7
+loads_total_inlet <- loads_total %>% 
+  # Filter data to only include inlet loads, 2017 data, and necessary parameters
+  filter(
+    Year == 2017,
+    str_detect(Analyte, "^MeHg|^THg|OC$|^TSS"),
+    LocType == "Inlet"
+  ) %>% 
+  # Rename analytes
+  rename_ana() %>% 
+  # Convert SamplingEvent to factor to apply plot order
+  conv_fact_samplingevent() %>% 
+  # Round total loads to proper number of significant figures
+  mutate(total_load = signif(total_load, digits))
 
 # Create Figure 3-7
-figure_3_7 <- in_loads_clean_total %>% 
-  ggplot(aes(x = SamplingEvent, y = Load)) +
+figure_3_7 <- loads_total_inlet %>% 
+  ggplot(aes(x = SamplingEvent, y = total_load)) +
   geom_col() +
   facet_wrap(
     vars(Analyte),
@@ -256,19 +213,42 @@ ggsave(
   units = "in"
 )
 
+# Clean up
+rm(figure_3_7, loads_total, loads_total_inlet)
+
+
+# Process Inlet Load data for Figures 3-8 to 3-10 -------------------------
+
+# Bring in inlet load data
+source("YB_Mass_Balance/Loads/Import_Inlet_Load_Data.R")
+
+# Prepare inlet load data for figures
+loads_inlet_clean <- loads_inlet %>% 
+  # Remove added zeros for events when the weirs weren't spilling
+  anti_join(zero_loads) %>% 
+  # Filter load data to only include 2017 data and necessary parameters
+  filter(
+    Year == 2017,
+    str_detect(Analyte, "^MeHg|^THg|OC$|^TSS")
+  ) %>% 
+  # Rename analytes
+  rename_ana() %>% 
+  # Convert variables to factor to apply plot order
+  conv_fact_samplingevent() %>% 
+  conv_fact_inlet_names() %>% 
+  # Round loads to proper number of significant figures
+  mutate(Load = signif(Load, digits))
+
+rm(loads_inlet, zero_loads)
+
 
 # Figure 3-8 --------------------------------------------------------------
 # Filled bar plot showing percentage of total input load for each inlet
 # Facets for each Analyte
 # 2017 sampling events only
 
-# Prepare loads_clean df for figure 3-8
-in_loads_clean_all <- loads_clean %>% 
-  filter(LocType == "Inlet") %>% 
-  conv_fact_inlet_names()
-
 # Create Figure 3-8
-figure_3_8 <- in_loads_clean_all %>% 
+figure_3_8 <- loads_inlet_clean %>% 
   ggplot(aes(x = SamplingEvent, y = Load, fill = StationName)) +
   geom_col(position = "fill") +
   facet_wrap(
@@ -298,6 +278,9 @@ ggsave(
   units = "in"
 )
 
+# Clean up
+rm(figure_3_8)
+
 
 # Figures 3-9 and 3-10 -------------------------------------------------------------
 # Filled bar plots showing percentage of filtered and particulate fractions of:
@@ -306,29 +289,22 @@ ggsave(
 # Facets for each inlet
 # 2017 sampling events only
 
-# Prepare in_loads_clean df for figures 3-9 and 3-10
-in_loads_clean_hg <- loads_clean %>% 
-  # filter data
-  filter(
-    LocType == "Inlet",
-    str_detect(Analyte, "Hg")
-  ) %>% 
+# Prepare inlet load data for figures 3-9 and 3-10
+loads_inlet_hg_frac <- loads_inlet_clean %>% 
+  # Pull out just Hg and MeHg
+  filter(str_detect(Analyte, "Hg")) %>% 
   # create new variables
   mutate(
-    Analyte1 = if_else(str_detect(Analyte, "MeHg"), "MeHg", "Hg"),
+    Analyte = as.character(Analyte),
     Fraction = case_when(
       str_detect(Analyte, "^f") ~ "Filtered",
       str_detect(Analyte, "^p") ~ "Particulate",
       str_detect(Analyte, "^u") ~ "Unfiltered"
-    )
+    ),
+    Analyte = if_else(str_detect(Analyte, "MeHg"), "MeHg", "Hg")
   ) %>% 
   # remove Unfiltered data
   filter(Fraction != "Unfiltered") %>% 
-  # clean up df
-  select(-c(Analyte, LocType)) %>% 
-  rename(Analyte = Analyte1) %>% 
-  # convert StationName to factor to apply plot order
-  conv_fact_inlet_names() %>% 
   # nest df based on Analyte variable
   group_nest(Analyte)
 
@@ -367,7 +343,7 @@ plot_per_frac <- function(df, param) {
 }
 
 # Create Figures 3-9 and 3-10
-in_loads_clean_hg_figs <- in_loads_clean_hg %>% 
+in_loads_clean_hg_figs <- loads_inlet_hg_frac %>% 
   mutate(figures = map2(data, Analyte, .f = plot_per_frac))
 
 # Export figure 3-9
@@ -390,24 +366,36 @@ ggsave(
   units = "in"
 )
 
+# Clean up
+rm(in_loads_clean_hg_figs, loads_inlet_clean, loads_inlet_hg_frac, plot_per_frac)
+
 
 # Figure 3-12 -------------------------------------------------------------
 # Bar plots showing export loads at the Stairsteps
 # Facets for each analyte/parameter
 # 2017 sampling events only
 
-# Prepare data for figure
-out_loads_clean <- loads_clean %>% 
-  # filter data
-  filter(LocType == "Outlet") %>% 
-  # sum export loads at the Stairsteps
-  group_by(SamplingEvent, Analyte) %>% 
-  summarize(Load = sum(Load)) %>% 
-  ungroup()
+# Bring in total load data
+source("YB_Mass_Balance/Loads/Import_Total_Load_Data.R")
+
+# Prepare total load data for figure 3-12
+loads_total_out <- loads_total %>% 
+  # Filter data to only include outlet loads, 2017 data, and necessary parameters
+  filter(
+    Year == 2017,
+    str_detect(Analyte, "^MeHg|^THg|OC$|^TSS"),
+    LocType == "Outlet"
+  ) %>% 
+  # Rename analytes
+  rename_ana() %>% 
+  # Convert SamplingEvent to factor to apply plot order
+  conv_fact_samplingevent() %>% 
+  # Round total loads to proper number of significant figures
+  mutate(total_load = signif(total_load, digits))
 
 # Create Figure 3-12
-figure_3_12 <- out_loads_clean %>% 
-  ggplot(aes(x = SamplingEvent, y = Load)) +
+figure_3_12 <- loads_total_out %>% 
+  ggplot(aes(x = SamplingEvent, y = total_load)) +
   geom_col() +
   facet_wrap(
     vars(Analyte),
@@ -429,44 +417,49 @@ ggsave(
   height = 6.5,
   units = "in"
 )
+
+# Clean up
+rm(figure_3_12, loads_total, loads_total_out)
   
 
 # Figure 3-13 -------------------------------------------------------------
-# Bar plots showing net loads of the upper and lower reaches
+# Bar plots showing net loads of the upper reach and the entire Yolo Bypass
 # Upper reach is between the inlets to the Stairsteps
-# Lower reach is between the inlets and Below Liberty Island
+# Entire Bypass is between the inlets and Below Liberty Island
 # Facets for each analyte/parameter
 # 2017 sampling events only
 
-# Prepare data for figure
-net_loads_clean <- loads_clean %>% 
-  # sum input and output loads
-  group_by(SamplingEvent, Analyte, LocType) %>% 
-  summarize(total_load = sum(Load)) %>% 
-  ungroup() %>% 
-  # calculate net loads for each reach
-  pivot_wider(
-    names_from = LocType,
-    values_from = total_load
+# Bring in net load data
+source("YB_Mass_Balance/Loads/Import_Net_Load_Data.R")
+
+# Prepare net load data for figure 3-13
+loads_net_clean <- loads_net %>% 
+  # Filter load data to only include the upper and entire reaches,
+  # 2017 data, and necessary parameters
+  filter(
+    Year == 2017,
+    str_detect(Analyte, "^MeHg|^THg|OC$|^TSS"),
+    Reach %in% c("Entire", "Upper")
   ) %>% 
-  rename(below_liberty = "Below Liberty") %>% 
+  # Rename analytes
+  rename_ana() %>% 
+  # Rename Reaches
   mutate(
-    "Inlets to Stairsteps" = Outlet - Inlet,
-    "Inlets to Below Liberty Island" = below_liberty - Inlet
+    Reach = case_when(
+      Reach == "Entire" ~ "Inlets to Below Liberty Island", 
+      Reach == "Upper" ~ "Inlets to Stairsteps"
+    ),
+    # Convert Reach to a factor to apply plot order
+    Reach = factor(Reach, levels = c("Inlets to Stairsteps", "Inlets to Below Liberty Island"))
   ) %>% 
-  select(-c(below_liberty:Outlet)) %>% 
-  pivot_longer(
-    cols = -c(SamplingEvent, Analyte),
-    names_to = "segment",
-    values_to = "net_load"
-  ) %>% 
-  filter(!is.na(net_load)) %>% 
-  # convert segment variable to a factor to apply plot order
-  mutate(segment = factor(segment, levels = c("Inlets to Stairsteps", "Inlets to Below Liberty Island")))
+  # Convert SamplingEvent to factor to apply plot order
+  conv_fact_samplingevent() %>% 
+  # Round net loads to proper number of significant figures
+  mutate(net_load = signif(net_load, digits))
 
 # Create Figure 3-13
-figure_3_13 <- net_loads_clean %>% 
-  ggplot(aes(x = SamplingEvent, y = net_load, fill = segment)) +
+figure_3_13 <- loads_net_clean %>% 
+  ggplot(aes(x = SamplingEvent, y = net_load, fill = Reach)) +
   geom_col(position = position_dodge2(preserve = "single")) +
   facet_wrap(
     vars(Analyte),
@@ -493,4 +486,7 @@ ggsave(
   height = 6.3,
   units = "in"
 )
+
+# Clean up
+rm(figure_3_13, loads_net, loads_net_clean)
 
