@@ -28,32 +28,11 @@ library(openwaterhg)
 ```
 
 ```{r clean flow data, message = FALSE}
-flows_inlet <- daily_flow_data_se %>% 
-  # only include a subset of the data
-  filter(LocType == "Inlet")
+# Bring in flow data for the inlets for the sampling events
+source("YB_Mass_Balance/Flows/Import_Inlet_Flow_Data_SE.R")
 
-# Sum the CCSB Flows
-ccsb_flow <- filter(flows_inlet, str_detect(StationName, "^CCSB"))
-
-ccsb_flow_sum <- ccsb_flow %>%                      
-  group_by(SamplingEvent, Year) %>% 
-  summarize(Flow = sum(Flow)) %>% 
-  ungroup() %>% 
-  mutate(StationName = "CCSB")
-
-# Add back the summed CCSB flows and prepare data for plots
-flows_clean <- flows_inlet %>% 
-  anti_join(ccsb_flow) %>% 
-  bind_rows(ccsb_flow_sum) %>% 
-  # rename some station names
-  mutate(
-    StationName = case_when(
-      StationName == "Knights Landing Ridge Cut" ~ "KLRC",
-      StationName == "Putah Creek at Mace Blvd" ~ "Putah Creek",
-      StationName == "Sac River above the Sacramento Weir" ~ "Sacramento Weir",
-      TRUE ~ StationName
-    )
-  ) %>% 
+# Prepare data for plots and summaries
+flows_clean <- flows_inlet_se %>% 
   # apply plot order
   conv_fact_samplingevent() %>% 
   conv_fact_inlet_names() %>% 
@@ -65,7 +44,7 @@ flows_clean <- flows_inlet %>%
   )
 
 # Clean up
-rm(ccsb_flow, ccsb_flow_sum, flows_inlet)
+rm(flows_inlet_se)
 ```
 
 
@@ -229,31 +208,12 @@ flows_clean_perc_summ %>%
 ```{r per fw 2016 and 2017 floods, message = FALSE}
 # Calculate the average percentages of Fremont Weir inflow during 2016 and 2017 floods
 
-flows_inlet_all <- daily_flow_data_all %>% 
-  filter(
-    Year != 2014,
-    LocType == "Inlet"
-  )
+# Bring in daily flow data for the inlets
+source("YB_Mass_Balance/Flows/Import_Inlet_Flow_Data_all.R")
 
-# Sum the CCSB Flows
-ccsb_flow <- filter(flows_inlet_all, str_detect(StationName, "^CCSB"))
-
-ccsb_flow_sum <- ccsb_flow %>%                      
-  group_by(Date, Year) %>% 
-  summarize(Flow = sum(Flow)) %>% 
-  ungroup() %>% 
-  mutate(StationName = "CCSB")
-
-# Add back the summed CCSB flows
-flows_inlet_all <- flows_inlet_all %>% 
-  anti_join(ccsb_flow) %>% 
-  bind_rows(ccsb_flow_sum)
-
-# Clean up 
-rm(ccsb_flow, ccsb_flow_sum)
-
-# Calculate total daily inflows
+# Calculate total daily inflows for the 2016 and 2017 floods
 flows_inlet_all_total <- flows_inlet_all %>% 
+  filter(Year != 2014) %>% 
   group_by(Date) %>% 
   summarize(total_flow = sum(Flow))
 
