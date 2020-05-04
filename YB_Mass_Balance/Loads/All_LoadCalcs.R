@@ -76,6 +76,19 @@ conc_clean <- all_conc %>%
       SampleDate %in% c("2017-03-28", "2017-03-29") ~ "Mar 28-29, 2017",
       SampleDate %in% c("2017-04-11", "2017-04-12") ~ "Apr 11-12, 2017",
       SampleDate %in% c("2017-04-25", "2017-04-26") ~ "Apr 25-26, 2017"
+    ),
+    # Calculate the number of significant digits in the Conc values
+    digits = case_when(
+      Analyte %in% c("Iron- filtered", "Manganese- filtered") ~ 3,
+      str_detect(Analyte, "^MeHg") & Conc < 0.01 ~ 1,
+      str_detect(Analyte, "^MeHg") & Conc < 0.1 ~ 2,
+      str_detect(Analyte, "^MeHg") ~ 3,
+      Analyte %in% c("Chloride- filtered", "TSS", "VSS") & Conc < 10 ~ 1,
+      Analyte %in% c("Chloride- filtered", "TSS", "VSS") & Conc < 100 ~ 2,
+      Analyte %in% c("Chloride- filtered", "TSS", "VSS") ~ 3,
+      str_detect(Analyte, "^THg|OC$") & Conc < 1 ~ 1,
+      str_detect(Analyte, "^THg|OC$") & Conc < 10 ~ 2,
+      str_detect(Analyte, "^THg|OC$") & Conc ~ 3
     )
   ) %>%
   # Keep only necessary variables
@@ -85,7 +98,8 @@ conc_clean <- all_conc %>%
     StationName,
     Analyte,
     Conc,
-    Units
+    Units,
+    digits
   )
 
 
@@ -95,7 +109,10 @@ CCSB <- conc_clean %>%
   filter(str_detect(StationName, "Overflow")) %>% 
   # Group and summarize to average the North and South stations
   group_by(SamplingEvent, Year, Analyte, Units) %>% 
-  summarize("CCSB- Overflow Weir" = mean(Conc)) %>%
+  summarize(
+    "CCSB- Overflow Weir" = mean(Conc),
+    digits = min(digits)
+  ) %>%
   ungroup() %>% 
   # Pivot df back into long format
   pivot_longer(
@@ -110,7 +127,10 @@ Fremont <- conc_clean %>%
   filter(str_detect(StationName, "^Fremont Weir")) %>% 
   # Group and summarize to average the Fremont Weir stations
   group_by(SamplingEvent, Year, Analyte, Units) %>% 
-  summarize("Fremont Weir" = mean(Conc)) %>%
+  summarize(
+    "Fremont Weir" = mean(Conc),
+    digits = min(digits),
+  ) %>%
   ungroup() %>% 
   # Pivot df back into long format
   pivot_longer(
@@ -139,7 +159,10 @@ oc_out_feb16 <- conc_clean1 %>%
     SamplingEvent == "Feb 14-15, 2017"
   ) %>% 
   group_by(SamplingEvent, Year, Analyte, Units) %>% 
-  summarize(Conc = mean(Conc)) %>% 
+  summarize(
+    Conc = mean(Conc),
+    digits = min(digits)
+  ) %>% 
   ungroup() %>% 
   mutate(StationName = "Liberty Cut below Stairsteps")
 
@@ -151,91 +174,220 @@ rm(oc_out_feb16)
 
 # 1.4 Create some additional outlet sampling locations ----------------------
 # This is necessary to match the flow data from the SCHISM model
+
 # 2016 sampling event
-OutSta_2016 <- conc_clean2 %>% 
-  # Filter out the outlet stations
-  filter(
-    Year == 2016,
-    StationName %in% c(
-      "Liberty Cut below Stairsteps",
-      "Shag Slough below Stairsteps",
-      "Toe Drain at 1/2 Lisbon"
+  # Define Concentration values
+  OutSta_2016_c <- conc_clean2 %>% 
+    # Filter out the outlet stations
+    filter(
+      Year == 2016,
+      StationName %in% c(
+        "Liberty Cut below Stairsteps",
+        "Shag Slough below Stairsteps",
+        "Toe Drain at 1/2 Lisbon"
       )
-  ) %>% 
-  # Pivot Conc by StationName to stack three stations next to each other
-  pivot_wider(names_from = StationName, values_from = Conc) %>% 
-  # Rename the StationNames to allow for averaging
-  rename(
-    Liberty = "Liberty Cut below Stairsteps",
-    Shag = "Shag Slough below Stairsteps",
-    Toe = "Toe Drain at 1/2 Lisbon"
-  ) %>% 
-  # Create new variables for Liberty Island Breach locations
-  mutate(
-    "Liberty Island Breach 1" = Shag,  #this breach is closest to the Shag Slough site
-    "Liberty Island Breach 2" = Liberty,  #this breach is closest to the Liberty Cut site
-    "Liberty Island Breach 3" = Toe  #this breach is closest to the Toe Drain at 1/2 Lisbon site
-  ) %>% 
-  # Remove Liberty, Shag, and Toe since they are no longer necessary
-  select(-c(Toe, Liberty, Shag)) %>% 
-  # Pivot df back into long format
-  pivot_longer(
-    cols = c("Liberty Island Breach 1", "Liberty Island Breach 2", "Liberty Island Breach 3"),
-    names_to = "StationName",
-    values_to = "Conc"
-  )
+    ) %>% 
+    # Pivot Conc by StationName to stack three stations next to each other
+    pivot_wider(
+      id_cols = -digits,
+      names_from = StationName, 
+      values_from = Conc
+    ) %>% 
+    # Rename the StationNames
+    rename(
+      Liberty = "Liberty Cut below Stairsteps",
+      Shag = "Shag Slough below Stairsteps",
+      Toe = "Toe Drain at 1/2 Lisbon"
+    ) %>% 
+    # Create new variables for Liberty Island Breach locations
+    mutate(
+      "Liberty Island Breach 1" = Shag,  #this breach is closest to the Shag Slough site
+      "Liberty Island Breach 2" = Liberty,  #this breach is closest to the Liberty Cut site
+      "Liberty Island Breach 3" = Toe  #this breach is closest to the Toe Drain at 1/2 Lisbon site
+    ) %>% 
+    # Remove Liberty, Shag, and Toe since they are no longer necessary
+    select(-c(Toe, Liberty, Shag)) %>% 
+    # Pivot df back into long format
+    pivot_longer(
+      cols = c("Liberty Island Breach 1", "Liberty Island Breach 2", "Liberty Island Breach 3"),
+      names_to = "StationName",
+      values_to = "Conc"
+    )
+  
+  # Define significant digits for each new station
+  OutSta_2016_d <- conc_clean2 %>% 
+    # Filter out the outlet stations
+    filter(
+      Year == 2016,
+      StationName %in% c(
+        "Liberty Cut below Stairsteps",
+        "Shag Slough below Stairsteps",
+        "Toe Drain at 1/2 Lisbon"
+      )
+    ) %>% 
+    # Pivot digits by StationName to stack three stations next to each other
+    pivot_wider(
+      id_cols = -Conc,
+      names_from = StationName, 
+      values_from = digits
+    ) %>% 
+    # Rename the StationNames
+    rename(
+      Liberty = "Liberty Cut below Stairsteps",
+      Shag = "Shag Slough below Stairsteps",
+      Toe = "Toe Drain at 1/2 Lisbon"
+    ) %>% 
+    # Create new variables for Liberty Island Breach locations
+    mutate(
+      "Liberty Island Breach 1" = Shag,  #this breach is closest to the Shag Slough site
+      "Liberty Island Breach 2" = Liberty,  #this breach is closest to the Liberty Cut site
+      "Liberty Island Breach 3" = Toe  #this breach is closest to the Toe Drain at 1/2 Lisbon site
+    ) %>% 
+    # Remove Liberty, Shag, and Toe since they are no longer necessary
+    select(-c(Toe, Liberty, Shag)) %>% 
+    # Pivot df back into long format
+    pivot_longer(
+      cols = c("Liberty Island Breach 1", "Liberty Island Breach 2", "Liberty Island Breach 3"),
+      names_to = "StationName",
+      values_to = "digits"
+    )
+  
+  # Join df's together
+  OutSta_2016 <- left_join(OutSta_2016_c, OutSta_2016_d)
 
 # 2017 sampling events
-OutSta_2017 <- conc_clean2 %>% 
-  # Filter out the outlet stations
-  filter(
-    Year == 2017,
-    StationName %in% c(
-      "Liberty Cut below Stairsteps",
-      "Shag Slough below Stairsteps",
-      "Toe Drain at 1/2 Lisbon"
+  # Define Concentration values
+  OutSta_2017_c <- conc_clean2 %>% 
+    # Filter out the outlet stations
+    filter(
+      Year == 2017,
+      StationName %in% c(
+        "Liberty Cut below Stairsteps",
+        "Shag Slough below Stairsteps",
+        "Toe Drain at 1/2 Lisbon"
       )
-  ) %>% 
-  # Pivot Conc by StationName to stack three stations next to each other
-  pivot_wider(names_from = StationName, values_from = Conc) %>%
-  # Rename the StationNames to allow for averaging
-  rename(
-    Liberty = "Liberty Cut below Stairsteps",
-    Shag = "Shag Slough below Stairsteps",
-    Toe = "Toe Drain at 1/2 Lisbon"
-  ) %>% 
-  # Create a new variable for Little Holland and assign values
-  mutate(
-    "Little Holland" = if_else(
-      SamplingEvent != "Apr 11-12, 2017",
-      (Toe + Liberty)/2,
-      NULL  #only sampled Toe Drain on April 12
-    )
-  ) %>% 
-  # Create a new variable for Main Liberty and assign values
-  mutate(
-    "Main Liberty" = case_when(
-      #Sampling events with good mixing across the Bypass- take the average of Liberty Cut and Shag Slough
-      SamplingEvent %in% c("Jan 11-12, 2017", "Jan 31-Feb 1, 2017", "Feb 14-15, 2017", "Mar 1-2, 2017", "Mar 15-16, 2017") ~ (Liberty + Shag)/2,
-      #Sampling events when Shag Slough was much different- use the concentrations from Liberty Cut
-      SamplingEvent %in% c("Jan 24-25, 2017", "Mar 28-29, 2017", "Apr 25-26, 2017") ~ Liberty
-      #Only sampled Toe Drain on April 12, so not necessary to assign value for this event
-    )
-  ) %>% 
-  # Remove Liberty, Shag, and Toe since they are no longer necessary
-  select(-c(Shag, Liberty, Toe)) %>% 
-  # Pivot df back into long format
-  pivot_longer(
-    cols = c("Little Holland", "Main Liberty"),
-    names_to = "StationName",
-    values_to = "Conc"
-  ) %>% 
-  # Remove NA values
-  filter(!is.na(Conc))
+    ) %>% 
+    # Pivot Conc by StationName to stack three stations next to each other
+    pivot_wider(
+      id_cols = -digits,
+      names_from = StationName, 
+      values_from = Conc
+    ) %>%
+    # Rename the StationNames to allow for averaging
+    rename(
+      Liberty = "Liberty Cut below Stairsteps",
+      Shag = "Shag Slough below Stairsteps",
+      Toe = "Toe Drain at 1/2 Lisbon"
+    ) %>% 
+    # Create a new variable for Little Holland and assign values
+    mutate(
+      "Little Holland" = if_else(
+        SamplingEvent != "Apr 11-12, 2017",
+        (Toe + Liberty)/2,
+        NULL  #only sampled Toe Drain on April 12
+      )
+    ) %>% 
+    # Create a new variable for Main Liberty and assign values
+    mutate(
+      "Main Liberty" = case_when(
+        #Sampling events with good mixing across the Bypass- take the average of Liberty Cut and Shag Slough
+        SamplingEvent %in% c("Jan 11-12, 2017", "Jan 31-Feb 1, 2017", "Feb 14-15, 2017", "Mar 1-2, 2017", "Mar 15-16, 2017") ~ (Liberty + Shag)/2,
+        #Sampling events when Shag Slough was much different- use the concentrations from Liberty Cut
+        SamplingEvent %in% c("Jan 24-25, 2017", "Mar 28-29, 2017", "Apr 25-26, 2017") ~ Liberty
+        #Only sampled Toe Drain on April 12, so not necessary to assign value for this event
+      )
+    ) %>% 
+    # Remove Liberty, Shag, and Toe since they are no longer necessary
+    select(-c(Shag, Liberty, Toe)) %>% 
+    # Pivot df back into long format
+    pivot_longer(
+      cols = c("Little Holland", "Main Liberty"),
+      names_to = "StationName",
+      values_to = "Conc"
+    ) %>% 
+    # Remove NA values
+    filter(!is.na(Conc))
   
-# Add OutSta2016 and OutSta2017 df's to ConcData df
-conc_clean3 <- bind_rows(conc_clean2, OutSta_2016, OutSta_2017) 
- 
+  # Define significant digits for each new station
+    # Toe Drain at 1/2 Lisbon and Liberty Cut combination
+    OutSta_2017_d_ToeLib <- conc_clean2 %>% 
+      # Filter out the outlet stations
+      filter(
+        Year == 2017,
+        StationName %in% c(
+          "Liberty Cut below Stairsteps",
+          "Toe Drain at 1/2 Lisbon"
+        )
+      ) %>% 
+      group_by(SamplingEvent, Analyte) %>% 
+      summarize(digits = min(digits)) %>% 
+      ungroup()
+    
+    # Shag Slough and Liberty Cut combination
+    OutSta_2017_d_ShagLib <- conc_clean2 %>% 
+      # Filter out the outlet stations
+      filter(
+        Year == 2017,
+        StationName %in% c(
+          "Liberty Cut below Stairsteps",
+          "Shag Slough below Stairsteps"
+        )
+      ) %>% 
+      group_by(SamplingEvent, Analyte) %>% 
+      summarize(digits = min(digits)) %>% 
+      ungroup()
+    
+    # Just Liberty Cut
+    OutSta_2017_d_Lib <- conc_clean2 %>% 
+      # Filter out the outlet stations
+      filter(
+        Year == 2017,
+        StationName == "Liberty Cut below Stairsteps"
+      ) %>% 
+      select(SamplingEvent, Analyte, digits)
+  
+  # Join digits df's to the concentration df based on calculation method
+    # Little Holland
+    little_holland <- OutSta_2017_c %>% 
+      filter(StationName == "Little Holland") %>% 
+      left_join(OutSta_2017_d_ToeLib)
+    
+    # Main Liberty- good mixing events
+    main_lib_good_mix <- OutSta_2017_c %>% 
+      filter(
+        StationName == "Main Liberty",
+        SamplingEvent %in% c(
+          "Jan 11-12, 2017",
+          "Jan 31-Feb 1, 2017",
+          "Feb 14-15, 2017",
+          "Mar 1-2, 2017",
+          "Mar 15-16, 2017"
+        )
+      ) %>% 
+      left_join(OutSta_2017_d_ShagLib)
+    
+    # Main Liberty- Shag Slough much different
+    main_lib_shag_diff <- OutSta_2017_c %>% 
+      filter(
+        StationName == "Main Liberty",
+        SamplingEvent %in% c(
+          "Jan 24-25, 2017", 
+          "Mar 28-29, 2017", 
+          "Apr 25-26, 2017"
+        )
+      ) %>% 
+      left_join(OutSta_2017_d_Lib)
+  
+# Bind all df's together
+conc_clean3 <-
+  bind_rows(
+    conc_clean2,
+    OutSta_2016,
+    little_holland,
+    main_lib_good_mix,
+    main_lib_shag_diff
+  )
+
 # Create vectors to identify Inlet and Outlet stations
 inlet.sta <- c(
   "CCSB- Low Flow Channel",
@@ -268,7 +420,23 @@ conc_clean_f <- conc_clean3 %>%
   )
 
 # Clean up
-rm(all_conc, conc_clean, conc_clean1, conc_clean2, conc_clean3, OutSta_2016, OutSta_2017)
+rm(
+  all_conc,
+  conc_clean,
+  conc_clean1,
+  conc_clean2,
+  conc_clean3,
+  little_holland,
+  main_lib_good_mix,
+  main_lib_shag_diff,
+  OutSta_2016,
+  OutSta_2016_c,
+  OutSta_2016_d,
+  OutSta_2017_c,
+  OutSta_2017_d_Lib,
+  OutSta_2017_d_ShagLib,
+  OutSta_2017_d_ToeLib
+)
 
 
 # 2. Flow Data ------------------------------------------------------------
@@ -376,49 +544,17 @@ conc_clean_f <- conc_clean_f %>%
   filter(
     !(
       Year == 2016 &
-      StationName %in% c(
-        "Cache Slough near Ryer Island",
-        "Miner Slough near Sac River"
-      )
+        StationName %in% c(
+          "Cache Slough near Ryer Island",
+          "Miner Slough near Sac River"
+        )
     )
   )
-
-# Calculate the number of significant digits in the Conc values to then use for rounding
-# the load values
-conc_digits <- conc_clean_f %>% 
-  select(SamplingEvent, StationName, Analyte, Conc) %>% 
-  mutate(
-    digits = case_when(
-      Analyte %in% c("Iron- filtered", "Manganese- filtered") ~ 3,
-      str_detect(Analyte, "^MeHg") & Conc < 0.01 ~ 1,
-      str_detect(Analyte, "^MeHg") & Conc < 0.1 ~ 2,
-      str_detect(Analyte, "^MeHg") ~ 3,
-      Analyte %in% c("Chloride- filtered", "TSS", "VSS") & Conc < 10 ~ 1,
-      Analyte %in% c("Chloride- filtered", "TSS", "VSS") & Conc < 100 ~ 2,
-      Analyte %in% c("Chloride- filtered", "TSS", "VSS") ~ 3,
-      str_detect(Analyte, "^THg|OC$") & Conc < 1 ~ 1,
-      str_detect(Analyte, "^THg|OC$") & Conc < 10 ~ 2,
-      str_detect(Analyte, "^THg|OC$") & Conc ~ 3
-    )
-  )
-
-# Resolve digits for Cache and Miner Sloughs
-conc_digits_bl <- conc_digits %>% 
-  filter(str_detect(StationName, "^Cache|^Miner")) %>% 
-  group_by(SamplingEvent, Analyte) %>% 
-  summarize(digits = min(digits)) %>% 
-  ungroup() %>% 
-  mutate(StationName = "Below Liberty Island")
-
-# Bind conc_digits and conc_digits_bl
-conc_digits <- conc_digits %>% 
-  filter(!str_detect(StationName, "^Cache|^Miner")) %>%
-  bind_rows(conc_digits_bl) %>% 
-  select(-Conc)
 
 # Split ConcData into 3 df based on LocType to calculate loads
 conc_clean_split <- conc_clean_f %>% split(.$LocType)
 
+# Calculate loads
 loads <- 
   list(
     Inlet = conc_clean_split$Inlet,
@@ -426,17 +562,16 @@ loads <-
     Outlet.Bal = conc_clean_split$Outlet,
     BelowLib = conc_clean_split$BelowLiberty
   ) %>% 
+  map(~select(.x, -LocType)) %>% 
   map_at(
     c("Inlet", "Outlet.SCHISM", "BelowLib"), 
-    ~ left_join(.x, flow_data_f, by = c("SamplingEvent", "Year", "StationName"))
+    ~ left_join(.x, flow_data_f)
   ) %>% 
   map_at(
     c("Outlet.Bal"), 
-    ~ left_join(.x, flow_data_bal, by = c("SamplingEvent", "Year", "StationName"))
+    ~ left_join(.x, flow_data_bal)
   ) %>% 
   bind_rows(.id = "Calc.type") %>% 
-  select(-LocType.x) %>% 
-  rename(LocType = LocType.y) %>% 
   # Create a new variable to calculate loads
   mutate(
     Load = Conc * Flow * 28.317*60*60*24/1e9,  #The same conversion factor is used for all calculations
@@ -447,10 +582,18 @@ loads <-
     )
   )
 
+# Resolve significant digits for Cache and Miner Sloughs
+conc_digits_bl <- conc_clean_f %>% 
+  filter(str_detect(StationName, "^Cache|^Miner")) %>% 
+  group_by(SamplingEvent, Analyte) %>% 
+  summarize(digits = min(digits)) %>% 
+  ungroup() %>% 
+  mutate(StationName = "Below Liberty Island")
+
 # Calculate Below Liberty Island loads using subtraction (Cache Sl - Miner Sl)
 loads_bl <- loads %>% 
   filter(LocType == "Below Liberty") %>% 
-  select(-c(Conc, Units, Flow)) %>% 
+  select(-c(Conc, Units, Flow, digits)) %>% 
   pivot_wider(names_from = StationName, values_from = Load) %>% 
   rename(
     Cache = "Cache Slough near Ryer Island",
@@ -460,32 +603,34 @@ loads_bl <- loads %>%
     Load = Cache - Miner,
     StationName = "Below Liberty Island"
   ) %>% 
-  select(-c(Cache, Miner))
+  select(-c(Cache, Miner)) %>% 
+  # add variable with significant digits
+  left_join(conc_digits_bl)
 
 # Calculate Below Liberty Island loads using a balanced flows approach (Below Liberty flow = sum of input flows)
-  # Make a new df that summarizes the Below Liberty Island flows for each sampling event
-  flow_summ_bl <- flow_data_f %>% 
-    filter(LocType == "Below Liberty") %>% 
-    select(-LocType) %>% 
-    pivot_wider(names_from = StationName, values_from = Flow) %>% 
-    rename(
-      Cache = "Cache Slough near Ryer Island",
-      Miner = "Miner Slough near Sac River"
-    ) %>% 
-    mutate(BelowLibertyFlow = Cache - Miner) %>% 
-    select(-c(Cache, Miner))
-    
-  # Calculate loads for Below Liberty Island that are scaled to the sum of the input flows
-  loads_bl_bal <- flow_summ %>% 
-    select(-Outlet) %>% 
-    #Join the Below Liberty Island and Input flows for each sampling event
-    right_join(flow_summ_bl) %>% 
-    #Join the Below Liberty Island loads for each sampling event
-    right_join(loads_bl) %>%  
-    mutate(ScaledLoad = Load * (Inlet/BelowLibertyFlow)) %>% 
-    select(-c(BelowLibertyFlow, Inlet, Load)) %>% 
-    rename(Load = ScaledLoad)
-  
+# Make a new df that summarizes the Below Liberty Island flows for each sampling event
+flow_summ_bl <- flow_data_f %>% 
+  filter(LocType == "Below Liberty") %>% 
+  select(-LocType) %>% 
+  pivot_wider(names_from = StationName, values_from = Flow) %>% 
+  rename(
+    Cache = "Cache Slough near Ryer Island",
+    Miner = "Miner Slough near Sac River"
+  ) %>% 
+  mutate(BelowLibertyFlow = Cache - Miner) %>% 
+  select(-c(Cache, Miner))
+
+# Calculate loads for Below Liberty Island that are scaled to the sum of the input flows
+loads_bl_bal <- flow_summ %>% 
+  select(-Outlet) %>% 
+  #Join the Below Liberty Island and Input flows for each sampling event
+  right_join(flow_summ_bl) %>% 
+  #Join the Below Liberty Island loads for each sampling event
+  right_join(loads_bl) %>%  
+  mutate(ScaledLoad = Load * (Inlet/BelowLibertyFlow)) %>% 
+  select(-c(BelowLibertyFlow, Inlet, Load)) %>% 
+  rename(Load = ScaledLoad)
+
 # Bind df's for each of the load calculation approaches into a list
 loads_list <- loads %>% split(.$Calc.type) 
 loads_list[["BelowLib"]] <- NULL
@@ -497,11 +642,10 @@ loads_list <- loads_list %>%
     )
   ) %>% 
   # Round loads to appropriate number of significant figures
-  map(~left_join(.x, conc_digits)) %>% 
   map(~mutate(.x, Load = signif(Load, digits = digits)))
 
 # Clean up
-rm(conc_clean_split, flow_summ_bl, loads, loads_bl, loads_bl_bal, conc_digits, conc_digits_bl)
+rm(conc_clean_split, flow_summ_bl, loads, loads_bl, loads_bl_bal, conc_digits_bl)
 
 # Export calculated loads
 # Keep the Outlet and Below Liberty loads using the Balanced approach for both
