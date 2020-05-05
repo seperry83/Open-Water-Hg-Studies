@@ -121,20 +121,16 @@ loads_inlet_2017 <- loads_inlet %>%
 
 Calculate percentage of each tributary's input load to the total input load. This is for the all 9 sampling events during the 2017 flood event:
 ```{r per input loads, message = FALSE}
-# Round load values before calculating the percentages
-loads_inlet_2017_r <- loads_inlet_2017 %>% 
-  mutate(Load = if_else(!is.na(digits), signif(Load, digits), Load)) %>% 
-  select(-digits)
-
 # Calculate total inlet loads of each parameter for each sampling event
-loads_inlet_total_r <- loads_inlet_2017_r %>% 
+loads_inlet_total <- loads_inlet_2017 %>% 
   group_by(SamplingEvent, Analyte) %>% 
   summarize(total_load = sum(Load)) %>% 
   ungroup()
 
 # Calculate percentage of total load for each tributary
-loads_inlet_per <- loads_inlet_2017_r %>% 
-  left_join(loads_inlet_total_r) %>% 
+loads_inlet_per <- loads_inlet_2017 %>% 
+  select(-digits) %>% 
+  left_join(loads_inlet_total) %>% 
   mutate(load_per = Load/total_load * 100)
 
 # Calculate averages of the percentages across all sampling events in 2017
@@ -237,7 +233,7 @@ flows_inlet_se_rank <- flows_inlet_se_2017 %>%
   select(-Flow)
 
 # Rank loads for each sampling event and analyte
-loads_inlet_rank <- loads_inlet_2017_r %>% 
+loads_inlet_rank <- loads_inlet_2017 %>% 
   # Remove added zeros for events when the weirs weren't spilling
   anti_join(zero_loads) %>% 
   group_by(SamplingEvent, Analyte) %>% 
@@ -372,19 +368,14 @@ loads_inlet_hg_frac <- loads_inlet_2017 %>%
     Load != 0
   ) %>% 
   separate(Analyte, into = c("Analyte", "Fraction"), sep = "- ") %>% 
-  filter(Fraction != "filtered")
+  filter(Fraction != "total") %>% 
+  select(-digits)
 
 # Calculate average percentages for each inlet
 loads_inlet_part_avg <- loads_inlet_hg_frac %>% 
-  # Round each load value before calculating percentages
-  mutate(Load = signif(Load, digits)) %>% 
   # Calculate percentage of particulate fraction
-  pivot_wider(
-    id_cols = -digits,
-    names_from = Fraction, 
-    values_from = Load
-  ) %>% 
-  mutate(per_part = particulate/total) %>% 
+  pivot_wider(names_from = Fraction, values_from = Load) %>% 
+  mutate(per_part = particulate/(filtered + particulate)) %>% 
   # Average the percent particulate fraction for each inlet and analyte
   group_by(StationName, Analyte) %>% 
   summarize(avg_per_part = round(mean(per_part), 2)) %>% 
@@ -394,18 +385,11 @@ loads_inlet_part_avg <- loads_inlet_hg_frac %>%
 loads_inlet_total_part_avg <- loads_inlet_hg_frac %>% 
   # Sum each Analyte-fraction for each sampling event
   group_by(SamplingEvent, Analyte, Fraction) %>% 
-  summarize(
-    sign_digits = min(digits),
-    load_sum = signif(sum(Load), sign_digits)
-  ) %>% 
+  summarize(load_sum = sum(Load)) %>% 
   ungroup() %>%
   # Calculate percentage of particulate fraction
-  pivot_wider(
-    id_cols = -sign_digits,
-    names_from = Fraction, 
-    values_from = load_sum
-  ) %>%
-  mutate(per_part = particulate/total) %>% 
+  pivot_wider(names_from = Fraction, values_from = load_sum) %>%
+  mutate(per_part = particulate/(filtered + particulate)) %>% 
   # Average the percent particulate fraction for each analyte
   group_by(Analyte) %>% 
   summarize(avg_per_part = round(mean(per_part), 2)) %>% 
