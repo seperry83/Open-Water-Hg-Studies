@@ -29,37 +29,15 @@ library(openwaterhg)
 
 Clean the original loads_calc dataframe for analysis:
 ```{r clean load data, message = FALSE}
-loads_inlet <- loads_calc %>% 
+# Bring in load data for the inlets
+source("YB_Mass_Balance/Loads/Import_Inlet_Load_Data.R")
+
+# Prepare inlet load data for plots and summaries
+loads_inlet_clean <- loads_inlet %>% 
   # only include a subset of the data
-  filter(
-    str_detect(Analyte, "OC$|Hg|SS$"),
-    LocType == "Inlet"
-  ) %>% 
-  # remove a few variables
-  select(-c(Year, Conc:LocType))
-
-# Sum the CCSB Loads
-ccsb_loads <- filter(loads_inlet, str_detect(StationName, "^CCSB"))
-
-ccsb_loads_sum <- ccsb_loads %>%                      
-  group_by(SamplingEvent, Analyte, LoadUnits) %>% 
-  summarize(TotalLoad = sum(Load)) %>% 
-  ungroup() %>% 
-  rename(Load = TotalLoad) %>% 
-  mutate(StationName = "CCSB")
-
-# Add back the summed CCSB loads and prepare data for plots
-loads_clean <- loads_inlet %>% 
-  anti_join(ccsb_loads) %>% 
-  bind_rows(ccsb_loads_sum) %>% 
-  # rename some station names and add AnalyteGroup
+  filter(str_detect(Analyte, "OC$|Hg|SS$")) %>% 
+  # Add AnalyteGroup variable
   mutate(
-    StationName = case_when(
-      StationName == "Knights Landing Ridge Cut" ~ "KLRC",
-      StationName == "Putah Creek at Mace Blvd" ~ "Putah Creek",
-      StationName == "Sac River above the Sacramento Weir" ~ "Sacramento Weir",
-      TRUE ~ StationName
-    ),
     AnalyteGroup = case_when(
       str_detect(Analyte, "^MeHg") ~ "MeHg",
       str_detect(Analyte, "^THg") ~ "Hg",
@@ -69,51 +47,76 @@ loads_clean <- loads_inlet %>%
   ) %>% 
   # apply plot order
   conv_fact_samplingevent() %>% 
+  conv_fact_inlet_names() %>% 
+  # remove a few variables
+  select(-c(Year, LocType))
+
+# Apply factors to zero_loads df
+zero_loads <- zero_loads %>% 
+  conv_fact_samplingevent() %>% 
   conv_fact_inlet_names()
 
-# Add zero load values to Fremont and Sacramento Weirs when they weren't spilling
-loads_clean_c <- loads_clean %>%   
-  complete(
-    SamplingEvent, StationName, nesting(Analyte, AnalyteGroup, LoadUnits),
-    fill = list(Load = 0)
-  )
-
-# Create a dataframe of these added zero load values to be removed from some of the
-  # analyses later
-zero_loads <- anti_join(loads_clean_c, loads_clean)
-
-# Keep the zero load values in loads_clean df for now
-loads_clean <- loads_clean_c
-
 # Clean up
-rm(ccsb_loads, ccsb_loads_sum, loads_inlet, loads_clean_c)
+rm(loads_inlet)
 ```
 
 Create a new loads_clean df with inlet loads only for 2017 sampling events. This will be used for the summary statistics and boxplots.
 ```{r filter 2017 data}
-loads_clean17 <- loads_clean %>% filter(str_detect(SamplingEvent, "17$"))
+loads_inlet_clean17 <- loads_inlet_clean %>% filter(str_detect(SamplingEvent, "17$"))
+```
+
+Create rounded versions of the inlet load dataframes for some of the analyses:
+```{r round inlet load data}
+loads_inlet_clean_r <- loads_inlet_clean %>% 
+  mutate(Load = if_else(!is.na(digits), signif(Load, digits), Load)) %>% 
+  select(-digits)
+
+loads_inlet_clean17_r <- loads_inlet_clean17 %>% 
+  mutate(Load = if_else(!is.na(digits), signif(Load, digits), Load)) %>% 
+  select(-digits)
+```
+
+
+Bring in total inlet loads data for each analyte and sampling event:
+```{r import total inlet loads}
+# Bring in total load data
+source("YB_Mass_Balance/Loads/Import_Total_Load_Data.R")
+
+# Prepare total inlet load data for plots
+loads_total_clean <- loads_total %>% 
+  # only include a subset of the data
+  filter(
+    LocType == "Inlet",
+    str_detect(Analyte, "OC$|Hg|SS$")
+  ) %>% 
+  # apply plot order
+  conv_fact_samplingevent() %>% 
+  # remove a few variables
+  select(-c(Year, LocType))
+
+# Clean up
+rm(loads_total)
 ```
 
 
 # Run Calculations
 
-Calculate total inlet loads for each analyte and sampling event:
-```{r calc total inlet loads}
-loads_total <- loads_clean %>% 
-  group_by(SamplingEvent, Analyte, LoadUnits) %>% 
-  summarize(total_load = sum(Load)) %>% 
-  ungroup()
-```
-
 Calculate the inlet load percentages:
 ```{r calc perc inlet loads}
-loads_clean_perc <- loads_clean %>% 
-  left_join(loads_total, by = c("SamplingEvent", "Analyte", "LoadUnits")) %>% 
-  mutate(percent_load = signif(Load/total_load, 3)) %>% 
-  select(-c(AnalyteGroup:total_load)) %>% 
+# Calculate total inlet loads of each parameter for each sampling event
+loads_inlet_total_r <- loads_inlet_clean_r %>% 
+  group_by(SamplingEvent, Analyte) %>% 
+  summarize(total_load = sum(Load)) %>% 
+  ungroup()
+
+# Calculate percentage of total load for each tributary
+loads_inlet_perc <- loads_inlet_clean_r %>% 
+  left_join(loads_inlet_total_r) %>% 
+  mutate(percent_load = Load/total_load) %>% 
+  select(-c(LoadUnits, Load, AnalyteGroup, total_load)) %>% 
   arrange(SamplingEvent, StationName)
 
-loads_clean_perc_wide <- loads_clean_perc %>% 
+loads_inlet_perc_wide <- loads_inlet_perc %>% 
   pivot_wider(
     names_from = StationName,
     values_from = percent_load
@@ -123,17 +126,56 @@ loads_clean_perc_wide <- loads_clean_perc %>%
 Calculate summary statistics of loads for each inlet:
 ```{r calc summ stats inlet loads, message = FALSE}
 # Including zero load values for Fremont and Sacramento Weirs
-loads_clean_summ <- loads_clean17 %>% 
+# Calculate averages and standard deviations on non-rounded data
+loads_inlet_summ1 <- loads_inlet_clean17 %>% 
+  group_by(StationName, Analyte) %>% 
+  summarize(
+    sign_digits = min(digits, na.rm = TRUE),
+    Mean = signif(mean(Load), sign_digits),
+    StDev = signif(sd(Load), sign_digits)
+  ) %>% 
+  ungroup() %>% 
+  select(-sign_digits)
+
+# Calculate all other summary statistics on rounded data
+loads_inlet_summ2 <- loads_inlet_clean17_r %>% 
   summ_stat(Load, StationName, Analyte) %>% 
-  mutate_at(vars(Mean:IQR), signif, digits = 3)
+  select(-c(Mean, StDev))
+
+# Join Summary Statistics together
+loads_inlet_summ <- 
+  left_join(loads_inlet_summ2, loads_inlet_summ1) %>% 
+  select(StationName:N, Mean, StDev, Minimum:IQR)
 
 # NOT Including zero load values for Fremont and Sacramento Weirs
-loads_clean_summ_no0 <- loads_clean17 %>% 
+# Calculate averages and standard deviations on non-rounded data
+loads_inlet_summ_no0_1 <- loads_inlet_clean17 %>%
+  anti_join(zero_loads) %>% 
+  group_by(StationName, Analyte) %>% 
+  summarize(
+    sign_digits = min(digits, na.rm = TRUE),
+    Mean = signif(mean(Load), sign_digits),
+    StDev = signif(sd(Load), sign_digits)
+  ) %>% 
+  ungroup() %>% 
+  select(-sign_digits)
+
+# Calculate all other summary statistics on rounded data
+loads_inlet_summ_no0_2 <- loads_inlet_clean17_r %>% 
   anti_join(zero_loads) %>% 
   summ_stat(Load, StationName, Analyte) %>% 
-  mutate_at(vars(Mean:IQR), signif, digits = 3)
+  select(-c(Mean, StDev))
+
+# Join Summary Statistics together
+loads_inlet_summ_no0 <- 
+  left_join(loads_inlet_summ_no0_2, loads_inlet_summ_no0_1) %>% 
+  select(StationName:N, Mean, StDev, Minimum:IQR)
+
+# Clean up
+rm(loads_inlet_summ1, loads_inlet_summ2, loads_inlet_summ_no0_1, loads_inlet_summ_no0_2)
 ```
 
+START HERE
 Calculate summary statistics of inlet load percentages:
 ```{r calc summ stats perc inlet loads, message = FALSE}
 # Including zero percentage values for Fremont and Sacramento Weirs
