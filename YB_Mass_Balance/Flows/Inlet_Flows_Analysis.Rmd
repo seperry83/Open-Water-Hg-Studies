@@ -61,7 +61,7 @@ Calculate the inlet flow percentages:
 ```{r calc perc inlet flows}
 flows_clean_perc <- flows_clean %>% 
   left_join(flows_total, by = "SamplingEvent") %>% 
-  mutate(percent_flow = signif(Flow/total_flow, 3)) %>% 
+  mutate(percent_flow = Flow/total_flow) %>% 
   select(-c(Flow:total_flow)) %>% 
   arrange(StationName, SamplingEvent)
 
