@@ -31,9 +31,14 @@ library(kableExtra)
 library(DT)
 ```
 
-Calculate total input and output loads for each sampling event and parameter:
+Bring in total input and output loads for each sampling event and parameter:
 ```{r calc total loads}
-total_loads <- loads_calc %>% 
+# Bring in total load data
+setwd("C:/Repositories/Open-Water-Hg-Studies/YB_Mass_Balance/Loads")
+source("Import_Total_Load_Data.R")
+
+# Prepare total load data for plots and summaries
+loads_total_clean <- loads_total %>% 
   # Only include a subset of the data
   filter(str_detect(Analyte, "OC$|Hg|SS$")) %>%
   # Add an AnalyteGroup variable
@@ -45,20 +50,91 @@ total_loads <- loads_calc %>%
       str_detect(Analyte, "SS$") ~ "Suspended Solids"
     )
   ) %>% 
-  # Group and sum load data
-  group_by(SamplingEvent, Analyte, LoadUnits, AnalyteGroup, LocType) %>% 
-  summarize(total_load = sum(Load)) %>% 
-  ungroup() %>% 
   # Apply plot order
   conv_fact_samplingevent() %>% 
   mutate(LocType = factor(LocType, levels = c("Inlet", "Outlet", "Below Liberty")))
+
+# Clean up
+rm(loads_total)
+```
+
+Bring in net loads for each reach (Upper, Liberty Island, Entire Bypass) grouped by sampling event and parameter:
+```{r calc net loads, message = FALSE}
+# Bring in total load data
+source("Import_Net_Load_Data.R")
+
+# Prepare net load data for plots and summaries
+loads_net_clean <- loads_net %>% 
+  # Only include a subset of the data
+  filter(str_detect(Analyte, "OC$|Hg|SS$")) %>%
+  # Add an AnalyteGroup variable
+  mutate(
+    AnalyteGroup = case_when(
+      str_detect(Analyte, "^MeHg") ~ "MeHg",
+      str_detect(Analyte, "^THg") ~ "Hg",
+      str_detect(Analyte, "OC$") ~ "Organic Carbon",
+      str_detect(Analyte, "SS$") ~ "Suspended Solids"
+    )
+  ) %>% 
+  # Apply plot order
+  conv_fact_samplingevent() %>% 
+  mutate(Reach = factor(Reach, levels = c("Upper", "Liberty", "Entire")))
+
+# Clean up
+rm(loads_net)
+```
+
+Add total inlet flows to total_loads and net_loads dataframes:
+```{r add flow data, message = FALSE}
+# Prepare flow data df to join with loads df's
+total_inflows <- daily_flow_data_se %>% 
+  # Only include inlet flows
+  filter(LocType == "Inlet") %>% 
+  # Group by and sum flow data
+  group_by(SamplingEvent) %>% 
+  summarize(total_inflow = sum(Flow)) %>% 
+  ungroup() %>% 
+  # Apply plot order
+  conv_fact_samplingevent()
+
+# Join inlet flows to total_loads df
+loads_total_clean <- left_join(loads_total_clean, total_inflows)
+
+# Join inlet flows to net_loads df
+loads_net_clean <- left_join(loads_net_clean, total_inflows)
+```
+
+Create two new dataframes with total and net loads only for 2017 sampling events. This will be used for the summary statistics and boxplots.
+```{r filter 2017 data}
+loads_total_clean17 <- loads_total_clean %>% filter(str_detect(SamplingEvent, "17$"))
+
+loads_net_clean17 <- loads_net_clean %>% filter(str_detect(SamplingEvent, "17$"))
+```
+
+Create rounded versions of the total and net load dataframes for some of the analyses:
+```{r round load data}
+loads_total_clean_r <- loads_total_clean %>% 
+  mutate(total_load = signif(total_load, digits)) %>% 
+  select(-digits)
+
+loads_total_clean17_r <- loads_total_clean17 %>% 
+  mutate(total_load = signif(total_load, digits)) %>% 
+  select(-digits)
+
+loads_net_clean_r <- loads_net_clean %>% 
+  mutate(net_load = signif(net_load, digits)) %>% 
+  select(-digits)
+
+loads_net_clean17_r <- loads_net_clean17 %>% 
+  mutate(net_load = signif(net_load, digits)) %>% 
+  select(-digits)
 ```
 
 Create restructured total_loads dataframes grouped by LocType and Analyte Group to display as datatables:
 ```{r total loads restructure}
-total_loads_table <- total_loads %>% 
-  arrange(SamplingEvent) %>% 
-  mutate(total_load = signif(total_load, 3)) %>% 
+loads_total_table <- loads_total_clean_r %>% 
+  select(-total_inflow) %>% 
+  arrange(SamplingEvent) %>%
   group_nest(LocType, AnalyteGroup) %>% 
   mutate(
     load_table = map(
@@ -89,47 +165,26 @@ total_loads_table <- total_loads %>%
   rename(t_loads_table = data)
 ```
 
-Calculate net loads for each reach (Upper, Liberty Island, Entire Bypass) grouped by sampling event and parameter:
-```{r calc net loads}
-net_loads <- total_loads %>% 
-  pivot_wider(names_from = LocType, values_from = total_load) %>% 
-  rename(below_liberty = "Below Liberty") %>% 
-  # Calculate net loads for each reach
-  mutate(
-    Upper = Outlet - Inlet,
-    Liberty = below_liberty - Outlet,
-    Entire = below_liberty - Inlet
-  ) %>% 
-  select(-c(Inlet:below_liberty)) %>% 
-  pivot_longer(
-    cols = Upper:Entire,
-    names_to = "Reach",
-    values_to = "net_load"
-  ) %>% 
-  filter(!is.na(net_load)) %>% 
-  # Apply plot order
-  mutate(Reach = factor(Reach, levels = c("Upper", "Liberty", "Entire")))
-```
-
 Create restructured net_loads dataframes grouped by Reach and Analyte Group to display as datatables:
 ```{r net loads restructure}
-net_loads_table <- net_loads %>% 
+loads_net_table <- loads_net_clean_r %>% 
+  select(-total_inflow) %>% 
   arrange(SamplingEvent) %>% 
+  # Apply conditional formatting to net loads
   mutate(
-    net_load = signif(net_load, 3),
     net_load = cell_spec(
-        format(
-          net_load,
-          big.mark = ",", 
-          scientific = FALSE,
-          drop0trailing = TRUE
-        ),
-        "html",
-        color = if_else(net_load < 0, "red", "black")
+      format(
+        net_load,
+        big.mark = ",", 
+        scientific = FALSE,
+        drop0trailing = TRUE
+      ),
+      "html",
+      color = if_else(net_load < 0, "red", "black")
     )
-  ) %>%
+  ) %>% 
   group_nest(Reach, AnalyteGroup) %>% 
-   mutate(
+  mutate(
     load_table = map(
       data,
       .f = ~pivot_wider(
@@ -155,60 +210,100 @@ net_loads_table <- net_loads %>%
   rename(n_loads_table = data)
 ```
 
-Create two new dataframes with total and net loads only for 2017 sampling events. This will be used for the summary statistics and boxplots.
-```{r filter 2017 data}
-total_loads17 <- total_loads %>% filter(str_detect(SamplingEvent, "17$"))
-
-net_loads17 <- net_loads %>% filter(str_detect(SamplingEvent, "17$"))
-```
-
-Add total inlet flows to total_loads and net_loads dataframes:
-```{r add flow data, message = FALSE}
-# Prepare flow data df to join with loads df's
-total_inflows <- daily_flow_data_se %>% 
-  # Only include inlet flows
-  filter(LocType == "Inlet") %>% 
-  # Group by and sum flow data
-  group_by(SamplingEvent) %>% 
-  summarize(total_inflow = sum(Flow)) %>% 
-  ungroup() %>% 
-  # Apply plot order
-  conv_fact_samplingevent()
-
-# Join inlet flows to total_loads df
-total_loads <- left_join(total_loads, total_inflows)
-
-# Join inlet flows to net_loads df
-net_loads <- left_join(net_loads, total_inflows)
-```
-
 
 # Run Calculations
 
 Calculate summary statistics of total loads:
-```{r calc summ stats total loads}
-total_loads_summ <- total_loads17 %>% 
+```{r calc summ stats total loads, message = FALSE}
+# Calculate averages and standard deviations on non-rounded data
+loads_total_summ1 <- loads_total_clean17 %>% 
   group_nest(AnalyteGroup) %>% 
   mutate(
-    t_loads_summ = map(
+    t_loads_summ1 = map(
       data,
-      .f = ~summ_stat(.x, total_load, LocType, Analyte) %>% 
-        mutate_at(vars(Mean:IQR), signif, digits = 3) %>% 
-        datatable(rownames = FALSE)
+      .f = ~group_by(.x, LocType, Analyte) %>% 
+        summarize(
+          sign_digits = min(digits),
+          Mean = signif(mean(total_load), sign_digits),
+          StDev = signif(sd(total_load), sign_digits)
+        ) %>% 
+        ungroup() %>% 
+        select(-sign_digits)
     )
   ) %>% 
   select(-data)
+  
+# Calculate all other summary statistics on rounded data
+loads_total_summ2 <- loads_total_clean17_r %>% 
+  group_nest(AnalyteGroup) %>% 
+  mutate(
+    t_loads_summ2 = map(
+      data,
+      .f = ~summ_stat(.x, total_load, LocType, Analyte) %>% 
+        select(-c(Mean, StDev))
+    )
+  ) %>% 
+  select(-data)
+
+# Join Summary Statistics together
+loads_total_summ <- 
+  left_join(loads_total_summ1, loads_total_summ2) %>% 
+  mutate(
+    t_loads_summ = map2(
+      t_loads_summ2,
+      t_loads_summ1,
+      .f = ~left_join(.x, .y) %>% 
+        select(LocType:N, Mean, StDev, Minimum:IQR) %>% 
+        datatable(rownames = FALSE)
+    )
+  ) %>% 
+  select(-c(t_loads_summ1, t_loads_summ2))
+
+# Clean up
+rm(loads_total_summ1, loads_total_summ2)
 ```
 
 Calculate summary statistics of net loads:
-```{r calc summ stats net loads}
-net_loads_summ <- net_loads17 %>% 
+```{r calc summ stats net loads, message = FALSE}
+# Calculate averages and standard deviations on non-rounded data
+loads_net_summ1 <- loads_net_clean17 %>% 
   group_nest(AnalyteGroup) %>% 
   mutate(
-    n_loads_summ = map(
+    n_loads_summ1 = map(
+      data,
+      .f = ~group_by(.x, Reach, Analyte) %>% 
+        summarize(
+          sign_digits = min(digits),
+          Mean = signif(mean(net_load), sign_digits),
+          StDev = signif(sd(net_load), sign_digits)
+        ) %>% 
+        ungroup() %>% 
+        select(-sign_digits)
+    )
+  ) %>% 
+  select(-data)
+  
+# Calculate all other summary statistics on rounded data
+loads_net_summ2 <- loads_net_clean17_r %>% 
+  group_nest(AnalyteGroup) %>% 
+  mutate(
+    n_loads_summ2 = map(
       data,
       .f = ~summ_stat(.x, net_load, Reach, Analyte) %>% 
-        mutate_at(vars(Mean:IQR), signif, digits = 3) %>% 
+        select(-c(Mean, StDev))
+    )
+  ) %>% 
+  select(-data)
+
+# Join Summary Statistics together
+loads_net_summ <- 
+  left_join(loads_net_summ1, loads_net_summ2) %>% 
+  mutate(
+    n_loads_summ = map2(
+      n_loads_summ2,
+      n_loads_summ1,
+      .f = ~left_join(.x, .y) %>% 
+        select(Reach:N, Mean, StDev, Minimum:IQR) %>% 
         datatable(rownames = FALSE) %>% 
         formatStyle(
           4:11,
@@ -216,7 +311,10 @@ net_loads_summ <- net_loads17 %>%
         )
     )
   ) %>% 
-  select(-data)
+  select(-c(n_loads_summ1, n_loads_summ2))
+
+# Clean up
+rm(loads_net_summ1, loads_net_summ2)
 ```
 
 
@@ -384,7 +482,7 @@ scattplot_tload_flow <- function(df) {
 Total Loads:
 ```{r create plots total loads, message = FALSE}
 # All sampling events
-total_loads_plots <- total_loads %>% 
+loads_total_plots <- loads_total_clean_r %>% 
   group_nest(AnalyteGroup) %>% 
   mutate(
     t_barplots = map(
@@ -399,7 +497,7 @@ total_loads_plots <- total_loads %>%
   select(-data)
 
 # Just 2017 sampling events
-total_loads_boxplots <- total_loads17 %>% 
+loads_total_boxplots <- loads_total_clean17_r %>% 
   group_nest(AnalyteGroup) %>% 
   mutate(
     t_boxplots = map(
@@ -416,7 +514,7 @@ total_loads_boxplots <- total_loads17 %>%
 Net Loads:
 ```{r create plots net loads, message = FALSE}
 # All sampling events
-net_loads_barplots <- net_loads %>% 
+loads_net_barplots <- loads_net_clean_r %>% 
   group_nest(AnalyteGroup) %>% 
   mutate(
     n_barplots_free = map(
@@ -431,7 +529,7 @@ net_loads_barplots <- net_loads %>%
   select(-data)
 
 # Just 2017 sampling events
-net_loads_boxplots <- net_loads17 %>% 
+loads_net_boxplots <- loads_net_clean17_r %>% 
   group_nest(AnalyteGroup) %>% 
   mutate(
     n_boxplots = map(
@@ -455,28 +553,28 @@ Join all plots, data tables, and summary statistics together for more efficient 
 all_obj <- 
   reduce(
     list(
-      total_loads_plots,
-      total_loads_boxplots,
-      total_loads_table,
-      total_loads_summ,
-      net_loads_barplots,
-      net_loads_boxplots,
-      net_loads_table,
-      net_loads_summ
+      loads_total_plots,
+      loads_total_boxplots,
+      loads_total_table,
+      loads_total_summ,
+      loads_net_barplots,
+      loads_net_boxplots,
+      loads_net_table,
+      loads_net_summ
     ),
     left_join
   ) 
 
 # Clean up
 rm(
-  total_loads_plots,
-  total_loads_boxplots,
-  total_loads_table,
-  total_loads_summ,
-  net_loads_barplots,
-  net_loads_boxplots,
-  net_loads_table,
-  net_loads_summ
+  loads_total_plots,
+  loads_total_boxplots,
+  loads_total_table,
+  loads_total_summ,
+  loads_net_barplots,
+  loads_net_boxplots,
+  loads_net_table,
+  loads_net_summ
 )
 ```
 
@@ -503,7 +601,7 @@ run_analyses <-
 ## Extra Analyses in Technical Appendix
 
 ```{r inlet vs internal mehg source for entire yb}
-mehg_entire_yb <- total_loads17 %>% 
+mehg_entire_yb <- loads_total_clean17 %>% 
   filter(
     !str_detect(SamplingEvent, "Apr 11"),
     Analyte == "MeHg- total"
