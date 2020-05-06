@@ -235,9 +235,7 @@ loads_inlet_clean <- loads_inlet %>%
   rename_ana() %>% 
   # Convert variables to factor to apply plot order
   conv_fact_samplingevent() %>% 
-  conv_fact_inlet_names() %>% 
-  # Round loads to proper number of significant figures
-  mutate(Load = signif(Load, digits))
+  conv_fact_inlet_names()
 
 rm(loads_inlet, zero_loads)
 
