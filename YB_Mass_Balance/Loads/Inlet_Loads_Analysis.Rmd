@@ -89,10 +89,24 @@ loads_total_clean <- loads_total %>%
     LocType == "Inlet",
     str_detect(Analyte, "OC$|Hg|SS$")
   ) %>% 
+  # Add AnalyteGroup variable
+  mutate(
+    AnalyteGroup = case_when(
+      str_detect(Analyte, "^MeHg") ~ "MeHg",
+      str_detect(Analyte, "^THg") ~ "Hg",
+      str_detect(Analyte, "OC$") ~ "OrgC",
+      str_detect(Analyte, "SS$") ~ "SuspSolids"
+    )
+  ) %>% 
   # apply plot order
   conv_fact_samplingevent() %>% 
   # remove a few variables
   select(-c(Year, LocType))
+
+# Create a rounded version of loads_total_clean
+loads_total_clean_r <- loads_total_clean %>% 
+  # Round total loads to appropriate number of significant figures
+  mutate(total_load = signif(total_load, digits))
 
 # Clean up
 rm(loads_total)
@@ -104,14 +118,15 @@ rm(loads_total)
 Calculate the inlet load percentages:
 ```{r calc perc inlet loads}
 # Calculate total inlet loads of each parameter for each sampling event
-loads_inlet_total_r <- loads_inlet_clean_r %>% 
+loads_inlet_total <- loads_inlet_clean %>% 
   group_by(SamplingEvent, Analyte) %>% 
   summarize(total_load = sum(Load)) %>% 
   ungroup()
 
 # Calculate percentage of total load for each tributary
-loads_inlet_perc <- loads_inlet_clean_r %>% 
-  left_join(loads_inlet_total_r) %>% 
+loads_inlet_perc <- loads_inlet_clean %>% 
+  select(-digits) %>% 
+  left_join(loads_inlet_total) %>% 
   mutate(percent_load = Load/total_load) %>% 
   select(-c(LoadUnits, Load, AnalyteGroup, total_load)) %>% 
   arrange(SamplingEvent, StationName)
@@ -121,6 +136,9 @@ loads_inlet_perc_wide <- loads_inlet_perc %>%
     names_from = StationName,
     values_from = percent_load
   )
+
+# Clean up
+rm(loads_inlet_total)
 ```
 
 Calculate summary statistics of loads for each inlet:
@@ -175,17 +193,16 @@ loads_inlet_summ_no0 <-
 rm(loads_inlet_summ1, loads_inlet_summ2, loads_inlet_summ_no0_1, loads_inlet_summ_no0_2)
 ```
 
-START HERE
 Calculate summary statistics of inlet load percentages:
 ```{r calc summ stats perc inlet loads, message = FALSE}
 # Including zero percentage values for Fremont and Sacramento Weirs
-loads_clean_perc_summ <- loads_clean_perc %>% 
+loads_inlet_perc_summ <- loads_inlet_perc %>% 
   filter(str_detect(SamplingEvent, "17$")) %>% 
   summ_stat(percent_load, StationName, Analyte) %>% 
   mutate_at(vars(Mean:IQR), signif, digits = 3)
 
 # NOT Including zero percentage values for Fremont and Sacramento Weirs
-loads_clean_perc_summ_no0 <- loads_clean_perc %>% 
+loads_inlet_perc_summ_no0 <- loads_inlet_perc %>% 
   filter(str_detect(SamplingEvent, "17$")) %>% 
   anti_join(zero_loads) %>% 
   summ_stat(percent_load, StationName, Analyte) %>% 
@@ -194,7 +211,7 @@ loads_clean_perc_summ_no0 <- loads_clean_perc %>%
 
 Calculate %MeHg of Hg loads for all fractions:
 ```{r calc perc mehg inlet loads, message = FALSE}
-loads_clean_perc_mehg <- loads_clean %>% 
+loads_inlet_perc_mehg <- loads_inlet_clean %>% 
   anti_join(zero_loads) %>% 
   filter(str_detect(AnalyteGroup, "Hg$")) %>% 
   separate(Analyte, into = c("Analyte", "Fraction")) %>% 
@@ -204,7 +221,7 @@ loads_clean_perc_mehg <- loads_clean %>%
     values_from = Load
   ) %>% 
   mutate(
-    per_mehg = signif(MeHg/THg, 3) * 100,
+    per_mehg = MeHg/THg,
     Fraction = str_to_title(Fraction)
   ) %>% 
   select(-c(MeHg, THg))
@@ -212,7 +229,7 @@ loads_clean_perc_mehg <- loads_clean %>%
 
 Calculate the % of each fraction for Hg and MeHg loads:
 ```{r calc perc fraction hg and mehg, message = FALSE}
-loads_clean_perc_frac <- loads_clean %>% 
+loads_inlet_perc_frac <- loads_inlet_clean %>% 
   anti_join(zero_loads) %>% 
   filter(str_detect(AnalyteGroup, "Hg$")) %>% 
   separate(Analyte, into = c("Analyte", "Fraction"), sep = "- ") %>% 
@@ -222,15 +239,15 @@ loads_clean_perc_frac <- loads_clean %>%
     values_from = Load
   ) %>% 
   mutate(
-    perc_filt = signif(filtered/total, 3),
-    perc_part = signif(particulate/total, 3)
+    perc_filt = filtered/(filtered + particulate),
+    perc_part = particulate/(filtered + particulate)
   ) %>% 
   select(-c(filtered:total))
 ```
 
 Calculate summary statistics of the % fractions for Hg and MeHg loads:
 ```{r calc summ stats perc fraction hg and mehg}
-loads_clean_perc_frac_summ <- loads_clean_perc_frac %>% 
+loads_inlet_perc_frac_summ <- loads_inlet_perc_frac %>% 
   # Just for the sampling events in 2017
   filter(str_detect(SamplingEvent, "17$")) %>% 
   rename(
@@ -366,6 +383,57 @@ boxplot_inlet <- function(df) {
 }
 ```
 
+Function for barplots of total inlet loads by fraction:
+```{r fun barplots total inlet}
+barplot_total_frac <- function(df, param) {
+  p <-  
+    ggplot(
+      data = df,
+      aes(
+        x = SamplingEvent, 
+        y = total_load, 
+        fill = Analyte
+      )
+    ) +
+    geom_col() +
+    labs(
+      title = NULL,
+      x = NULL,
+      y = paste0(param, " Loads (", df$LoadUnits[1], ")")
+    ) +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+    add_gen_color_pal(2, "fill", "Analyte")
+  
+  return(p)
+}
+```
+
+Function for proportional barplots of total inlet loads by fraction:
+```{r fun barplots total inlet prop}
+barplot_total_frac_prop <- function(df) {
+  p <-  
+    ggplot(
+      data = df,
+      aes(
+        x = SamplingEvent, 
+        y = total_load, 
+        fill = Analyte
+      )
+    ) +
+    geom_col(position = "fill") +
+    labs(
+      title = NULL,
+      x = NULL,
+      y = "Percent of Inlet Load"
+    ) +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+    add_gen_color_pal(2, "fill", "Analyte") +
+    scale_y_continuous(labels = percent_format())
+  
+  return(p)
+}
+```
+
 Function for barplots showing %MeHg of Hg loads:
 ```{r fun barplots perc mehg}
 barplot_perc_mehg <- function(df) {
@@ -390,32 +458,73 @@ barplot_perc_mehg <- function(df) {
 }
 ```
 
+Function to have plotly not add markers for outliers:
+```{r fun remove plotly markers}
+remove_markers <- function(x) {
+  if (x$type == "box") {
+      x$marker = list(opacity = 0)
+    }
+    return(x)
+}
+```
 
 # Create Plots
 
 ```{r create plots, message = FALSE}
-# All sampling events
-loads_plots <- loads_clean %>% 
-  anti_join(zero_loads) %>% 
-  group_nest(AnalyteGroup) %>% 
-  mutate(
-    ncols = if_else(AnalyteGroup == "SuspSolids", 2, 3),
-    barplots_facet_free = map2(data, ncols, .f = barplot_inlet_facet_free),
-    barplots_percent = map(data, .f = barplot_inlet_percent)
-  ) %>% 
-  select(-data)
+# Barplots of all individual sampling events
+  # Use rounded values for the barplots
+  loads_barplots_free <- loads_inlet_clean_r %>% 
+    anti_join(zero_loads) %>% 
+    group_nest(AnalyteGroup) %>% 
+    mutate(
+      ncols = if_else(AnalyteGroup == "SuspSolids", 2, 3),
+      barplots_facet_free = map2(data, ncols, .f = barplot_inlet_facet_free),
+    ) %>% 
+    select(-data)
+  
+  # Use unrounded values for the proportional barplots
+  loads_barplots_prop <- loads_inlet_clean %>% 
+    anti_join(zero_loads) %>% 
+    group_nest(AnalyteGroup) %>% 
+    mutate(barplots_percent = map(data, .f = barplot_inlet_percent)) %>% 
+    select(-data)
 
-# Just 2017 sampling events for the boxplots
-loads_boxplots <- loads_clean17 %>% 
+# Boxplots- just 2017 sampling events 
+loads_boxplots <- loads_inlet_clean17_r %>% 
   group_nest(AnalyteGroup) %>% 
   mutate(boxplots = map(data, .f = boxplot_inlet)) %>% 
   select(-data)
 
-# Join two dataframes together
-loads_plots <- left_join(loads_plots, loads_boxplots)
+# Total load barplots
+  # Use rounded values for the barplots
+  loads_barplots_total <- loads_total_clean_r %>% 
+    filter(str_detect(Analyte, "filtered$|particulate$|DOC|POC")) %>% 
+    group_nest(AnalyteGroup) %>% 
+    mutate(barplots_total = map2(data, AnalyteGroup, .f = barplot_total_frac)) %>% 
+    select(-data)
+
+  # Use unrounded values for the proportional barplots
+  loads_barplots_total_prop <- loads_total_clean %>% 
+    filter(str_detect(Analyte, "filtered$|particulate$|DOC|POC")) %>% 
+    group_nest(AnalyteGroup) %>% 
+    mutate(barplots_total_prop = map(data, .f = barplot_total_frac_prop)) %>% 
+    select(-data)
+
+# Join five dataframes together
+loads_plots <- 
+  reduce(
+    list(
+      loads_barplots_free, 
+      loads_barplots_prop, 
+      loads_boxplots,
+      loads_barplots_total,
+      loads_barplots_total_prop
+    ),
+    left_join
+  )
 
 # Barplots for just uHg, uMeHg, TOC, and TSS and 2017 sampling events, fixed y-axis scale
-loads_barplots_fixed <- loads_clean17 %>% 
+loads_barplots_fixed <- loads_inlet_clean17_r %>% 
   anti_join(zero_loads) %>% 
   group_nest(Analyte) %>% 
   filter(str_detect(Analyte, "total$|TOC|TSS")) %>% 
@@ -424,7 +533,13 @@ loads_barplots_fixed <- loads_clean17 %>%
   )
 
 # Clean up 
-rm(loads_boxplots)
+rm(
+  loads_barplots_free,
+  loads_barplots_prop,
+  loads_boxplots,
+  loads_barplots_total,
+  loads_barplots_total_prop
+)
 ```
 
 
@@ -466,62 +581,33 @@ p <- loads_plots_mehg %>%
   plotly::plotly_build()
 
 # Workaround to have plotly not add markers for outliers
-p$x$data <- lapply(
-  p$x$data, 
-  FUN = function(x) {
-    if (x$type == "box") {
-      x$marker = list(opacity = 0)
-    }
-    return(x)
-  }
-)
-
+p$x$data <- map(p$x$data, remove_markers)
 p
 ```
 
 ### Total Load Barplots
 
 ```{r mehg total load barplots}
-loads_total_mehg <- filter(loads_total, Analyte %in% c("MeHg- filtered", "MeHg- particulate"))
+loads_plots_mehg %>%  
+  pull(barplots_total) %>% 
+  chuck(1) %>% 
+  plotly::ggplotly()
 
-p <- loads_total_mehg %>%  
-  ggplot(aes(x = SamplingEvent, y = total_load, fill = Analyte)) +
-  geom_col() +
-  labs(
-    title = NULL,
-    x = NULL,
-    y = "MeHg Loads (g/day)"
-  ) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  add_gen_color_pal(2, "fill", "Analyte")
-
-plotly::ggplotly(p)
-
-loads_total_mehg %>%  
-  ggplot(aes(x = SamplingEvent, y = total_load, fill = Analyte)) +
-  geom_col(position = "fill") +
-  labs(
-    title = NULL,
-    x = NULL,
-    y = "Percent of Inlet Load"
-  ) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  scale_y_continuous(labels = percent_format()) +
-  add_gen_color_pal(2, "fill", "Analyte")
+loads_plots_mehg %>% pull(barplots_total_prop) %>% chuck(1)
 ```
 
 ### Summary Statistics of each Inlet
 
 **Including** zero load values for the Fremont and Sacramento Weirs when they weren't spilling:
 ```{r mehg summ stats inlets}
-loads_clean_summ %>% 
+loads_inlet_summ %>% 
   filter(str_detect(Analyte, "^MeHg")) %>% 
   datatable(rownames = FALSE)
 ```
 
 **Excluding** zero load values for the Fremont and Sacramento Weirs:
 ```{r mehg summ stats inlets no zero}
-loads_clean_summ_no0 %>% 
+loads_inlet_summ_no0 %>% 
   filter(str_detect(Analyte, "^MeHg")) %>% 
   datatable(rownames = FALSE)
 ```
@@ -529,7 +615,7 @@ loads_clean_summ_no0 %>%
 ### % of total inlet load for each inlet
 
 ```{r mehg perc load inlets}
-loads_clean_perc_wide %>% 
+loads_inlet_perc_wide %>% 
   filter(str_detect(Analyte, "^MeHg")) %>% 
   datatable(rownames = FALSE) %>% 
   formatPercentage(3:7, digits = 1)
@@ -539,7 +625,7 @@ loads_clean_perc_wide %>%
 
 **Including** zero percentage values for the Fremont and Sacramento Weirs when they weren't spilling:
 ```{r mehg summ stats perc inlets}
-loads_clean_perc_summ %>% 
+loads_inlet_perc_summ %>% 
   filter(str_detect(Analyte, "^MeHg")) %>% 
   datatable(rownames = FALSE) %>% 
   formatPercentage(4:11, digits = 1)
@@ -547,7 +633,7 @@ loads_clean_perc_summ %>%
 
 **Excluding** zero percentage values for the Fremont and Sacramento Weirs:
 ```{r mehg summ stats perc inlets no zero}
-loads_clean_perc_summ_no0 %>% 
+loads_inlet_perc_summ_no0 %>% 
   filter(str_detect(Analyte, "^MeHg")) %>% 
   datatable(rownames = FALSE) %>% 
   formatPercentage(4:11, digits = 1)
@@ -556,7 +642,7 @@ loads_clean_perc_summ_no0 %>%
 ### % of each MeHg Fraction
 
 ```{r mehg perc frac}
-loads_clean_perc_frac %>% 
+loads_inlet_perc_frac %>% 
   filter(Analyte == "MeHg") %>% 
   select(-Analyte) %>% 
   datatable(rownames = FALSE) %>% 
@@ -566,7 +652,7 @@ loads_clean_perc_frac %>%
 ### Summary Statistics of % MeHg Fractions
 
 ```{r mehg summ stats perc frac}
-loads_clean_perc_frac_summ %>% 
+loads_inlet_perc_frac_summ %>% 
   filter(Analyte == "MeHg") %>% 
   pull(summ_stats) %>% 
   chuck(1) %>% 
@@ -609,62 +695,33 @@ p <- loads_plots_hg %>%
   plotly::plotly_build()
 
 # Workaround to have plotly not add markers for outliers
-p$x$data <- lapply(
-  p$x$data, 
-  FUN = function(x) {
-    if (x$type == "box") {
-      x$marker = list(opacity = 0)
-    }
-    return(x)
-  }
-)
-
+p$x$data <- map(p$x$data, remove_markers)
 p
 ```
 
 ### Total Load Barplots
 
 ```{r hg total load barplots}
-loads_total_hg <- filter(loads_total, Analyte %in% c("THg- filtered", "THg- particulate"))
+loads_plots_hg %>%  
+  pull(barplots_total) %>% 
+  chuck(1) %>% 
+  plotly::ggplotly()
 
-p <- loads_total_hg %>%  
-  ggplot(aes(x = SamplingEvent, y = total_load, fill = Analyte)) +
-  geom_col() +
-  labs(
-    title = NULL,
-    x = NULL,
-    y = "Hg Loads (g/day)"
-  ) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  add_gen_color_pal(2, "fill", "Analyte")
-
-plotly::ggplotly(p)
-
-loads_total_hg %>%  
-  ggplot(aes(x = SamplingEvent, y = total_load, fill = Analyte)) +
-  geom_col(position = "fill") +
-  labs(
-    title = NULL,
-    x = NULL,
-    y = "Percent of Inlet Load"
-  ) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  scale_y_continuous(labels = percent_format()) +
-  add_gen_color_pal(2, "fill", "Analyte")
+loads_plots_hg %>% pull(barplots_total_prop) %>% chuck(1)
 ```
 
 ### Summary Statistics of each Inlet
 
 **Including** zero load values for the Fremont and Sacramento Weirs when they weren't spilling:
 ```{r hg summ stats inlets}
-loads_clean_summ %>% 
+loads_inlet_summ %>% 
   filter(str_detect(Analyte, "^THg")) %>% 
   datatable(rownames = FALSE)
 ```
 
 **Excluding** zero load values for the Fremont and Sacramento Weirs:
 ```{r hg summ stats inlets no zero}
-loads_clean_summ_no0 %>% 
+loads_inlet_summ_no0 %>% 
   filter(str_detect(Analyte, "^THg")) %>% 
   datatable(rownames = FALSE)
 ```
@@ -672,7 +729,7 @@ loads_clean_summ_no0 %>%
 ### % of total inlet load for each inlet
 
 ```{r hg perc load inlets}
-loads_clean_perc_wide %>% 
+loads_inlet_perc_wide %>% 
   filter(str_detect(Analyte, "^THg")) %>% 
   datatable(rownames = FALSE) %>% 
   formatPercentage(3:7, digits = 1)
@@ -682,7 +739,7 @@ loads_clean_perc_wide %>%
 
 **Including** zero percentage values for the Fremont and Sacramento Weirs when they weren't spilling:
 ```{r hg summ stats perc inlets}
-loads_clean_perc_summ %>% 
+loads_inlet_perc_summ %>% 
   filter(str_detect(Analyte, "^THg")) %>% 
   datatable(rownames = FALSE) %>% 
   formatPercentage(4:11, digits = 1)
@@ -690,7 +747,7 @@ loads_clean_perc_summ %>%
 
 **Excluding** zero percentage values for the Fremont and Sacramento Weirs:
 ```{r hg summ stats perc inlets no zero}
-loads_clean_perc_summ_no0 %>% 
+loads_inlet_perc_summ_no0 %>% 
   filter(str_detect(Analyte, "^THg")) %>% 
   datatable(rownames = FALSE) %>% 
   formatPercentage(4:11, digits = 1)
@@ -699,7 +756,7 @@ loads_clean_perc_summ_no0 %>%
 ### % of each Hg Fraction
 
 ```{r hg perc frac}
-loads_clean_perc_frac %>% 
+loads_inlet_perc_frac %>% 
   filter(Analyte == "THg") %>% 
   select(-Analyte) %>% 
   datatable(rownames = FALSE) %>% 
@@ -709,7 +766,7 @@ loads_clean_perc_frac %>%
 ### Summary Statistics of % Hg Fractions
 
 ```{r hg summ stats perc frac}
-loads_clean_perc_frac_summ %>% 
+loads_inlet_perc_frac_summ %>% 
   filter(Analyte == "THg") %>% 
   pull(summ_stats) %>% 
   chuck(1) %>% 
@@ -759,8 +816,7 @@ loads_plots_perc_mehg %>%
 ### Summary Statistics for Sampling Events in 2017
 
 ```{r perc mehg summ stats 2017}
-loads_clean_perc_mehg %>% 
-  mutate(per_mehg = per_mehg/100) %>% 
+loads_inlet_perc_mehg %>% 
   filter(str_detect(SamplingEvent, "17$")) %>% 
   summ_stat(per_mehg, StationName, Fraction) %>% 
   datatable(rownames = FALSE) %>% 
@@ -802,62 +858,33 @@ p <- loads_plots_oc %>%
   plotly::plotly_build()
 
 # Workaround to have plotly not add markers for outliers
-p$x$data <- lapply(
-  p$x$data, 
-  FUN = function(x) {
-    if (x$type == "box") {
-      x$marker = list(opacity = 0)
-    }
-    return(x)
-  }
-)
-
+p$x$data <- map(p$x$data, remove_markers)
 p
 ```
 
 ### Total Load Barplots
 
 ```{r oc total load barplots}
-loads_total_oc <- filter(loads_total, Analyte %in% c("DOC", "POC"))
+loads_plots_oc %>%  
+  pull(barplots_total) %>% 
+  chuck(1) %>% 
+  plotly::ggplotly()
 
-p <- loads_total_oc %>%  
-  ggplot(aes(x = SamplingEvent, y = total_load, fill = Analyte)) +
-  geom_col() +
-  labs(
-    title = NULL,
-    x = NULL,
-    y = "Organic Carbon Loads (1,000 kg/day)"
-  ) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  add_gen_color_pal(2, "fill", "Analyte")
-
-plotly::ggplotly(p)
-
-loads_total_oc %>%  
-  ggplot(aes(x = SamplingEvent, y = total_load, fill = Analyte)) +
-  geom_col(position = "fill") +
-  labs(
-    title = NULL,
-    x = NULL,
-    y = "Percent of Inlet Load"
-  ) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  scale_y_continuous(labels = percent_format()) +
-  add_gen_color_pal(2, "fill", "Analyte")
+loads_plots_oc %>% pull(barplots_total_prop) %>% chuck(1)
 ```
 
 ### Summary Statistics of each Inlet
 
 **Including** zero load values for the Fremont and Sacramento Weirs when they weren't spilling:
 ```{r oc summ stats inlets}
-loads_clean_summ %>% 
+loads_inlet_summ %>% 
   filter(str_detect(Analyte, "OC$")) %>% 
   datatable(rownames = FALSE)
 ```
 
 **Excluding** zero load values for the Fremont and Sacramento Weirs:
 ```{r oc summ stats inlets no zero}
-loads_clean_summ_no0 %>% 
+loads_inlet_summ_no0 %>% 
   filter(str_detect(Analyte, "OC$")) %>% 
   datatable(rownames = FALSE)
 ```
@@ -865,7 +892,7 @@ loads_clean_summ_no0 %>%
 ### % of total inlet load for each inlet
 
 ```{r oc perc load inlets}
-loads_clean_perc_wide %>% 
+loads_inlet_perc_wide %>% 
   filter(str_detect(Analyte, "OC$")) %>% 
   datatable(rownames = FALSE) %>% 
   formatPercentage(3:7, digits = 1)
@@ -875,7 +902,7 @@ loads_clean_perc_wide %>%
 
 **Including** zero percentage values for the Fremont and Sacramento Weirs when they weren't spilling:
 ```{r oc summ stats perc inlets}
-loads_clean_perc_summ %>% 
+loads_inlet_perc_summ %>% 
   filter(str_detect(Analyte, "OC$")) %>% 
   datatable(rownames = FALSE) %>% 
   formatPercentage(4:11, digits = 1)
@@ -883,7 +910,7 @@ loads_clean_perc_summ %>%
 
 **Excluding** zero percentage values for the Fremont and Sacramento Weirs:
 ```{r oc summ stats perc inlets no zero}
-loads_clean_perc_summ_no0 %>% 
+loads_inlet_perc_summ_no0 %>% 
   filter(str_detect(Analyte, "OC$")) %>% 
   datatable(rownames = FALSE) %>% 
   formatPercentage(4:11, digits = 1)
@@ -923,24 +950,14 @@ p <- loads_plots_ss %>%
   chuck(1) %>% 
   plotly::plotly_build()
 
-# Workaround to have plotly not add markers for outliers
-p$x$data <- lapply(
-  p$x$data, 
-  FUN = function(x) {
-    if (x$type == "box") {
-      x$marker = list(opacity = 0)
-    }
-    return(x)
-  }
-)
-
+p$x$data <- map(p$x$data, remove_markers)
 p
 ```
 
 ### Total Load Barplots
 
 ```{r tss total load barplots}
-p <- loads_total %>% 
+p <- loads_total_clean_r %>% 
   filter(Analyte == "TSS") %>% 
   ggplot(aes(x = SamplingEvent, y = total_load)) +
   geom_col() +
@@ -955,7 +972,7 @@ plotly::ggplotly(p)
 ```
 
 ```{r vss total load barplots}
-p <- loads_total %>% 
+p <- loads_total_clean_r %>% 
   filter(Analyte == "VSS") %>% 
   ggplot(aes(x = SamplingEvent, y = total_load)) +
   geom_col() +
@@ -973,14 +990,14 @@ plotly::ggplotly(p)
 
 **Including** zero load values for the Fremont and Sacramento Weirs when they weren't spilling:
 ```{r ss summ stats inlets}
-loads_clean_summ %>% 
+loads_inlet_summ %>% 
   filter(str_detect(Analyte, "SS$")) %>% 
   datatable(rownames = FALSE)
 ```
 
 **Excluding** zero load values for the Fremont and Sacramento Weirs:
 ```{r ss summ stats inlets no zero}
-loads_clean_summ_no0 %>% 
+loads_inlet_summ_no0 %>% 
   filter(str_detect(Analyte, "SS$")) %>% 
   datatable(rownames = FALSE)
 ```
@@ -988,7 +1005,7 @@ loads_clean_summ_no0 %>%
 ### % of total inlet load for each inlet
 
 ```{r ss perc load inlets}
-loads_clean_perc_wide %>% 
+loads_inlet_perc_wide %>% 
   filter(str_detect(Analyte, "SS$")) %>% 
   datatable(rownames = FALSE) %>% 
   formatPercentage(3:7, digits = 1)
@@ -998,7 +1015,7 @@ loads_clean_perc_wide %>%
 
 **Including** zero percentage values for the Fremont and Sacramento Weirs when they weren't spilling:
 ```{r ss summ stats perc inlets}
-loads_clean_perc_summ %>% 
+loads_inlet_perc_summ %>% 
   filter(str_detect(Analyte, "SS$")) %>% 
   datatable(rownames = FALSE) %>% 
   formatPercentage(4:11, digits = 1)
@@ -1006,7 +1023,7 @@ loads_clean_perc_summ %>%
 
 **Excluding** zero percentage values for the Fremont and Sacramento Weirs:
 ```{r ss summ stats perc inlets no zero}
-loads_clean_perc_summ_no0 %>% 
+loads_inlet_perc_summ_no0 %>% 
   filter(str_detect(Analyte, "SS$")) %>% 
   datatable(rownames = FALSE) %>% 
   formatPercentage(4:11, digits = 1)
@@ -1018,7 +1035,7 @@ loads_clean_perc_summ_no0 %>%
 ```{r first flush analysis}
 # Calculate the percent reduction of input loads between the first sampling event in 2017 and the largest sampling event in 2017 in terms of inflow (February 14)
 
-loads_total_ff <- loads_total %>% 
+loads_total_ff <- loads_total_clean %>% 
   filter(str_detect(SamplingEvent, "Jan 11|Feb 14")) %>% 
   pivot_wider(
     id_cols = Analyte,
@@ -1035,7 +1052,7 @@ loads_total_ff <- loads_total %>%
 ```{r perc load sw 3 events 2017}
 # Calculate average load percentages for Sacramento Weir during 3 largest sampling events in 2017
 
-sac_weir17 <- loads_clean_perc %>% 
+sac_weir17 <- loads_inlet_perc %>% 
   filter(
     SamplingEvent %in% c(
       "Jan 11-12, 2017", 
@@ -1051,7 +1068,7 @@ sac_weir17 <- loads_clean_perc %>%
 ```{r perc umehg load 2017 fw spill}
 # Calculate average load percentages of uMeHg for CCSB and KLRC during 8 events in 2017 when the Fremont Weir was spilling
 
-loads_clean_perc_fw_spill <- loads_clean_perc %>% 
+loads_inlet_perc_fw_spill <- loads_inlet_perc %>% 
   filter(
     str_detect(SamplingEvent, "17$"),
     Analyte == "MeHg- total"
@@ -1065,10 +1082,10 @@ loads_clean_perc_fw_spill <- loads_clean_perc %>%
   filter(fremont != 0)
 
 # KLRC average during spill events
-klrc_fw_spill <- loads_clean_perc_fw_spill$KLRC
+klrc_fw_spill <- loads_inlet_perc_fw_spill$KLRC
 
 # CCSB average during spill events
-ccsb_fw_spill <- loads_clean_perc_fw_spill$CCSB
+ccsb_fw_spill <- loads_inlet_perc_fw_spill$CCSB
 ```
 
 February 14th, approximately a month later, was the sampling event with the largest inflow at 188,700 cfs, but the total inlet loads were not as large as the January 11th event.  This largest inflow event had uHg, uMeHg, and TSS loads that were `r loads_total_ff %>% filter(Analyte == "THg- total") %>% pull(perc_lower)`, `r loads_total_ff %>% filter(Analyte == "MeHg- total") %>% pull(perc_lower)`, and `r loads_total_ff %>% filter(Analyte == "TSS") %>% pull(perc_lower)`% lower than the January 11th event, respectively.
