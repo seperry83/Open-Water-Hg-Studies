@@ -106,7 +106,8 @@ loads_total_clean <- loads_total %>%
 # Create a rounded version of loads_total_clean
 loads_total_clean_r <- loads_total_clean %>% 
   # Round total loads to appropriate number of significant figures
-  mutate(total_load = signif(total_load, digits))
+  mutate(total_load = signif(total_load, digits)) %>% 
+  select(-digits)
 
 # Clean up
 rm(loads_total)
@@ -116,7 +117,7 @@ rm(loads_total)
 # Run Calculations
 
 Calculate the inlet load percentages:
-```{r calc perc inlet loads}
+```{r calc perc inlet loads, message = FALSE}
 # Calculate total inlet loads of each parameter for each sampling event
 loads_inlet_total <- loads_inlet_clean %>% 
   group_by(SamplingEvent, Analyte) %>% 
@@ -132,10 +133,7 @@ loads_inlet_perc <- loads_inlet_clean %>%
   arrange(SamplingEvent, StationName)
 
 loads_inlet_perc_wide <- loads_inlet_perc %>% 
-  pivot_wider(
-    names_from = StationName,
-    values_from = percent_load
-  )
+  pivot_wider(names_from = StationName, values_from = percent_load)
 
 # Clean up
 rm(loads_inlet_total)
@@ -217,6 +215,7 @@ loads_inlet_perc_mehg <- loads_inlet_clean %>%
   separate(Analyte, into = c("Analyte", "Fraction")) %>% 
   select(-c(LoadUnits, AnalyteGroup)) %>% 
   pivot_wider(
+    id_cols = -digits,
     names_from = Analyte,
     values_from = Load
   ) %>% 
@@ -234,7 +233,7 @@ loads_inlet_perc_frac <- loads_inlet_clean %>%
   filter(str_detect(AnalyteGroup, "Hg$")) %>% 
   separate(Analyte, into = c("Analyte", "Fraction"), sep = "- ") %>% 
   pivot_wider(
-    id_cols = c(SamplingEvent:Analyte),
+    id_cols = c(SamplingEvent, StationName, Analyte),
     names_from = Fraction,
     values_from = Load
   ) %>% 
@@ -242,7 +241,7 @@ loads_inlet_perc_frac <- loads_inlet_clean %>%
     perc_filt = filtered/(filtered + particulate),
     perc_part = particulate/(filtered + particulate)
   ) %>% 
-  select(-c(filtered:total))
+  select(-c(filtered, particulate, total))
 ```
 
 Calculate summary statistics of the % fractions for Hg and MeHg loads:
@@ -489,7 +488,7 @@ remove_markers <- function(x) {
     mutate(barplots_percent = map(data, .f = barplot_inlet_percent)) %>% 
     select(-data)
 
-# Boxplots- just 2017 sampling events 
+# Boxplots- just 2017 sampling events, rounded values 
 loads_boxplots <- loads_inlet_clean17_r %>% 
   group_nest(AnalyteGroup) %>% 
   mutate(boxplots = map(data, .f = boxplot_inlet)) %>% 
@@ -778,7 +777,9 @@ loads_inlet_perc_frac_summ %>%
 ## Percent MeHg of Hg loads
 
 ```{r create perc mehg plots}
-loads_plots_perc_mehg <- loads_clean_perc_mehg %>% 
+loads_plots_perc_mehg <- loads_inlet_perc_mehg %>% 
+  # Convert per_mehg to a percent and round to the tenths place
+  mutate(per_mehg = round(per_mehg * 100, 1)) %>% 
   group_nest(Fraction) %>% 
   mutate(plots = map(data, .f = barplot_perc_mehg))
 ```
