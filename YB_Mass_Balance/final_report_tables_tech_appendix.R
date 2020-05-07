@@ -30,7 +30,7 @@ analyte_order <- c(
 se_flows_sum <- daily_flow_data_se %>% 
   filter(LocType != "Below Liberty") %>% 
   group_by(SamplingEvent, LocType) %>% 
-  summarize(total_flow = signif(sum(Flow), 4)) %>% 
+  summarize(total_flow = sum(Flow)) %>%
   ungroup() %>% 
   pivot_wider(names_from = LocType, values_from = total_flow)
 
@@ -42,7 +42,7 @@ se_flows_bli <- daily_flow_data_se %>%
     cache = "Cache Slough near Ryer Island",
     miner = "Miner Slough near Sac River"
   ) %>% 
-  mutate(bli_flow = signif(cache - miner, 4)) %>% 
+  mutate(bli_flow = cache - miner) %>% 
   # Remove data for April 11-12, 2017 sampling event
   filter(SamplingEvent != "Apr 11-12, 2017") %>% 
   select(SamplingEvent, bli_flow)
@@ -54,16 +54,136 @@ se_flows <- left_join(se_flows_sum, se_flows_bli)
 se_water_bal <- se_flows %>% 
   mutate(
     per_outlet = round(Outlet/Inlet * 100),
-    per_bli = round(bli_flow/Inlet * 100)
+    per_bli = round(bli_flow/Inlet * 100),
   ) %>% 
+  # Round total flows to 4 significant figures
+  mutate_at(vars(Inlet, Outlet, bli_flow), signif, digits = 4) %>% 
   conv_fact_samplingevent() %>% 
   arrange(SamplingEvent)
 
-# Clean up
-rm(se_flows, se_flows_bli, se_flows_sum)
-
 # Export Table B-6
 se_water_bal %>% write_excel_csv("table_b-6.csv", na = "N/A")
+
+# Clean up
+rm(se_flows, se_flows_bli, se_flows_sum, se_water_bal)
+
+
+# Table B-7 ---------------------------------------------------------------
+# Summary of Field and Filter Blanks
+
+# Filter only Analytes used in the report
+blanks <- qa_field_blanks %>% 
+  filter(!str_detect(Analyte, "^Chl|^Iron|Manganese- f|^Pot|^Sul|UVA"))
+
+# Count all blank samples
+blanks_c_all <- blanks %>% 
+  count(StationName, Analyte, Units) %>% 
+  rename(N_all = n)
+
+# Count # of detected blanks
+blanks_c_det <- blanks %>% 
+  filter(!str_detect(Result, "<")) %>% 
+  count(StationName, Analyte) %>% 
+  rename(N_det = n)
+
+# Make a table of RL and MDL values
+det_limits <- blanks %>% 
+  count(Analyte, RL, MDL) %>% 
+  select(-n) %>% 
+  filter(!(Analyte == "UVA 254" & RL == 0.001))
+
+# Summarize min and max values for just detected blanks
+det_summ <- blanks %>% 
+  filter(!str_detect(Result, "<")) %>% 
+  mutate(Result = as.numeric(Result)) %>% 
+  group_by(StationName, Analyte) %>% 
+  summarize(
+    Det_Min = min(Result),
+    Det_Max = max(Result),
+    Det_Med = median(Result)
+  ) %>% 
+  ungroup()
+
+# Combine all df's together to make a summary table for report
+blanks_summ <- 
+  reduce(
+    list(blanks_c_all, det_limits, blanks_c_det, det_summ),
+    left_join
+  ) %>% 
+  replace_na(list(N_det = 0)) %>% 
+  mutate(Per_Det = N_det/N_all) %>% 
+  select(
+    StationName,
+    Analyte,
+    Units,
+    RL,
+    MDL,
+    N_all,
+    N_det,
+    Per_Det,
+    Det_Min,
+    Det_Max,
+    Det_Med
+  )
+
+# Export Table B-7
+blanks_summ %>% write_excel_csv("table_b-7.csv", na = "")
+
+# Clean up
+rm(blanks, blanks_c_all, blanks_c_det, blanks_summ, det_limits, det_summ)
+
+
+# Table B-8 ---------------------------------------------------------------
+# Summary of field duplicates
+
+# Filter only Analytes used in the report
+fdups <- qa_field_dups %>% 
+  filter(!str_detect(Analyte, "^Chl|^Iron|Manganese- f|^Pot|^Sul|UVA"))
+
+# Count the total # of Field Dups for each Analyte - before removing < MDL or < RL values
+fdups_c_all <- fdups %>% 
+  count(Analyte) %>% 
+  rename(N_fd = n)
+
+# Clean up field dups df for further analysis
+fdups_clean <- fdups %>% 
+  # don't include ND values in the analysis
+  filter(!(str_detect(Result_PS, "<") | str_detect(Result_FD, "<"))) %>% 
+  # convert a few character variables to numeric
+  mutate(
+    Result_PS = as.numeric(Result_PS),
+    Result_FD = as.numeric(Result_FD)
+  )
+
+# Summarize RPD values for each Analyte
+rpd_summ <- fdups_clean %>% 
+  group_by(Analyte) %>% 
+  summarize(
+    Min_rpd = min(RPD),
+    Max_rpd = max(RPD),
+    Med_rpd = median(RPD)
+  )
+
+# Count # of duplicate pairs flagged with "FV"
+fdups_fv <- fdups_clean %>% 
+  filter(Flag == "FV") %>% 
+  count(Analyte) %>% 
+  rename(N_FV = n)
+
+# Join df together to make a summary table for report
+fdups_summ <- 
+  reduce(
+    list(fdups_c_all, rpd_summ, fdups_fv),
+    left_join
+  ) %>% 
+  replace_na(list(N_FV = 0)) %>% 
+  mutate(Per_FV = N_FV/N_fd)
+
+# Export fdups.summ df
+fdups_summ %>% write_excel_csv("table_b-8.csv")
+
+# Clean up
+rm(fdups, fdups_c_all, fdups_clean, fdups_fv, fdups_summ, rpd_summ)
 
 
 # Table B-9 ---------------------------------------------------------------
@@ -130,8 +250,16 @@ total_loads_summ <- loads_calc %>%
   ) %>% 
   # Calculate total loads for each sampling event and analyte
   group_by(SamplingEvent, Analyte, LoadUnits, LocType) %>% 
-  summarize(total_load = sum(Load)) %>% 
-  ungroup() %>% 
+  summarize(
+    total_load = sum(Load),
+    min_digits = min(digits)
+  ) %>% 
+  ungroup()
+
+sign_digits <- total_loads_summ %>% 
+  group_by(LocType, Analyte) %>% 
+  summarize(min_digits = min(min_digits))
+
   # Define analyte order for table
   mutate(Analyte = factor(Analyte, levels = analyte_order)) %>% 
   # Calculate summary statistics for each LocType and analyte
