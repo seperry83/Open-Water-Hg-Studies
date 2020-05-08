@@ -336,6 +336,7 @@ loads_inlet_avg_gt %>%
   gt(rowname_col = "StationName") %>% 
   fmt_number(
     columns = everything(),
+    decimals = 3,
     drop_trailing_zeros = TRUE
   ) %>% 
   cols_merge_uncert(
@@ -356,6 +357,7 @@ loads_inlet_avg_gt %>%
 
 <br>
 **Need to update numbers in Table 3-2 with the values in the table above.**
+
 These are the final numbers rounded to the proper number of significant figures.
 
 ***
@@ -432,7 +434,6 @@ loads_inlet_part_avg %>%
 
 <br>
 **Need to update numbers in Table 3-2 with the values in the table above.**
-These are the final percentages with values rounded to the proper number of significant figures before calculating the percentages.
 
 ```{r clean up inlet load data}
 rm(list = ls())
@@ -466,9 +467,8 @@ loads_2017 <-
 
 Check numbers in Table 3-3:
 ```{r check table 3-3, message = FALSE}
-# Calculate averages and stdev for input and output (Stairsteps) loads
+# Calculate averages and stdev for input, output (Stairsteps), and below Liberty Island loads
 loads_total_summ <- loads_2017$total %>% 
-  filter(LocType != "Below Liberty") %>% 
   group_by(Analyte, LocType) %>% 
   summarize(
     sign_digits = min(digits),
@@ -523,7 +523,11 @@ analyte_order <- c(
 loads_summ_gt <- 
   left_join(loads_total_summ, loads_net_summ) %>% 
   mutate(Analyte = factor(Analyte, levels = analyte_order)) %>% 
-  arrange(Analyte)
+  arrange(Analyte) %>% 
+  rename(
+    bli_avg_load = "Below Liberty_avg_load",
+    bli_stdev_load = "Below Liberty_stdev_load"
+  )
 
 # Generate a gt table
 loads_summ_gt %>% 
@@ -532,6 +536,10 @@ loads_summ_gt %>%
     columns = everything(),
     drop_trailing_zeros = TRUE
   ) %>% 
+  cols_merge_uncert(
+    col_val = vars(bli_avg_load),
+    col_uncert = vars(bli_stdev_load)
+  ) %>%
   cols_merge_uncert(
     col_val = vars(Inlet_avg_load),
     col_uncert = vars(Inlet_stdev_load)
@@ -553,9 +561,14 @@ loads_summ_gt %>%
     col_uncert = vars(Upper_stdev_net_load)
   ) %>% 
   cols_move_to_end(vars(Liberty_avg_net_load, Entire_avg_net_load)) %>% 
+  cols_move(
+    columns = vars(bli_avg_load),
+    after = vars(Outlet_avg_load)
+  ) %>% 
   cols_label(
     Inlet_avg_load = "Input Load",
     Outlet_avg_load = html("Output Load<br>(at Stairsteps)"),
+    bli_avg_load = html("Entire Bypass Load<br>(below Lib Isl)"),
     Upper_avg_net_load = html("Net Load-<br>Upper Reach"),
     Liberty_avg_net_load = html("Liberty Isl<br>Contribution"),
     Entire_avg_net_load = html("Net Load-<br>Entire Bypass")
@@ -565,31 +578,8 @@ loads_summ_gt %>%
 
 <br>
 **Need to update numbers in Table 3-3 with the values in the table above.**
+
 These are the final numbers rounded to the proper number of significant figures.
 
-***
-
-Calculate average export of uMeHg to the Delta from the entire Yolo Bypass
-```{r avg export of uMeHg}
-mehg_export_entire <- loads_2017$total %>% 
-  filter(
-    Analyte == "MeHg- total",
-    LocType == "Below Liberty"
-  )
-
-# Calculate average export
-mehg_export_entire_avg <- 
-  signif(
-    mean(mehg_export_entire$total_load), 
-    min(mehg_export_entire$digits)
-  )
-
-# Calculate std deviation of export
-mehg_export_entire_stdev <- 
-  signif(
-    sd(mehg_export_entire$total_load),
-    min(mehg_export_entire$digits)
-  )
-```
-The lower reach added an additional 3.7 ± 12 g/day to the overall average export to the Delta of `r mehg_export_entire_avg` ± `r mehg_export_entire_stdev` g/day of uMeHg.
+*Note: The standard deviation for the net load of pMeHg in the Upper Reach should be 6.0 (2 significant figures).*
 
