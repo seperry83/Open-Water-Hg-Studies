@@ -54,8 +54,8 @@ se_flows <- left_join(se_flows_sum, se_flows_bli)
 # Calculate water balances for each sampling event
 se_water_bal <- se_flows %>% 
   mutate(
-    per_outlet = round(Outlet/Inlet * 100),
-    per_bli = round(bli_flow/Inlet * 100),
+    per_outlet = round(Outlet/Inlet, 2),
+    per_bli = round(bli_flow/Inlet, 2),
   ) %>% 
   # Round total flows to 4 significant figures
   mutate_at(vars(Inlet, Outlet, bli_flow), signif, digits = 4) %>% 
@@ -90,8 +90,7 @@ blanks_c_det <- blanks %>%
 # Make a table of RL and MDL values
 det_limits <- blanks %>% 
   count(Analyte, RL, MDL) %>% 
-  select(-n) %>% 
-  filter(!(Analyte == "UVA 254" & RL == 0.001))
+  select(-n)
 
 # Summarize min and max values for just detected blanks
 det_summ <- blanks %>% 
@@ -103,7 +102,9 @@ det_summ <- blanks %>%
     Det_Max = max(Result),
     Det_Med = median(Result)
   ) %>% 
-  ungroup()
+  ungroup() %>% 
+  # Round the medians for THg to appropriate number of decimal places
+  mutate(Det_Med = if_else(str_detect(Analyte, "^THg"), round(Det_Med, 1), Det_Med))
 
 # Combine all df's together to make a summary table for report
 blanks_summ <- 
@@ -112,7 +113,7 @@ blanks_summ <-
     left_join
   ) %>% 
   replace_na(list(N_det = 0)) %>% 
-  mutate(Per_Det = N_det/N_all) %>% 
+  mutate(Per_Det = round(N_det/N_all, 2)) %>% 
   select(
     StationName,
     Analyte,
@@ -178,7 +179,7 @@ fdups_summ <-
     left_join
   ) %>% 
   replace_na(list(N_FV = 0)) %>% 
-  mutate(Per_FV = N_FV/N_fd)
+  mutate(Per_FV = round(N_FV/N_fd, 2))
 
 # Export fdups.summ df
 fdups_summ %>% write_excel_csv("table_b-8.csv")
@@ -226,8 +227,8 @@ water_bal <- water_vol_total %>%
   pivot_wider(names_from = LocType, values_from = total_vol_maf) %>% 
   rename(bli = "Below Liberty") %>% 
   mutate(
-    per_outlet = round(Outlet/Inlet * 100),
-    per_bli = round(bli/Inlet * 100)
+    per_outlet = round(Outlet/Inlet, 2),
+    per_bli = round(bli/Inlet, 2)
   ) %>% 
   # Round total volumes to 3 significant figures
   mutate_at(vars(Inlet, Outlet, bli), signif, digits = 3)
@@ -405,7 +406,15 @@ loads_total_clean_summ1 <- loads_total_clean %>%
 loads_total_clean_summ2 <- loads_total_clean %>% 
   mutate(total_load = signif(total_load, digits)) %>%
   summ_stat(total_load, LocType, Analyte) %>% 
-  select(-c(Mean, StDev))
+  select(-c(Mean, StDev)) %>% 
+  # Round some medians to appropriate number of significant digits
+  mutate(
+    Median = case_when(
+      LocType == "Below Liberty" & Analyte %in% c("MeHg- particulate", "TSS", "DOC") ~ signif(Median, 2),
+      LocType == "Below Liberty" & Analyte == "VSS" ~ signif(Median, 1),
+      TRUE ~ Median
+    )
+  )
 
 # Join Summary Statistics together for Table B-12
 loads_total_clean_summ <- 
@@ -457,38 +466,40 @@ loads_net_clean <- loads_net %>%
     str_detect(Analyte, "OC$|Hg|SS$"),
   )
 
-# START HERE
 # Summarize net load data for each reach for Table B-13
-net_loads_summ <- net_loads %>% 
+loads_net_clean_summ <- loads_net_clean %>% 
   # Calculate averages and standard deviations of net loads for each reach
   group_by(Reach, Analyte, LoadUnits) %>% 
   summarize(
-    avg_load = signif(mean(net_load), 3),
-    stdev_load = signif(sd(net_load), 3)
+    sign_digits = min(digits),
+    Mean = signif(mean(net_load), sign_digits),
+    StDev = signif(sd(net_load), sign_digits)
   ) %>% 
-  ungroup()
+  ungroup() %>% 
+  select(-sign_digits)
 
 # Pivot the averages
-net_loads_avg <- net_loads_summ %>% 
+loads_net_avg <- loads_net_clean_summ %>% 
   pivot_wider(
-    id_cols = c(Analyte, LoadUnits),
+    id_cols = -StDev,
     names_from = Reach,
-    values_from = avg_load
+    values_from = Mean
   )
 
 # Pivot the standard deviations
-net_loads_stdev <- net_loads_summ %>% 
+loads_net_stdev <- loads_net_clean_summ %>% 
   pivot_wider(
-    id_cols = c(Analyte, LoadUnits),
+    id_cols = -Mean,
     names_from = Reach,
-    values_from = stdev_load
-  )
+    values_from = StDev
+  ) %>% 
+  select(-LoadUnits)
 
 # Join averages and standard deviations together into one df
-net_loads_summ_c <- 
+loads_net_summ_c <- 
   left_join(
-    net_loads_avg, net_loads_stdev,
-    by = c("Analyte", "LoadUnits"),
+    loads_net_avg, loads_net_stdev,
+    by = c("Analyte"),
     suffix = c("_avg", "_stdev")
   ) %>% 
   mutate(Analyte = factor(Analyte, levels = analyte_order)) %>% 
@@ -502,5 +513,15 @@ net_loads_summ_c <-
   )
 
 # Export Table B-13
-net_loads_summ_c %>% write_excel_csv("table_b-13.csv")
+loads_net_summ_c %>% write_excel_csv("table_b-13.csv")
+
+# Clean up
+rm(
+  loads_net,
+  loads_net_avg,
+  loads_net_clean,
+  loads_net_clean_summ,
+  loads_net_stdev,
+  loads_net_summ_c
+)
 
