@@ -1083,11 +1083,31 @@ loads_inlet_perc_fw_spill <- loads_inlet_perc %>%
   filter(fremont != 0)
 
 # KLRC average during spill events
-klrc_fw_spill <- loads_inlet_perc_fw_spill$KLRC
+klrc_fw_spill <- mean(loads_inlet_perc_fw_spill$KLRC)
 
 # CCSB average during spill events
-ccsb_fw_spill <- loads_inlet_perc_fw_spill$CCSB
+ccsb_fw_spill <- mean(loads_inlet_perc_fw_spill$CCSB)
 ```
+
+```{r perc part fraction total inlet}
+# Calculate the percentage of the total Hg and MeHg inlet loads in the particulate fraction in 2017
+
+loads_total_avg <- loads_total_clean %>% 
+  # Filter load data
+  filter(
+    str_detect(SamplingEvent, "17$"),
+    AnalyteGroup %in% c("Hg", "MeHg")
+  ) %>% 
+  # Calculate averages for each analyte
+  group_by(Analyte) %>% 
+  summarize(avg_total_load = mean(total_load))
+
+# Calculate percentage in the particulate fraction
+loads_total_part_hg <- loads_total_avg$avg_total_load[5]/(loads_total_avg$avg_total_load[4] + loads_total_avg$avg_total_load[5])
+
+loads_total_part_mehg <- loads_total_avg$avg_total_load[2]/(loads_total_avg$avg_total_load[1] + loads_total_avg$avg_total_load[2])
+```
+
 
 February 14th, approximately a month later, was the sampling event with the largest inflow at 188,700 cfs, but the total inlet loads were not as large as the January 11th event.  This largest inflow event had uHg, uMeHg, and TSS loads that were `r loads_total_ff %>% filter(Analyte == "THg- total") %>% pull(perc_lower)`, `r loads_total_ff %>% filter(Analyte == "MeHg- total") %>% pull(perc_lower)`, and `r loads_total_ff %>% filter(Analyte == "TSS") %>% pull(perc_lower)`% lower than the January 11th event, respectively.
 
@@ -1097,5 +1117,9 @@ During these three sampling events, the Sacramento Weir provided averages of 19%
 
 ***
 
-KLRC contributed an average of `r round(mean(klrc_fw_spill) * 100)`% of the uMeHg input load when the Fremont Weir was spilling. CCSB contributed an average of `r round(mean(ccsb_fw_spill) * 100)`%.
+KLRC contributed an average of `r round(klrc_fw_spill * 100)`% of the uMeHg input load when the Fremont Weir was spilling. CCSB contributed an average of `r round(ccsb_fw_spill * 100)`%.
+
+***
+
+Overall, `r round(loads_total_part_hg * 100)`% and `r round(loads_total_part_mehg * 100)`% of the total inlet loads of Hg and MeHg, respectively, were in the particulate fraction during the 2017 flood
 
