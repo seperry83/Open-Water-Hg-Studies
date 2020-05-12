@@ -597,7 +597,7 @@ run_analyses <-
 # Extra Analyses in Technical Appendix
 
 ```{r inlet vs internal mehg source for entire yb}
-mehg_entire_yb <- loads_total_clean17 %>% 
+mehg_total_entire_yb <- loads_total_clean17 %>% 
   filter(
     !str_detect(SamplingEvent, "Apr 11"),
     Analyte == "MeHg- total"
@@ -606,12 +606,85 @@ mehg_entire_yb <- loads_total_clean17 %>%
   group_by(LocType) %>% 
   summarize(avg_total_load = mean(total_load))
 
-mehg_inlet <- mehg_entire_yb$avg_total_load[1]
-mehg_outlet <- mehg_entire_yb$avg_total_load[2]
-mehg_bli <- mehg_entire_yb$avg_total_load[3]
+mehg_inlet <- mehg_total_entire_yb$avg_total_load[1]
+mehg_outlet <- mehg_total_entire_yb$avg_total_load[2]
+mehg_bli <- mehg_total_entire_yb$avg_total_load[3]
 perc_inlet <- round(mehg_inlet/mehg_bli * 100)
 
 ```
 
-On average, the inlets to the Bypass accounted for `r perc_inlet`% of this uMeHg export load and net internal production provided the remaining `r 100 - perc_inlet`% or 17.9 ± 18.5 g/day (Table 13).  Most of this net internal production of uMeHg occurred in the Upper reach between the inlets and the Stairsteps supplying `r round((mehg_outlet - mehg_inlet)/(mehg_bli - mehg_inlet) * 100)`% of the net load.
+On average, the inlets to the Bypass accounted for `r perc_inlet`% of this uMeHg export load and net internal production provided the remaining `r 100 - perc_inlet`% or 18 ± 19 g/day (Table 13).  Most of this net internal production of uMeHg occurred in the Upper reach between the inlets and the Stairsteps supplying `r round((mehg_outlet - mehg_inlet)/(mehg_bli - mehg_inlet) * 100)`% of the net load.
+
+***
+
+```{r perc fhg export entire bypass}
+hg_total_entire_yb <- loads_total_clean17 %>% 
+  filter(
+    LocType == "Below Liberty",
+    AnalyteGroup == "Hg"
+  ) %>% 
+  group_by(Analyte) %>% 
+  summarize(avg_total_load = mean(total_load))
+
+perc_fhg_total_entire_yb <- 
+  hg_total_entire_yb$avg_total_load[1]/(hg_total_entire_yb$avg_total_load[1] + hg_total_entire_yb$avg_total_load[2])
+```
+
+The filter-passing mercury fraction was a small component of the total uHg leaving the Bypass to the downstream Delta at `r round(perc_fhg_total_entire_yb * 100)`% of the average uHg load 
+
+***
+
+```{r perc pmehg export upper bypass}
+mehg_total_upper_yb <- loads_total_clean17 %>% 
+  filter(
+    LocType == "Outlet",
+    AnalyteGroup == "MeHg"
+  ) %>% 
+  group_by(Analyte) %>% 
+  summarize(avg_total_load = mean(total_load))
+
+perc_pmehg_total_upper_yb <- 
+  mehg_total_upper_yb$avg_total_load[2]/(mehg_total_upper_yb$avg_total_load[1] + mehg_total_upper_yb$avg_total_load[2])
+```
+
+Overall, `r round(perc_pmehg_total_upper_yb * 100)`% of the MeHg exported from the Upper reach in 2017 was in the particulate fraction
+
+***
+
+```{r perc phg net upper bypass}
+hg_net_upper_yb <- loads_net_clean17 %>% 
+  filter(
+    Reach == "Upper",
+    AnalyteGroup == "Hg"
+  ) %>% 
+  group_by(Analyte) %>% 
+  summarize(avg_net_load = mean(net_load))
+
+perc_phg_net_upper_yb <- 
+  hg_net_upper_yb$avg_net_load[2]/(hg_net_upper_yb$avg_net_load[1] + hg_net_upper_yb$avg_net_load[2])
+```
+
+Almost all of the net internal retention of Hg was due to the particulate fraction which accounted for `r round(perc_phg_net_upper_yb * 100)`% of the mercury lost in this reach 
+
+***
+
+```{r perc net liberty}
+net_liberty <- loads_net_clean17 %>% 
+  filter(
+    Reach == "Liberty",
+    AnalyteGroup %in% c("Hg", "MeHg")
+  ) %>% 
+  group_by(Analyte) %>% 
+  summarize(avg_net_load = mean(net_load))
+
+perc_fmehg_net_liberty <- 
+  net_liberty$avg_net_load[1]/(net_liberty$avg_net_load[1] + net_liberty$avg_net_load[2])
+
+perc_phg_net_liberty <- 
+  net_liberty$avg_net_load[5]/(net_liberty$avg_net_load[4] + net_liberty$avg_net_load[5])
+```
+
+Overall, `r round(perc_fmehg_net_liberty * 100)`% of the MeHg produced in this reach in 2017 was in the filter-passing fraction, which is much different than what occurred in the upper reach and the entire Yolo Bypass 
+
+Most of the average net source of mercury from the Liberty Island reach was in the particulate fraction at `r round(perc_phg_net_liberty * 100)`% 
 
