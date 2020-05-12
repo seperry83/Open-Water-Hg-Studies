@@ -608,7 +608,7 @@ loads_inlet_summ_no0 %>%
   datatable(rownames = FALSE)
 ```
 
-### % of total inlet load for each inlet
+### % of Total Inlet Load for each Inlet
 
 ```{r mehg perc load inlets}
 loads_inlet_perc_wide %>% 
@@ -617,7 +617,7 @@ loads_inlet_perc_wide %>%
   formatPercentage(3:7, digits = 1)
 ```
 
-### Summary Statistics of % loads
+### Summary Statistics of % Loads
 
 **Including** zero percentage values for the Fremont and Sacramento Weirs when they weren't spilling:
 ```{r mehg summ stats perc inlets}
@@ -722,7 +722,7 @@ loads_inlet_summ_no0 %>%
   datatable(rownames = FALSE)
 ```
 
-### % of total inlet load for each inlet
+### % of Total Inlet Load for each Inlet
 
 ```{r hg perc load inlets}
 loads_inlet_perc_wide %>% 
@@ -731,7 +731,7 @@ loads_inlet_perc_wide %>%
   formatPercentage(3:7, digits = 1)
 ```
 
-### Summary Statistics of % loads
+### Summary Statistics of % Loads
 
 **Including** zero percentage values for the Fremont and Sacramento Weirs when they weren't spilling:
 ```{r hg summ stats perc inlets}
@@ -887,7 +887,7 @@ loads_inlet_summ_no0 %>%
   datatable(rownames = FALSE)
 ```
 
-### % of total inlet load for each inlet
+### % of Total Inlet Load for each Inlet
 
 ```{r oc perc load inlets}
 loads_inlet_perc_wide %>% 
@@ -896,7 +896,7 @@ loads_inlet_perc_wide %>%
   formatPercentage(3:7, digits = 1)
 ```
 
-### Summary Statistics of % loads
+### Summary Statistics of % Loads
 
 **Including** zero percentage values for the Fremont and Sacramento Weirs when they weren't spilling:
 ```{r oc summ stats perc inlets}
@@ -1000,7 +1000,7 @@ loads_inlet_summ_no0 %>%
   datatable(rownames = FALSE)
 ```
 
-### % of total inlet load for each inlet
+### % of Total Inlet Load for each Inlet
 
 ```{r ss perc load inlets}
 loads_inlet_perc_wide %>% 
@@ -1009,7 +1009,7 @@ loads_inlet_perc_wide %>%
   formatPercentage(3:7, digits = 1)
 ```
 
-### Summary Statistics of % loads
+### Summary Statistics of % Loads
 
 **Including** zero percentage values for the Fremont and Sacramento Weirs when they weren't spilling:
 ```{r ss summ stats perc inlets}
