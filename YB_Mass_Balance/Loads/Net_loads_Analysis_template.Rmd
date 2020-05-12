@@ -5,7 +5,7 @@ date: "4/18/2020"
 output: html_document
 ---
 
-## {{parameter}}
+## {{parameter}} {.tabset .tabset-pills}
 
 ```{r filter {{parameter}}}
 filt_obj <- all_obj %>% filter(AnalyteGroup == "{{parameter}}")
