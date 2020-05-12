@@ -5,9 +5,6 @@ date: "2/3/2020"
 output: 
   html_document: 
     code_folding: hide
-    toc: yes
-    toc_float:
-      collapsed: no
 editor_options: 
   chunk_output_type: console
 ---
@@ -542,11 +539,11 @@ rm(
 ```
 
 
-# Plots and Summary Statistics
+# Plots and Summary Statistics {.tabset .tabset-pills}
 
 The summary statistics for the inlet and % loads and the boxplots include only the sampling events conducted in 2017. The remaining plots include all sampling events conducted throughout the study period (2014-2017). The boxplots include zero load values for the Fremont and Sacramento Weirs when they weren't spilling.
 
-## MeHg
+## MeHg {.tabset .tabset-pills}
 
 ### Facet Barplots
 
@@ -660,7 +657,7 @@ loads_inlet_perc_frac_summ %>%
 ```
 
 
-## Hg
+## Hg {.tabset .tabset-pills}
 
 ### Facet Barplots
 
@@ -774,7 +771,7 @@ loads_inlet_perc_frac_summ %>%
 ```
 
 
-## Percent MeHg of Hg loads
+## Percent MeHg of Hg loads {.tabset .tabset-pills}
 
 ```{r create perc mehg plots}
 loads_plots_perc_mehg <- loads_inlet_perc_mehg %>% 
@@ -825,7 +822,7 @@ loads_inlet_perc_mehg %>%
 ```
 
 
-## Organic Carbon
+## Organic Carbon {.tabset .tabset-pills}
 
 ### Facet Barplots
 
@@ -918,7 +915,7 @@ loads_inlet_perc_summ_no0 %>%
 ```
 
 
-## Suspended Solids
+## Suspended Solids {.tabset .tabset-pills}
 
 ### Facet Barplots
 
@@ -1031,7 +1028,7 @@ loads_inlet_perc_summ_no0 %>%
 ```
 
 
-## Extra Analyses in Technical Appendix
+# Extra Analyses in Technical Appendix
 
 ```{r first flush analysis}
 # Calculate the percent reduction of input loads between the first sampling event in 2017 and the largest sampling event in 2017 in terms of inflow (February 14)
