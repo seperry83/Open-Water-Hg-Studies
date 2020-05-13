@@ -18,7 +18,7 @@ sharepoint_path <- normalizePath(
   )
 )  
 
-# Figure 3 ----------------------------------------------------------------
+# Figure E-3 ----------------------------------------------------------------
 # 2015 Pilot Study
 # Bar plot of means of each treatment with error bars indicating their standard deviations
 # Means are the mass in ng of filtered MeHg in the overlying water after 12 days of incubation
@@ -64,7 +64,7 @@ vss_pilot2015_text <- vss_pilot2015_clean %>%
     )
   )
 
-# Create figure 3
+# Create figure E-3
 vss_pilot2015_fig3 <- vss_pilot2015_clean %>% 
   ggplot(aes(x = combine_group, y = avg)) +
   geom_col(fill = "#00BE7D") +
@@ -90,9 +90,9 @@ vss_pilot2015_fig3 <- vss_pilot2015_clean %>%
     size = 3
   )
   
-# Export figure 3
+# Export figure E-3
 ggsave(
-  "VSS_final_report_fig3.jpg", 
+  "VSS_final_report_figE-3.jpg", 
   plot = vss_pilot2015_fig3,
   dpi = 300,
   width = 4.5, 
@@ -101,7 +101,7 @@ ggsave(
 )
 
 
-# Figure 8 ----------------------------------------------------------------
+# Figure E-6 ----------------------------------------------------------------
 # 2017 Vegetation Senescence Study
 # Bar plot of means of each treatment with error bars indicating their standard deviations
 # Means are the concentration in ng/L/day of filtered MeHg in the overlying water
@@ -145,8 +145,8 @@ vss_2017_clean <- vss_2017_orig %>%
   ) %>% 
   ungroup()
 
-# Create figure 8
-vss_2017_fig8 <- vss_2017_clean %>% 
+# Create figure E-6
+vss_2017_fig6 <- vss_2017_clean %>% 
   ggplot(aes(x = Treatment, y = avg, fill = Treatment)) +
   geom_col() +
   geom_errorbar(
@@ -165,10 +165,10 @@ vss_2017_fig8 <- vss_2017_clean %>%
   theme_owhg() +
   guides(fill = "none")
 
-# Export figure 8
+# Export figure E-6
 ggsave(
-  "VSS_final_report_fig8.jpg", 
-  plot = vss_2017_fig8,
+  "VSS_final_report_figE-6.jpg", 
+  plot = vss_2017_fig6,
   dpi = 300,
   width = 6.5, 
   height = 3, 
@@ -176,7 +176,7 @@ ggsave(
 )
 
 
-# Figure 10 ---------------------------------------------------------------
+# Figure E-8 ---------------------------------------------------------------
 # 2019 Vegetation Senescence Study
 # Bar plot of means of each treatment with error bars indicating their standard deviations
 # Means are the concentration in ng/L/day of filtered MeHg in the overlying water
@@ -214,8 +214,8 @@ vss_2019_clean <- vss_2019_orig %>%
   ) %>% 
   ungroup()
 
-# Create figure 10
-vss_2019_fig10 <- vss_2019_clean %>% 
+# Create figure E-8
+vss_2019_fig8 <- vss_2019_clean %>% 
   ggplot(aes(x = Treatment, y = avg, fill = Treatment)) +
   geom_col() +
   geom_errorbar(
@@ -234,10 +234,10 @@ vss_2019_fig10 <- vss_2019_clean %>%
   theme_owhg() +
   guides(fill = "none")
 
-# Export figure 10
+# Export figure E-8
 ggsave(
-  "VSS_final_report_fig10.jpg", 
-  plot = vss_2019_fig10,
+  "VSS_final_report_figE-8.jpg", 
+  plot = vss_2019_fig8,
   dpi = 300,
   width = 5, 
   height = 2.5, 
@@ -248,13 +248,13 @@ ggsave(
 # Process 2018 VSS Lab Study data -----------------------------------------
 
 # Import Data
-vss_2018_orig <- read_excel(path = paste0(sharepoint_path, "/VegSensLab_Oct2018_Conc_Data.xlsx"), sheet = "Normal Water Data- R")
+vss_2018_orig <- read_excel(path = paste0(sharepoint_path, "/VegSens_Oct2018_Conc_Data.xlsx"), sheet = "Normal Water Data- R")
 
 # Create named vector to use in shortening StationName
 sn_repl <- c("Vegetation" = "Veg", "Manure" = "Man", "Sediment" = "Sed", "High" = "H", "Medium" = "M", "Low" = "L")
 
 # Prepare data for figures
-vss_2018_clean <- vss_2018_orig %>% 
+vss_2018_clean <- vss_2018_orig %>%
   # Extract date from dttm variable
   mutate(SampleDate = as_date(SampleDate)) %>%
   # Create Week variable and shorten StationName
@@ -300,6 +300,8 @@ vss_2018_clean <- vss_2018_orig %>%
       str_detect(Treatment, "^Veg H") ~ "Veg H"
     )
   ) %>% 
+  # Remove one outlier from dataset
+  filter(SampleCode != "EH1218B2715") %>% 
   # Calculate means and standard deviations
   group_by(Group, Treatment, Week) %>% 
   summarize(
@@ -357,13 +359,13 @@ group_colors <- c(
   "Veg H" = brewer.pal(9,"Greens")[8]
 )
 
-# Figures 12 and 13 -------------------------------------------------------
+# Figures E-9 and E-10 -------------------------------------------------------
 # 2018 Vegetation Senescence Lab Study
 # Bar plot of means of each treatment with error bars indicating their standard deviations
 # Means are the concentration in ng/L/day of filtered MeHg in the overlying water
-# Figure 12 is for Week 4 results, and Figure 13 is for Week 8
+# Figure E-9 is for Week 4 results, and Figure E-10 is for Week 8
 
-# Create function for figures 12 and 13
+# Create function for figures E-9 and E-10
 barplot_vss_2018 <- function(df) {
   p <- 
     ggplot(
@@ -396,26 +398,26 @@ barplot_vss_2018 <- function(df) {
   return(p)
 }
 
-# Create figures 12 and 13
-vss_2018_fig12_13 <- vss_2018_clean %>% 
+# Create figures E-9 and E-10
+vss_2018_fig9_10 <- vss_2018_clean %>% 
   filter(Week != "Week 2") %>% 
   group_nest(Week) %>% 
   mutate(figures = map(data, .f = barplot_vss_2018))
 
-# Export figure 12
+# Export figure E-9
 ggsave(
-  "VSS_final_report_fig12.jpg", 
-  vss_2018_fig12_13$figures[[1]],
+  "VSS_final_report_figE-9.jpg", 
+  vss_2018_fig9_10$figures[[1]],
   dpi = 300,
   width = 6, 
   height = 5, 
   units = "in"
 )
 
-# Export figure 13
+# Export figure E-10
 ggsave(
-  "VSS_final_report_fig13.jpg", 
-  vss_2018_fig12_13$figures[[2]],
+  "VSS_final_report_figE-10.jpg", 
+  vss_2018_fig9_10$figures[[2]],
   dpi = 300,
   width = 6, 
   height = 5, 
@@ -423,15 +425,15 @@ ggsave(
 )
 
 
-# Figure 16 ---------------------------------------------------------------
+# Figure E-13 ---------------------------------------------------------------
 # 2018 Vegetation Senescence Lab Study
 # Bar plot of means of Sediment Only and Vegetation Only (low, medium, high) treatments with error bars 
   # indicating their standard deviations
 # Means are the concentration in ng/L/day of filtered MeHg in the overlying water
 # Facets for each Week of sample collection
 
-# Create figure 16
-vss_2018_fig16 <- vss_2018_clean %>% 
+# Create figure E-13
+vss_2018_fig13 <- vss_2018_clean %>% 
   filter(str_detect(Treatment, "^Sieved|No Sed$")) %>% 
   ggplot(aes(x = Treatment, y = avg, fill = Group)) +
   geom_col() +
@@ -455,10 +457,10 @@ vss_2018_fig16 <- vss_2018_clean %>%
   ) +
   scale_y_continuous(breaks = seq(0, 0.5, by = 0.1))
 
-# Export figure 16
+# Export figure E-13
 ggsave(
-  "VSS_final_report_fig16.jpg", 
-  vss_2018_fig16,
+  "VSS_final_report_figE-13.jpg", 
+  vss_2018_fig13,
   dpi = 300,
   width = 6, 
   height = 5, 
@@ -466,14 +468,14 @@ ggsave(
 )
 
 
-# Figure 17 ---------------------------------------------------------------
+# Figure E-14 ---------------------------------------------------------------
 # 2018 Vegetation Senescence Lab Study
 # Bar plot of means of Disked and Ungrazed (low, medium, high) treatments with error bars 
   # indicating their standard deviations
 # Means are the concentration in ng/L/day of filtered MeHg in the overlying water
 # Facets for each Week of sample collection
 
-# Modify df for figure 17
+# Modify df for figure E-14
 vss_2018_clean17 <- vss_2018_clean %>% 
   filter(str_detect(Treatment, "Disked$|Ungrazed$")) %>%
   mutate(
@@ -486,8 +488,8 @@ vss_2018_clean17 <- vss_2018_clean %>%
     biomass = factor(biomass, levels = c("Low", "Medium", "High"))
   )
   
-# Create figure 17
-vss_2018_fig17 <- vss_2018_clean17 %>% 
+# Create figure E-14
+vss_2018_fig14 <- vss_2018_clean17 %>% 
   ggplot(aes(x = biomass, y = avg, fill = Treatment)) +
   geom_col(position = "dodge") +
   geom_errorbar(
@@ -507,10 +509,10 @@ vss_2018_fig17 <- vss_2018_clean17 %>%
   theme(legend.position = c(0.14, 0.83)) +
   add_gen_color_pal(2)
 
-# Export figure 17
+# Export figure E-14
 ggsave(
-  "VSS_final_report_fig17.jpg", 
-  vss_2018_fig17,
+  "VSS_final_report_figE-14.jpg", 
+  vss_2018_fig14,
   dpi = 300,
   width = 6, 
   height = 5, 
