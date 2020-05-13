@@ -33,8 +33,8 @@ p
 
 ### Total Load vs. Inflow Scatterplots
 
-```{r {{parameter}} load vs flow plots, fig.height = 7, fig.width = 7}
-filt_obj %>% pull(scatterplots) %>% chuck(1)
+```{r {{parameter}} total load vs flow plots, fig.height = 7, fig.width = 7}
+filt_obj %>% pull(t_scatterplots) %>% chuck(1)
 ```
 
 ### Total Load Data Tables
@@ -85,6 +85,24 @@ p <- filt_obj %>%
 # Workaround to have plotly not add markers for outliers
 p$x$data <- map(p$x$data, remove_markers)
 p
+```
+
+### Net Load vs. Inflow Scatterplots
+
+```{r unnest {{parameter}} net load vs flow plots}
+filt_obj_unnest <- filt_obj %>% 
+  pull(n_scatterplots) %>% 
+  chuck(1)
+```
+
+```{r {{parameter}} net load vs flow plots, echo = FALSE, message = FALSE, results = "asis", fig.width = 9, fig.height = 4}
+for (i in 1:nrow(filt_obj_unnest)) {
+  # Create subheadings for each Reach
+  cat("#### ", as.character(filt_obj_unnest$Reach[i]), "\n\n") 
+  # Display grouped plot
+  print(filt_obj_unnest$grouped_plots[[i]])
+  cat("\n\n")
+}
 ```
 
 ### Net Load Data Tables

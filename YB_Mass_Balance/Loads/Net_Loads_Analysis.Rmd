@@ -25,6 +25,8 @@ library(openwaterhg)
 library(knitr)
 library(kableExtra)
 library(DT)
+library(broom)
+library(patchwork)
 ```
 
 Bring in total input and output loads for each sampling event and parameter:
@@ -100,7 +102,7 @@ loads_total_clean <- left_join(loads_total_clean, total_inflows)
 loads_net_clean <- left_join(loads_net_clean, total_inflows)
 ```
 
-Create two new dataframes with total and net loads only for 2017 sampling events. This will be used for the summary statistics and boxplots.
+Create two new dataframes with total and net loads only for 2017 sampling events. This will be used for the summary statistics, boxplots, and net load vs flow plots.
 ```{r filter 2017 data}
 loads_total_clean17 <- loads_total_clean %>% filter(str_detect(SamplingEvent, "17$"))
 
@@ -472,12 +474,43 @@ scattplot_tload_flow <- function(df) {
 }
 ```
 
+Function for net loads vs. total inflow scatterplots:
+```{r fun net load vs inflow scatterplots}
+scattplot_nload_flow <- function(df, param, rsq, pval) {
+  p <- 
+    ggplot(
+      data = df,
+      aes(
+        x = total_inflow, 
+        y = net_load
+      )
+    ) +
+    geom_point() +
+    geom_smooth(
+      method = "lm",
+      formula = y ~ x,
+      se = FALSE
+    ) +
+    labs(
+        title = param,
+        subtitle = paste0("R Squared = ", rsq, "%\np-value = ", pval),
+        x = "Total Inflow (cfs)",
+        y = paste0("Net Load (", df$LoadUnits[1], ")")
+    ) +
+    scale_x_continuous(labels = label_comma()) +
+    scale_y_continuous(labels = label_comma()) +
+    theme_owhg()
+  
+  return(p)
+}
+```
+
 
 # Create Plots
 
 Total Loads:
 ```{r create plots total loads, message = FALSE}
-# All sampling events
+# Barplots and scatterplots- all sampling events, rounded data
 loads_total_plots <- loads_total_clean_r %>% 
   group_nest(AnalyteGroup) %>% 
   mutate(
@@ -488,11 +521,11 @@ loads_total_plots <- loads_total_clean_r %>%
       fill_var = LocType,
       type = "total"
     ), 
-    scatterplots = map(data, .f = scattplot_tload_flow)
+    t_scatterplots = map(data, .f = scattplot_tload_flow)
   ) %>% 
   select(-data)
 
-# Just 2017 sampling events
+# Boxplots- just 2017 sampling events, rounded data
 loads_total_boxplots <- loads_total_clean17_r %>% 
   group_nest(AnalyteGroup) %>% 
   mutate(
@@ -509,7 +542,7 @@ loads_total_boxplots <- loads_total_clean17_r %>%
 
 Net Loads:
 ```{r create plots net loads, message = FALSE}
-# All sampling events
+# Barplots- all sampling events, rounded data
 loads_net_barplots <- loads_net_clean_r %>% 
   group_nest(AnalyteGroup) %>% 
   mutate(
@@ -524,7 +557,7 @@ loads_net_barplots <- loads_net_clean_r %>%
   ) %>% 
   select(-data)
 
-# Just 2017 sampling events
+# Boxplots- just 2017 sampling events, rounded data
 loads_net_boxplots <- loads_net_clean17_r %>% 
   group_nest(AnalyteGroup) %>% 
   mutate(
@@ -537,12 +570,40 @@ loads_net_boxplots <- loads_net_clean17_r %>%
     )
   ) %>% 
   select(-data)
+
+# Net load vs inflow scatterplots- just 2017 sampling events, unrounded data
+loads_net_scatterplots <- loads_net_clean17 %>% 
+  group_nest(Reach, AnalyteGroup, Analyte) %>% 
+  # Run regression analysis and create plots for each Analyte-Reach combination
+  mutate(
+    model = map(data, ~ summary(lm(net_load ~ total_inflow, data = .x))),
+    r2 = signif(map_dbl(model, ~glance(.x)$r.squared * 100), 3),
+    p_value = signif(map_dbl(model, ~glance(.x)$p.value), 2),
+    plot = pmap(
+      list(data, Analyte, r2, p_value),
+      .f = scattplot_nload_flow
+    )
+  ) %>% 
+  select(Reach, AnalyteGroup, plot) %>% 
+  group_nest(Reach, AnalyteGroup) %>% 
+  # Create grouped plots by AnalyteGroup for each Reach using patchwork package
+  mutate(
+    grouped_plots = map(
+      data, 
+      .f = ~pull(.x, plot) %>% 
+        wrap_plots()
+    )
+  ) %>% 
+  select(-data) %>% 
+  # Group nest by AnalyteGroup to join with other dataframes
+  group_nest(AnalyteGroup) %>% 
+  rename(n_scatterplots = data)
 ```
 
 
 # Plots and Summary Statistics {.tabset .tabset-pills}
 
-The summary statistics and boxplots for the total and net loads only include the sampling events conducted in 2017. The remaining plots include all sampling events conducted throughout the study period (2014-2017).
+The summary statistics and boxplots for the total and net loads only include the sampling events conducted in 2017. The net load vs inflow scatterplots also include only the 2017 data. The remaining plots include all sampling events conducted throughout the study period (2014-2017).
 
 Join all plots, data tables, and summary statistics together for more efficient code:
 ```{r join plots tables summ stats, message = FALSE}
@@ -555,6 +616,7 @@ all_obj <-
       loads_total_summ,
       loads_net_barplots,
       loads_net_boxplots,
+      loads_net_scatterplots,
       loads_net_table,
       loads_net_summ
     ),
@@ -569,6 +631,7 @@ rm(
   loads_total_summ,
   loads_net_barplots,
   loads_net_boxplots,
+  loads_net_scatterplots,
   loads_net_table,
   loads_net_summ
 )
