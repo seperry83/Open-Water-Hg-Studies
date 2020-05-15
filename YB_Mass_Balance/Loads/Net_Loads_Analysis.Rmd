@@ -576,7 +576,7 @@ loads_net_scatterplots <- loads_net_clean17 %>%
   group_nest(Reach, AnalyteGroup, Analyte) %>% 
   # Run regression analysis and create plots for each Analyte-Reach combination
   mutate(
-    model = map(data, ~ summary(lm(net_load ~ total_inflow, data = .x))),
+    model = map(data, ~summary(lm(net_load ~ total_inflow, data = .x))),
     r2 = signif(map_dbl(model, ~glance(.x)$r.squared * 100), 3),
     p_value = signif(map_dbl(model, ~glance(.x)$p.value), 2),
     plot = pmap(
