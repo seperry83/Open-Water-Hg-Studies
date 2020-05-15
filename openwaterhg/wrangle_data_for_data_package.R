@@ -28,7 +28,7 @@ daily_flow_data_se <- read_csv(paste0(sharepoint_path, "/DailyAvgFlows_SE.csv"))
 daily_flow_data_all <- read_csv(paste0(sharepoint_path, "/DailyAvgFlows_All.csv"))
 
 loads_flow_cf <-
-  read_excel(paste0(sharepoint_path, "/YB_NetMeHgLoad_and_Flow_2006.xlsx")) %>%
+  read_excel(paste0(sharepoint_path, "/YB_MeHgLoad_and_Flow_2006.xlsx")) %>%
   # Clean up date formatting- extract date from dttm variable
   mutate(SampleDate = as_date(SampleDate))
 

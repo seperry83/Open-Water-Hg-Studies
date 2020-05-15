@@ -160,20 +160,20 @@
 
 
 #' @title Flow and Mass Load Data from the CALFED 2008 report
-#' @description Contains total daily inflow and net methylmercury load data from
-#'     the 2006 flood event in the Yolo Bypass as presented in the CALFED 2008 report.
-#'     This dataset is used as a comparison to the net MeHg loads from the Yolo Bypass
-#'     Mass Balance study.
+#' @description Contains total daily inflow and inlet, outlet, and net methylmercury
+#'     load data from the 2006 flood event in the Yolo Bypass as presented in the
+#'     CALFED 2008 report. This dataset is used as a comparison to the MeHg loads
+#'     from the Yolo Bypass Mass Balance study.
 #'
 #' @format data frame with 14 rows and 7 columns
 #' \describe{
 #' \item{SampleDate}{The date of the total inflow and net load values}
 #' \item{Year}{The year of the flood}
 #' \item{Analyte}{The analytical parameter for the net load value}
-#' \item{Segment}{The geographical segment for the net load value}
-#' \item{LoadUnits}{The units of the net load value}
-#' \item{NetLoad}{The net load value}
-#' \item{TotalInputFlow}{The total daily inflow value in cubic feet per second}
+#' \item{Inlet_Load}{The total inlet load value in g/day}
+#' \item{Outlet_Load}{The total outlet load value in g/day}
+#' \item{Net_Load}{The net load value in g/day}
+#' \item{Total_Inflow}{The total daily inflow value in cubic feet per second}
 #' }
 #'
 "loads_flow_cf"
