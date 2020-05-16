@@ -193,6 +193,7 @@ net_loads %>%
 
 
 source("YB_Mass_Balance/Loads/Import_Net_Load_Data.R")
+source("YB_Mass_Balance/Loads/Import_Total_Load_Data.R")
 source("YB_Mass_Balance/Flows/Import_Inlet_Flow_Data_SE.R")
 
 flows_inlet_total17 <- flows_inlet_se %>% 
@@ -200,32 +201,55 @@ flows_inlet_total17 <- flows_inlet_se %>%
   group_by(SamplingEvent) %>% 
   summarize(total_inflow = sum(Flow))
 
-loads_net_umehg17 <- loads_net %>% 
+loads_total_mod <- loads_total %>%
+  filter(LocType != "Below Liberty") %>% 
+  pivot_wider(
+    id_cols = -digits,
+    names_from = LocType,
+    values_from = total_load
+  )
+
+loads_umehg17 <- loads_net %>% 
+  filter(Reach == "Upper") %>%
+  select(-c(Reach, digits)) %>% 
+  left_join(loads_total_mod) %>% 
   filter(
     Year == 2017,
-    Analyte == "MeHg- total",
-    Reach == "Upper"
-  ) %>% 
+    Analyte == "MeHg- total"
+  ) %>%
   left_join(flows_inlet_total17) %>% 
-  select(Year, net_load, total_inflow)
+  select(Year, net_load:total_inflow) %>% 
+  rename(
+    Net_Load = net_load,
+    Inlet_Load = Inlet,
+    Outlet_Load = Outlet,
+    Total_Inflow = total_inflow
+  )
 
 loads_flow_comb <- loads_flow_cf %>% 
-  select(Year, NetLoad, TotalInputFlow) %>% 
-  rename(
-    net_load = NetLoad,
-    total_inflow = TotalInputFlow
+  select(Year, Inlet_Load:Total_Inflow) %>% 
+  bind_rows(loads_umehg17) %>% 
+  pivot_longer(
+    cols = Inlet_Load:Net_Load,
+    names_to = "Load_Type",
+    values_to = "Load"
   ) %>% 
-  bind_rows(loads_net_umehg17)
+  mutate(
+    Year = as.character(Year),
+    Load_Type = factor(Load_Type, levels = c("Inlet_Load", "Outlet_Load", "Net_Load"))
+  )
 
 loads_flow_comb %>% 
-  ggplot(aes(x = total_inflow, y = net_load, color = as.character(Year))) +
+  ggplot(aes(x = Total_Inflow, y = Load, color = Year)) +
   geom_point() +
-  geom_smooth(method = "lm", se = FALSE)
+  geom_smooth(method = "lm", se = FALSE) +
+  facet_wrap(vars(Load_Type))
+  
 
 loads_flow_regr <- loads_flow_comb %>% 
-  group_nest(Year) %>% 
+  group_nest(Year, Load_Type) %>% 
   mutate(
-    lm_model = map(data, .f = ~summary(lm(net_load ~ total_inflow, data = .x)))
+    lm_model = map(data, .f = ~summary(lm(Load ~ Total_Inflow, data = .x)))
   )
 
 
