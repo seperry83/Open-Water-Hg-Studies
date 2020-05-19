@@ -1,0 +1,260 @@
+---
+title: 'Flood Comparison: 2006 vs 2017'
+author: "Dave Bosworth"
+date: "5/18/2020"
+output: 
+  html_document: 
+    code_folding: hide
+    toc: true
+    toc_float:
+      collapsed: false
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Import and Prepare Data
+
+Load R packages necessary for this analysis:
+```{r load packages, message = FALSE, warning = FALSE}
+# Load packages
+library(tidyverse)
+library(readxl)
+library(lubridate)
+library(scales)
+library(openwaterhg)
+```
+
+Bring in and prepare MeHg load and flow data for 2017 flood:
+```{r clean 2017 load and flow data, message = FALSE}
+# Bring in data
+source("YB_Mass_Balance/Loads/Import_Net_Load_Data.R")
+source("YB_Mass_Balance/Loads/Import_Total_Load_Data.R")
+source("YB_Mass_Balance/Flows/Import_Inlet_Flow_Data_SE.R")
+
+# Calculate total inflows for sampling events in 2017
+flows_inlet_total17 <- flows_inlet_se %>% 
+  filter(Year == 2017) %>% 
+  group_by(SamplingEvent) %>% 
+  summarize(total_inflow = sum(Flow))
+
+# Clean loads_total df
+loads_total_mod <- loads_total %>%
+  filter(LocType != "Below Liberty") %>% 
+  pivot_wider(
+    id_cols = -digits,
+    names_from = LocType,
+    values_from = total_load
+  )
+
+# Join net and total MeHg loads and flow data
+loads_umehg_flow17 <- loads_net %>% 
+  filter(Reach == "Upper") %>%
+  select(-c(Reach, digits)) %>% 
+  left_join(loads_total_mod) %>% 
+  filter(
+    Year == 2017,
+    Analyte == "MeHg- total"
+  ) %>%
+  left_join(flows_inlet_total17) %>% 
+  select(Year, net_load:total_inflow) %>% 
+  rename(
+    Net_Load = net_load,
+    Inlet_Load = Inlet,
+    Outlet_Load = Outlet,
+    Total_Inflow = total_inflow
+  )
+
+# Clean up
+rm(flows_inlet_se, flows_inlet_total17, loads_total, loads_total_mod, loads_net)
+```
+
+Bring in and prepare MeHg load and flow data for 2006 flood:
+```{r clean 2006 load and flow data}
+loads_flow_cf_clean <- loads_flow_cf %>% 
+  select(Year, Inlet_Load:Total_Inflow)
+```
+
+Bind MeHg load and flow data together:
+```{r bind load and flow data}
+loads_flow_comb <-   
+  bind_rows(loads_flow_cf_clean, loads_umehg_flow17) %>% 
+  pivot_longer(
+    cols = Inlet_Load:Net_Load,
+    names_to = "Load_Type",
+    values_to = "Load"
+  ) %>% 
+  mutate(
+    Year = as.character(Year),
+    Load_Type = factor(Load_Type, levels = c("Inlet_Load", "Outlet_Load", "Net_Load"))
+  )
+
+# Clean up
+rm(loads_flow_cf_clean, loads_umehg_flow17)
+```
+
+Bring in and prepare Lisbon stage data for 2017 flood:
+```{r clean 2017 lis stage data, message = FALSE}
+# Define path on SharePoint site for data
+sharepoint_path <- normalizePath(
+  file.path(
+    Sys.getenv("USERPROFILE"),
+    "California Department of Water Resources/DWR Documents - Open Water Final Report - Documents/Technical Appendices/Technical Appendix-B_Inlet-Outlet/Data/Raw"
+  )
+)
+
+# Import 2017 Lisbon Stage Data 
+lisb17_orig <- read_excel(
+  paste0(sharepoint_path, "/2017_YB_Flood_Flows.xlsx"), 
+  range = "Lisbon!A1:C15195"
+)
+
+# Clean 2017 Lisbon Stage Data
+lisb17_clean <- lisb17_orig %>% 
+  select(-Date) %>% 
+  rename(
+    datetime = "Date/Time (PST)",
+    stage = "Stage (ft)"
+  )
+
+# Create a df of sampling events to mark these on the Lisbon hydrograph
+se_datetimes17 <- tibble(
+  datetime = as_datetime(
+    c(
+      "2017-01-11 12:00:00",
+      "2017-01-24 12:00:00",
+      "2017-01-31 12:00:00",
+      "2017-02-14 12:00:00",
+      "2017-03-01 12:00:00",
+      "2017-03-15 12:00:00",
+      "2017-03-28 12:00:00",
+      "2017-04-11 12:00:00",
+      "2017-04-25 12:00:00"
+    )
+  )
+)
+
+# Join se_datetimes df to lisb17_clean to pull out data for just the sampling events
+se_lisb17 <- inner_join(lisb17_clean, se_datetimes17)
+
+# Clean up
+rm(se_datetimes17)
+```
+
+Bring in and prepare Lisbon stage data for 2006 flood:
+```{r clean 2006 lis stage data, message = FALSE}
+# Import 2006 Lisbon Stage Data 
+lisb06_orig <- read_excel(
+  paste0(sharepoint_path, "/2006_Lisbon_Stage_Data.xlsx"), 
+  range = "A1:C17377"
+)
+
+# Clean 2006 Lisbon Stage Data
+lisb06_clean <- lisb06_orig %>% 
+  select(-Date) %>% 
+  rename(
+    datetime = "Date/Time (PST)",
+    stage = "Stage (ft)"
+  )
+
+# Create a df of sampling events to mark these on the Lisbon hydrograph
+se_datetimes06 <- loads_flow_cf %>% 
+  select(SampleDate) %>% 
+  mutate(
+    SampleDate = as.character(SampleDate),
+    SampleDate = paste0(SampleDate, " 12:00:00"),
+    datetime = as_datetime(SampleDate)
+  ) %>% 
+  select(-SampleDate)
+
+# Join se_datetimes df to lisb06_clean to pull out data for just the sampling events
+se_lisb06 <- inner_join(lisb06_clean, se_datetimes06)
+
+# Clean up
+rm(se_datetimes06)
+```
+
+
+# Plots
+
+## MeHg loads vs total inflow comparison
+
+```{r mehg loads vs inflow plots, fig.width = 8.5, fig.height = 4}
+loads_flow_comb %>% 
+  ggplot(aes(x = Total_Inflow, y = Load, color = Year)) +
+  geom_point() +
+  geom_smooth(
+    method = "lm",
+    formula = y ~ x,
+    se = FALSE
+  ) +
+  facet_wrap(
+    vars(Load_Type),
+    labeller = labeller(
+      Load_Type = c(
+        Inlet_Load = "Inlet Load",
+        Outlet_Load = "Outlet Load",
+        Net_Load = "Net Load"
+      )
+    )
+  ) +
+  xlab("Total Bypass Inflow (cfs)") +
+  ylab("Load (g/day)") +
+  theme_owhg() +
+  add_gen_color_pal(
+    num_colors = 2,
+    aes_type = "color",
+    legend_title = "Flood"
+  ) +
+  scale_x_continuous(labels = label_comma())
+```
+
+
+## Lisbon Hydrographs
+
+### 2006
+
+```{r lisb hydrograph 2006}
+lisb06_clean %>% 
+  ggplot(aes(x = datetime, y = stage)) +
+  geom_line() +
+  geom_point(
+    data = se_lisb06, 
+    color = "red",
+    size = 2
+  ) +
+  ylab("Stage (ft)") +
+  xlab(NULL) +
+  scale_x_datetime(
+    breaks = breaks_pretty(15),
+    labels = label_date_short(),
+    expand = c(0.01, 0.01)
+  ) +
+  theme_owhg()
+```
+
+
+### 2017
+
+```{r lisb hydrograph 2017}
+lisb17_clean %>% 
+  ggplot(aes(x = datetime, y = stage)) +
+  geom_line() +
+  geom_point(
+    data = se_lisb17, 
+    color = "red",
+    size = 2
+  ) +
+  ylab("Stage (ft)") +
+  xlab(NULL) +
+  scale_x_datetime(
+    breaks = breaks_pretty(15),
+    labels = label_date_short(),
+    expand = c(0.01, 0.01)
+  ) +
+  theme_owhg()
+```
+
