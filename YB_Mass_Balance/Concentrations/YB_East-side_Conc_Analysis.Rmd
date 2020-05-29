@@ -38,90 +38,56 @@ library(readxl)
 library(lubridate)
 library(scales)
 library(knitr)
+library(openwaterhg)
 ```
 
-Load common functions:
-```{r load common functions}
-# Load common functions
-source("inlet_outlet_common_functions.R")
-```
-
-Bring in and bind all concentration data:
-```{r import and clean conc data, message = FALSE, warning = FALSE}
+Bring in, clean, and combine all data:
+```{r import and clean data, message = FALSE, warning = FALSE}
 # Import concentration data
-conc_orig <- read_excel("../../../Data/Lab_Final/YB_Inlet-Outlet_Conc_Data.xlsx", sheet = "For R Analysis")
+source("YB_Mass_Balance/Concentrations/Import_Conc_Data.R")
 
-# Clean conc_orig
-conc_clean <- conc_orig %>% 
-  # Remove samples with QualCode "R"
-  filter(is.na(QualCode) | !str_detect(QualCode, "^R")) %>%
-  mutate(SampleDate = as_date(SampleDate)) %>% 
-  mod_result() %>% 
-  mutate(
-    Detect = if_else(
-      ResQual == 1,
-      "Non-detect",
-      "Detect"
-    )
-  )
-
-# Import calculated particulate concentration data
-part_conc_orig <- read_csv("Concentrations/Particulate_Conc.csv") 
-
-# Clean part_conc_orig
-part_conc_clean <- part_conc_orig %>% 
-  select(-CollectionTimePST) %>% 
-  mutate(Detect = "Detect")
-
-# Import combined parameter data
-comb_param_orig <- read_csv("Concentrations/CombinedParameters.csv")
-
-# Clean comb_param_orig
-comb_param_clean <- comb_param_orig %>% 
-  select(-c(CollectionTimePST:SamplingEvent)) %>% 
+# Clean comb_param_calc to bind to all_conc
+comb_param_clean <- comb_param_calc %>% 
   rename(
     Analyte = Parameter,
     Conc = Value
-  ) %>% 
-  mutate(Detect = "Detect")
+  )
 
-# Bind all concentration data
-all_conc <- bind_rows(conc_clean, part_conc_clean, comb_param_clean)
-
-# Filter and clean concentration data
-all_conc_clean <- all_conc %>% 
-  filter(
-    !str_detect(StationName, "^YB|^Cache Slough|^Miner Slough" ),
-    SampleDate !="2014-12-12"
+# Clean Specific Conductance field data to bind to all_conc
+spcond_clean <- field_data %>% 
+  select(StationName, SampleDate, SpCond) %>% 
+  pivot_longer(
+    cols = SpCond,
+    names_to = "Analyte",
+    values_to = "Conc"
   ) %>% 
-  add_samplingevent() %>% 
-  conv_fact_samplingevent() %>% 
-  add_short_sta_names() %>% 
-  conv_fact_short_sta_names() %>% 
-  mutate(ShortName = fct_drop(ShortName)) %>% 
+  mutate(
+    Analyte = "Specific Conductance",
+    Units = "uS/cm"
+  )
+
+# Bind all data
+all_conc1 <- bind_rows(all_conc, comb_param_clean, spcond_clean)
+
+# Clean all concentration data
+all_conc_clean <- all_conc1 %>% 
+  mutate(
+    Detect = case_when(
+      ResQual == 1 ~ "Non-detect",
+      TRUE ~ "Detect"
+    )
+  ) %>% 
   select(
-    ShortName,
-    SamplingEvent,
+    StationName,
+    SampleDate,
     Analyte,
     Conc,
     Detect,
     Units
   )
-```
 
-Prepare concentration data for parameter plots:  
-```{r prepare conc data for parameter plots}
-conc_param <- all_conc_clean %>% 
-  filter(
-    Analyte %in% c(
-      "THg Concentration on Solids",
-      "MeHg Concentration on Solids",       
-      "THg Partitioning Coefficient (Kd)",
-      "MeHg Partitioning Coefficient (Kd)", 
-      "Percent tMeHg Conc of the tTHg Conc",
-      "TSS"
-    )
-  )
+# Clean up
+rm(all_conc, all_conc1, comb_param_clean, spcond_clean)
 ```
 
 Prepare Hg data for fraction plots:  
@@ -142,7 +108,7 @@ conc_hg <- all_conc_clean %>%
 ```{r calculate percentages of Hg fractions, echo = FALSE}
 conc_per_hg <- conc_hg %>% 
   pivot_wider(
-    id_cols = ShortName:Hg_analyte,
+    id_cols = StationName:Hg_analyte,
     names_from = Fraction,
     values_from = Conc
   ) %>% 
@@ -152,113 +118,93 @@ conc_per_hg <- conc_hg %>%
   )
 ```
 
-Bring in and clean Specific Conductance data:
-```{r import and clean SpCond data, message = FALSE}
-# Import Specific Conductance Data
-spcond_orig <- read_excel("FieldMeasurements/FieldMeasurements.xlsx")
-
-# Clean spcond_orig
-spcond_clean <- spcond_orig %>% 
-  mutate(SampleDate = as_date(Date)) %>% 
-  select(
-    StationName,
-    SampleDate,
-    "Specific Conductance"
-  ) %>% 
-  pivot_longer(
-    cols = "Specific Conductance",
-    names_to = "Analyte",
-    values_to = "Conc"
-  ) %>% 
-  mutate(
-    Detect = "Detect",
-    Units = "uS/cm"
-  ) %>% 
-  add_samplingevent() %>% 
-  conv_fact_samplingevent() %>% 
-  add_short_sta_names() %>% 
-  conv_fact_short_sta_names() %>% 
-  select(
-    ShortName,
-    SamplingEvent,
-    Analyte,
-    Conc,
-    Detect,
-    Units
-  ) %>% 
-  filter(!ShortName %in% c("Cache Sl", "Miner Sl")) %>% 
-  mutate(ShortName = fct_drop(ShortName))
-```
-
-Bind concentration and Specific Conductance data and filter for source ID plots:
-```{r bind conc and SpCond data}
-# Bind Concentration and Specific Conductance data
-conc_spcond <- bind_rows(all_conc_clean, spcond_clean)
-
-# Filter conc_spcond for plotting
-conc_spcond_filt <- conc_spcond %>% 
-  filter(
-    Analyte %in% c(
-      "Aluminum- total",
-      "Boron- total",
-      "Calcium- total",
-      "Chloride- filtered",
-      "Chromium- total",
-      "Magnesium- total",
-      "Manganese- total",
-      "Nickel- total",
-      "Sodium- total",
-      "Specific Conductance"
-    )
-  )
-```
-
 Only keep the nine major flood events when the Fremont Weir was spilling and the stations on the eastern side:
-```{r filter major flood events and eastern stations}
+```{r filter major flood events and eastern stations, message = FALSE}
+# Create vectors that will be used to filter data
+source_id <- c(
+  "Aluminum- total",
+  "Boron- total",
+  "Calcium- total",
+  "Chloride- filtered",
+  "Chromium- total",
+  "Magnesium- total",
+  "Manganese- total",
+  "Nickel- total",
+  "Sodium- total",
+  "Specific Conductance"
+)
+
+params4plots <- c(
+  "THg Concentration on Solids",
+  "MeHg Concentration on Solids",       
+  "THg Partitioning Coefficient (Kd)",
+  "MeHg Partitioning Coefficient (Kd)", 
+  "Percent tMeHg Conc of the tTHg Conc",
+  "TSS"
+)
+
+e_side_sta <- c(
+  "Fremont Wr- E",
+  "Fremont Wr- M",
+  "Fremont Wr- W",
+  "SR above the Sac Wr",
+  "Toe Dr at Rd 22",
+  "Toe Dr at I-80",
+  "Toe Dr at Lisbon",
+  "Toe Dr at 1/2 Lisbon",
+  "Prospect Sl"
+)
+
+# Create a nested tibble
 major_flood_east <- 
-  # Create a nested tibble
   tibble(
-    name = c("sourceID", "parameters", "hg_stack", "hg_fill"),
-    df = list(conc_spcond_filt, conc_param, conc_hg, conc_hg)
+    name = c(
+      "sourceID", 
+      "parameters", 
+      "hg_stack", 
+      "hg_fill"
+    ),
+    df = list(
+      filter(all_conc_clean, Analyte %in% source_id), 
+      filter(all_conc_clean, Analyte %in% params4plots), 
+      conc_hg, 
+      conc_hg
+    )
   ) %>% 
+  # Modify each df
   mutate(
     df = map(
       df,
-      # Filter each nested tibble
-      ~filter(
-        .x, 
-        !SamplingEvent %in% c(
-          "Dec 22-23, 2014", 
-          "Mar 15-16, 2017"
-        ),
-        ShortName %in% c(
-        "Fremont Wr- E",
-        "Fremont Wr- M",
-        "Fremont Wr- W",
-        "SR above the Sac Wr",
-        "Toe Dr at Rd 22",
-        "Toe Dr at I-80",
-        "Toe Dr at Lisbon",
-        "Toe Dr at 1/2 Lisbon",
-        "Prospect Sl"
-        )
-      ) %>% 
-      # Drop missing factors in each nested tibble
-      mutate(
-        SamplingEvent = fct_drop(SamplingEvent),
-        ShortName = fct_drop(ShortName)
-      )
+      ~add_samplingevent(.x) %>% 
+        add_short_sta_names() %>% 
+        # Filter each nested tibble
+        filter(
+          !SamplingEvent %in% c("Dec 22-23, 2014", "Mar 15-16, 2017"),
+          ShortName %in% e_side_sta
+        ) %>% 
+        # Convert to factors and drop missing factors in each nested tibble
+        conv_fact_samplingevent() %>% 
+        conv_fact_short_sta_names() %>% 
+        mutate(
+          SamplingEvent = fct_drop(SamplingEvent),
+          ShortName = fct_drop(ShortName)
+        ) %>% 
+        select(-c(StationName, SampleDate))
     )
   )
+
+# Clean up
+rm(e_side_sta, params4plots, source_id)
 ```
+
 
 # Create Plotting Functions
 
 Function for Source ID plots:
 ```{r source id plot function}
 plots_source_id <- function(df, PlotTitle) {
-  
-  p <- ggplot(
+  p <- 
+    ggplot(
       data = df,
       aes(
         x = ShortName, 
@@ -283,21 +229,18 @@ plots_source_id <- function(df, PlotTitle) {
       x = NULL,
       y = "Concentration"
     ) +
-    theme(
-      axis.text.x = element_text(angle = 90, hjust = 1),  #x-axis labels at 90 degrees
-      plot.margin = margin(t = 0.5, b = 0.5, unit = "cm")
-    )
+    theme_owhg(x_axis_v = TRUE) +
+    theme(plot.margin = margin(t = 0.5, b = 0.5, unit = "cm"))
       
   return(p)
-  
 }
 ```
 
 Function for plots showing all parameters for each sampling event:
 ```{r parameter plot function all params}
 plots_param_all <- function(df, PlotTitle) {
-  
-  p <- ggplot(
+  p <- 
+    ggplot(
       data = df,
       aes(
         x = ShortName, 
@@ -315,21 +258,18 @@ plots_param_all <- function(df, PlotTitle) {
       x = "Station",
       y = "Value"
     ) +
-    theme(
-      axis.text.x = element_text(angle = 90, hjust = 1),  #x-axis labels at 90 degrees
-      plot.margin = margin(t = 0.5, b = 0.5, unit = "cm")
-    )
+    theme_owhg(x_axis_v = TRUE) +
+    theme(plot.margin = margin(t = 0.5, b = 0.5, unit = "cm"))
   
   return(p)
-  
 }
 ```
 
 Function for plots showing the same parameter faceted by sampling event:
 ```{r parameter plot function same param}
 plots_param_same <- function(df, PlotTitle, Units) {
-  
-  p <- ggplot(
+  p <- 
+    ggplot(
       data = df,
       aes(
         x = ShortName, 
@@ -347,21 +287,18 @@ plots_param_same <- function(df, PlotTitle, Units) {
       x = "Station",
       y = Units
     ) +
-    theme(
-      axis.text.x = element_text(angle = 90, hjust = 1),  #x-axis labels at 90 degrees
-      plot.margin = margin(t = 0.5, b = 0.5, unit = "cm")
-    )
+    theme_owhg(x_axis_v = TRUE) +
+    theme(plot.margin = margin(t = 0.5, b = 0.5, unit = "cm"))
   
   return(p)
-  
 }
 ```
 
 Function for MeHg and THg fraction plots:
 ```{r Hg fraction plot function}
 plots_hg_frac <- function(df, PlotTitle) {
-  
-  p <- ggplot(
+  p <- 
+    ggplot(
       data = df,
       aes(
         x = ShortName, 
@@ -379,21 +316,23 @@ plots_hg_frac <- function(df, PlotTitle) {
       x = "Station",
       y = "Concentration (ng/L)"
     ) +
-    theme(
-      axis.text.x = element_text(angle = 90, hjust = 1),  #x-axis labels at 90 degrees
-      plot.margin = margin(t = 0.5, b = 0.5, unit = "cm")
-    )
+    add_gen_color_pal(
+      num_colors = 2, 
+      aes_type = "fill", 
+      legend_title = "Fraction"
+    ) +
+    theme_owhg(x_axis_v = TRUE) +
+    theme(plot.margin = margin(t = 0.5, b = 0.5, unit = "cm"))
   
   return(p)
-  
 }
 ```
 
 Function for MeHg and THg percent fraction plots:
 ```{r Hg percent fraction plot function}
 plots_hg_per_frac <- function(df, PlotTitle) {
-  
-  p <- ggplot(
+  p <- 
+    ggplot(
       data = df,
       aes(
         x = ShortName, 
@@ -408,16 +347,19 @@ plots_hg_per_frac <- function(df, PlotTitle) {
       x = "Station",
       y = "Fraction Percentage"
     ) +
-    theme(
-      axis.text.x = element_text(angle = 90, hjust = 1),  #x-axis labels at 90 degrees
-      plot.margin = margin(t = 0.5, b = 0.5, unit = "cm")
+    add_gen_color_pal(
+      num_colors = 2,
+      aes_type = "fill",
+      legend_title = "Fraction"
     ) +
+    theme_owhg(x_axis_v = TRUE) +
+    theme(plot.margin = margin(t = 0.5, b = 0.5, unit = "cm"))
     scale_y_continuous(labels = percent_format())
   
   return(p)
-  
 }
 ```
+
 
 # Results
 
@@ -436,11 +378,12 @@ major_flood_east_plots <- major_flood_east %>%
   )
 ```
 
+
 ## Source ID
 
 ### Plots
 
-```{r source id plots 1, fig.height = 9, fig.width = 10}
+```{r source id plots 1, fig.height = 9, fig.width = 9}
 source_id_plots <- major_flood_east_plots %>% 
   filter(name == "sourceID")
 
@@ -457,7 +400,7 @@ source_id_plots %>%
   chuck(1)
 ```
 
-```{r source id plots 3, fig.height = 9, fig.width = 10}
+```{r source id plots 3, fig.height = 9, fig.width = 9}
 source_id_plots %>% 
   filter(SamplingEvent == "Apr 25-26, 2017") %>% 
   pull(plots) %>% 
@@ -737,10 +680,13 @@ mehg_plots <- major_flood_east_no_anom %>%
   filter(Hg_analyte == "MeHg") %>% 
   ggplot(aes(x = ShortName, y = Conc, fill = Fraction)) +
     facet_wrap(vars(SamplingEvent)) +
-    theme(
-      axis.text.x = element_text(angle = 90, hjust = 1),  #x-axis labels at 90 degrees
-      plot.margin = margin(t = 0.5, b = 0.5, unit = "cm")
-    )
+    add_gen_color_pal(
+      num_colors = 2,
+      aes_type = "fill",
+      legend_title = "Fraction"
+    ) +
+    theme_owhg(x_axis_v = TRUE) +
+    theme(plot.margin = margin(t = 0.5, b = 0.5, unit = "cm"))
 
 mehg_plots + 
   geom_col() + 
@@ -825,10 +771,13 @@ thg_plots <- major_flood_east_no_anom %>%
   filter(Hg_analyte == "THg") %>% 
   ggplot(aes(x = ShortName, y = Conc, fill = Fraction)) +
     facet_wrap(vars(SamplingEvent)) +
-    theme(
-      axis.text.x = element_text(angle = 90, hjust = 1),  #x-axis labels at 90 degrees
-      plot.margin = margin(t = 0.5, b = 0.5, unit = "cm")
-    )
+    add_gen_color_pal(
+      num_colors = 2,
+      aes_type = "fill",
+      legend_title = "Fraction"
+    ) +
+    theme_owhg(x_axis_v = TRUE) +
+    theme(plot.margin = margin(t = 0.5, b = 0.5, unit = "cm"))
 
 thg_plots + 
   geom_col() + 
@@ -867,10 +816,13 @@ major_flood_east %>%
       x = "Station",
       y = "Concentration (ng/L)"
     ) +
-    theme(
-      axis.text.x = element_text(angle = 90, hjust = 1),  #x-axis labels at 90 degrees
-      plot.margin = margin(t = 0.5, b = 0.5, unit = "cm")
-    )
+    add_gen_color_pal(
+      num_colors = 2,
+      aes_type = "fill",
+      legend_title = "Fraction"
+    ) +
+    theme_owhg(x_axis_v = TRUE) +
+    theme(plot.margin = margin(t = 0.5, b = 0.5, unit = "cm"))
 ```
 
 There doesn't appear to be a consistent theme in total THg concentrations among the Fremont Weir sites across all sampling events; however, concentrations were lowest on the eastern side during five of nine events.
@@ -930,10 +882,13 @@ major_flood_east %>%
       x = "Station",
       y = "Concentration (mg/L)"
     ) +
-    theme(
-      axis.text.x = element_text(angle = 90, hjust = 1),  #x-axis labels at 90 degrees
-      plot.margin = margin(t = 0.5, b = 0.5, unit = "cm")
-    )
+    add_gen_color_pal(
+      num_colors = 2,
+      aes_type = "fill",
+      legend_title = "Fraction"
+    ) +
+    theme_owhg(x_axis_v = TRUE) +
+    theme(plot.margin = margin(t = 0.5, b = 0.5, unit = "cm"))
 ```
 
 There doesn't appear to be a consistent theme in TSS concentrations among the Fremont Weir sites across all sampling events; however, concentrations were lowest on the eastern side during six of nine events.
