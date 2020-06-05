@@ -1,0 +1,247 @@
+---
+title: "Net Loads and Measurement Uncertainty"
+author: "Dave Bosworth"
+date: "6/4/2020"
+output: 
+  html_document: 
+    code_folding: hide
+    toc: yes
+    toc_float:
+      collapsed: no
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Purpose
+
+It's important to know whether the percent difference between a pair of import and export loads is less than their measurement uncertainty. If this is the case, we would ***not*** have confidence that there was a measurable change between the import and export loads. This analysis seeks to answer whether this is the case with any of the net loads reported in the Technical Appendix for the Mass Balance study.
+
+# Methods
+
+The percent differences were calculated by dividing net loads by either their associated import or export load whichever was greater. All load values were used as is and were ***not rounded*** to their proper number of significant figures before the calculation. The upper bound for the measurement uncertainty of the loads provided in the Technical Appendix is +/- 11%. All values less than this criteria were highlighted in the tables below. 
+
+# Data Import
+
+```{r load packages, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(openwaterhg)
+library(gt)
+```
+
+```{r import total and net load data, message = FALSE}
+source("YB_Mass_Balance/Loads/Import_Total_Load_Data.R")
+source("YB_Mass_Balance/Loads/Import_Net_Load_Data.R")
+```
+
+# Results
+
+```{r func highlight cells in gt table}
+# Function to apply conditional formatting to gt table
+highlight_cells <- function(gt_table, col_name) {
+  col_name_enquo <- enquo(col_name)
+  
+  gt_table2 <- gt_table %>% 
+    tab_style(
+      style = list(
+        cell_fill(color = "red"),
+        cell_text(weight = "bold")
+      ),
+      locations = cells_body(
+        columns = vars(!!col_name_enquo),
+        rows = !!col_name_enquo <= 0.11
+      )
+    )
+  
+  return(gt_table2)
+}
+```
+
+## Net Loads for Individual Sampling Events
+
+```{r combine indiv data, message = FALSE}
+# Decided to run analysis on unrounded data, may want to revisit this
+loads_total_w <- loads_total %>% 
+  pivot_wider(
+    id_cols = c(SamplingEvent, Analyte), 
+    names_from = LocType,
+    values_from = total_load
+  ) %>% 
+  rename(BLI = "Below Liberty")
+
+loads_net_w <- loads_net %>% 
+  pivot_wider(
+    id_cols = c(SamplingEvent, Analyte),
+    names_from = Reach,
+    values_from = net_load
+  )
+
+loads_total_net_c <- left_join(loads_total_w, loads_net_w)
+
+rm(loads_total_w, loads_net_w)  
+```
+
+```{r calc perc diff for indiv net loads}
+net_loads_perc_diff <- loads_total_net_c %>% 
+  # Only look at MeHg, THg, and TSS for now
+  filter(str_detect(Analyte, "Hg|^TSS")) %>% 
+  mutate(
+    perc_diff_upper = round(if_else(Outlet > Inlet, Upper/Outlet, abs(Upper/Inlet)), 3),
+    perc_diff_liberty = round(if_else(BLI > Outlet, Liberty/BLI, abs(Liberty/Outlet)), 3),
+    perc_diff_entire = round(if_else(BLI > Inlet, Entire/BLI, abs(Entire/Inlet)), 3)
+  ) %>%
+  # sort by Sampling Event
+  conv_fact_samplingevent() %>% 
+  arrange(SamplingEvent) %>% 
+  # restructure for gt tables
+  select(-c(Inlet:Upper)) %>%
+  rename(
+    "Upper Reach" = perc_diff_upper,
+    "Liberty Island Reach" = perc_diff_liberty,
+    "Entire Bypass" = perc_diff_entire
+  ) %>% 
+  pivot_longer(
+    cols = "Upper Reach":"Entire Bypass",
+    names_to = "Reach",
+    values_to = "Perc_diff"
+  ) %>% 
+  filter(!is.na(Perc_diff)) %>% 
+  pivot_wider(names_from = Analyte, values_from = Perc_diff) %>% 
+  rename(
+    fMeHg = "MeHg- filtered",
+    pMeHg = "MeHg- particulate",
+    uMeHg = "MeHg- total",
+    fHg = "THg- filtered",
+    pHg = "THg- particulate",
+    uHg = "THg- total"
+  )
+```
+
+```{r create indiv tables}
+# Function to create gt tables of individual percent differences of net loads for each Reach
+create_gt_indiv <- function(df, reach_name) {
+  gt_table <- df %>% 
+    gt(rowname_col = "SamplingEvent") %>% 
+    fmt_percent(columns = everything(), decimals = 1) %>% 
+    highlight_cells(fMeHg) %>% 
+    highlight_cells(pMeHg) %>% 
+    highlight_cells(uMeHg) %>% 
+    highlight_cells(fHg) %>% 
+    highlight_cells(pHg) %>% 
+    highlight_cells(uHg) %>% 
+    highlight_cells(TSS) %>% 
+    tab_header(
+      title = paste0("Percent differences of individual net loads for the ", reach_name),
+      subtitle = "Highlighted cells are less than the measurement uncertainty"
+    ) %>% 
+    tab_spanner(
+      label = "Methylmercury",
+      columns = vars(fMeHg, pMeHg, uMeHg)
+    ) %>% 
+    tab_spanner(
+      label = "Total Mercury",
+      columns = vars(fHg, pHg, uHg)
+    )
+  
+  return(gt_table)
+}
+
+# Create nested dataframe to make gt tables
+indiv_gt_tables <- net_loads_perc_diff %>% 
+  group_nest(Reach) %>% 
+  mutate(
+    gt_tables = map2(data, Reach, .f = create_gt_indiv)
+  ) %>% 
+  arrange(desc(Reach))
+```
+
+```{r print indiv tables, echo = FALSE, message = FALSE, results = "asis"}
+for (i in 1:nrow(indiv_gt_tables)) {
+  # Create subheadings for each Reach
+  cat("### ", as.character(indiv_gt_tables$Reach[i]), "\n\n") 
+  # Display table
+  print(indiv_gt_tables$gt_tables[[i]])
+  cat("\n\n")
+}
+```
+
+## Averaged Net Loads for 2017 Flood
+
+```{r combine avg net load data, message = FALSE}
+# Decided to run analysis on unrounded data, may want to revisit this
+loads_total_avg <- loads_total %>% 
+  # exclude to 2017 flood
+  filter(Year == 2017) %>% 
+  group_by(LocType, Analyte) %>% 
+  summarize(avg_total_load = mean(total_load)) %>% 
+  ungroup() %>% 
+  pivot_wider(names_from = LocType, values_from = avg_total_load) %>% 
+  rename(BLI = "Below Liberty")
+
+# Remove April 11th sampling event from the average for the inlet and outlet to be comparable to BLI
+loads_total_avg_8 <- loads_total %>% 
+  filter(
+    Year == 2017,
+    SamplingEvent != "Apr 11-12, 2017",
+    LocType != "Below Liberty"
+  ) %>% 
+  group_by(LocType, Analyte) %>% 
+  summarize(avg_total_load = mean(total_load)) %>% 
+  ungroup() %>% 
+  pivot_wider(names_from = LocType, values_from = avg_total_load) %>% 
+  rename(
+    Inlet_8 = Inlet,
+    Outlet_8 = Outlet
+  )
+  
+loads_net_avg <- loads_net %>% 
+  # exclude to 2017 flood
+  filter(Year == 2017) %>%
+  group_by(Reach, Analyte) %>% 
+  summarize(avg_net_load = mean(net_load)) %>% 
+  pivot_wider(names_from = Reach, values_from = avg_net_load)
+
+avg_loads_total_net_c <- left_join(loads_total_avg, loads_total_avg_8) %>% left_join(loads_net_avg)
+
+rm(loads_total_avg, loads_total_avg_8, loads_net_avg)  
+```
+
+```{r calc perc diff for avg net loads}
+avg_net_loads_perc_diff <- avg_loads_total_net_c %>% 
+  # Only look at MeHg, THg, and TSS for now
+  filter(str_detect(Analyte, "Hg|^TSS")) %>% 
+  mutate(
+    perc_diff_upper = round(if_else(Outlet > Inlet, Upper/Outlet, abs(Upper/Inlet)), 3),
+    perc_diff_liberty = round(if_else(BLI > Outlet_8, Liberty/BLI, abs(Liberty/Outlet_8)), 3),
+    perc_diff_entire = round(if_else(BLI > Inlet_8, Entire/BLI, abs(Entire/Inlet_8)), 3)
+  ) %>%
+  # restructure for gt tables
+  select(-c(BLI:Upper)) %>%
+  rename(
+    "Upper Reach" = perc_diff_upper,
+    "Liberty Island Reach" = perc_diff_liberty,
+    "Entire Bypass" = perc_diff_entire
+  )
+```
+
+```{r print avg table}
+avg_net_loads_perc_diff %>% 
+  gt(rowname_col = "Analyte") %>% 
+  fmt_percent(columns = everything(), decimals = 1) %>% 
+  highlight_cells(`Upper Reach`) %>% 
+  highlight_cells(`Liberty Island Reach`) %>% 
+  highlight_cells(`Entire Bypass`) %>% 
+  tab_header(
+    title = "Percent differences of average net loads for the 2017 flood",
+    subtitle = "Highlighted cells are less than the measurement uncertainty"
+  ) %>% 
+  cols_label(`Liberty Island Reach` = html("Liberty Island<br>Reach")) %>% 
+  cols_align(
+    align = "center",
+    columns = everything()
+  )
+```
+
