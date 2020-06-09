@@ -264,7 +264,8 @@ loads_inlet_perc_frac <- loads_inlet_clean %>%
     perc_filt = filtered/(filtered + particulate),
     perc_part = particulate/(filtered + particulate)
   ) %>% 
-  select(-c(filtered, particulate, total))
+  select(-c(filtered, particulate, total)) %>% 
+  arrange(SamplingEvent)
 ```
 
 ```{r calc summ stats perc fraction hg and mehg}
