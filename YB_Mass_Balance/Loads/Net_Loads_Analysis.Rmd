@@ -13,9 +13,18 @@ editor_options:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Import and Prepare Data
+# Purpose
 
-Load R packages necessary for this analysis:
+This file provides plots and summary statistics of total loads (inlet, outlet, and Below Liberty Island) and net loads (Upper Reach, Liberty Island Reach, and the Entire Bypass) collected for the Mass Balance study. These plots and summaries were used for exploratory data analysis purposes for the Technical Appendix write-up.
+
+# Methods
+
+All summary statistics, boxplots for the total and net loads, and net load vs inflow scatterplots only include the sampling events collected in 2017. The remaining plots and data tables include all sampling events conducted throughout the study period (2014-2017).
+
+All plots display values rounded to their appropriate number of significant figures with the exception of the net load vs inflow scatterplots. Summary statistics were rounded to their appropriate number of significant figures at the end, after making all calculations.
+
+## Data Import and Preparation
+
 ```{r load packages, message = FALSE, warning = FALSE}
 # Load packages
 library(tidyverse)
@@ -29,7 +38,6 @@ library(broom)
 library(patchwork)
 ```
 
-Bring in total input and output loads for each sampling event and parameter:
 ```{r calc total loads}
 # Bring in total load data
 setwd("C:/Repositories/Open-Water-Hg-Studies/YB_Mass_Balance/Loads")
@@ -56,9 +64,8 @@ loads_total_clean <- loads_total %>%
 rm(loads_total)
 ```
 
-Bring in net loads for each reach (Upper, Liberty Island, Entire Bypass) grouped by sampling event and parameter:
 ```{r calc net loads, message = FALSE}
-# Bring in total load data
+# Bring in net load data
 source("Import_Net_Load_Data.R")
 
 # Prepare net load data for plots and summaries
@@ -82,8 +89,9 @@ loads_net_clean <- loads_net %>%
 rm(loads_net)
 ```
 
-Add total inlet flows to total_loads and net_loads dataframes:
 ```{r add flow data, message = FALSE}
+# Add total inlet flows to total_loads and net_loads dataframes:
+
 # Prepare flow data df to join with loads df's
 total_inflows <- daily_flow_data_se %>% 
   # Only include inlet flows
@@ -102,15 +110,17 @@ loads_total_clean <- left_join(loads_total_clean, total_inflows)
 loads_net_clean <- left_join(loads_net_clean, total_inflows)
 ```
 
-Create two new dataframes with total and net loads only for 2017 sampling events. This will be used for the summary statistics, boxplots, and net load vs flow plots.
 ```{r filter 2017 data}
+# Create two new dataframes with total and net loads only for 2017 sampling events.
+# These will be used for the summary statistics, boxplots, and net load vs flow plots.
 loads_total_clean17 <- loads_total_clean %>% filter(str_detect(SamplingEvent, "17$"))
 
 loads_net_clean17 <- loads_net_clean %>% filter(str_detect(SamplingEvent, "17$"))
 ```
 
-Create rounded versions of the total and net load dataframes for some of the analyses:
 ```{r round load data}
+# Create rounded versions of the total and net load dataframes for some of the analyses:
+
 loads_total_clean_r <- loads_total_clean %>% 
   mutate(total_load = signif(total_load, digits)) %>% 
   select(-digits)
@@ -128,8 +138,9 @@ loads_net_clean17_r <- loads_net_clean17 %>%
   select(-digits)
 ```
 
-Create restructured total_loads dataframes grouped by LocType and Analyte Group to display as datatables:
 ```{r total loads restructure}
+# Create restructured total_loads dataframes grouped by LocType and Analyte Group to display as data tables:
+
 loads_total_table <- loads_total_clean_r %>% 
   select(-total_inflow) %>% 
   arrange(SamplingEvent) %>%
@@ -163,8 +174,9 @@ loads_total_table <- loads_total_clean_r %>%
   rename(t_loads_table = data)
 ```
 
-Create restructured net_loads dataframes grouped by Reach and Analyte Group to display as datatables:
 ```{r net loads restructure}
+# Create restructured net_loads dataframes grouped by Reach and Analyte Group to display as data tables:
+
 loads_net_table <- loads_net_clean_r %>% 
   select(-total_inflow) %>% 
   arrange(SamplingEvent) %>% 
@@ -209,11 +221,13 @@ loads_net_table <- loads_net_clean_r %>%
 ```
 
 
-# Run Calculations
+## Calculations
 
-Calculate summary statistics of total loads:
 ```{r calc summ stats total loads, message = FALSE}
+# Calculate summary statistics of total loads:
+
 # Calculate averages and standard deviations on non-rounded data
+# Rounded values after calculations
 loads_total_summ1 <- loads_total_clean17 %>% 
   group_nest(AnalyteGroup) %>% 
   mutate(
@@ -261,9 +275,11 @@ loads_total_summ <-
 rm(loads_total_summ1, loads_total_summ2)
 ```
 
-Calculate summary statistics of net loads:
 ```{r calc summ stats net loads, message = FALSE}
+# Calculate summary statistics of net loads:
+
 # Calculate averages and standard deviations on non-rounded data
+# Rounded values after calculations
 loads_net_summ1 <- loads_net_clean17 %>% 
   group_nest(AnalyteGroup) %>% 
   mutate(
@@ -316,10 +332,10 @@ rm(loads_net_summ1, loads_net_summ2)
 ```
 
 
-# Create Plot Functions
+## Plot Functions
 
-Function for barplots for total and net loads, free y-axis scale:
-```{r fun barplot loads free}
+```{r plot functions}
+# Function for barplots for total and net loads, free y-axis scale:
 barplot_load_free <- function(df, y_var, fill_var, type = c("total", "net")) {
   # evaluate choices for type
   type <- match.arg(type, c("total", "net"))
@@ -365,10 +381,8 @@ barplot_load_free <- function(df, y_var, fill_var, type = c("total", "net")) {
   
   return(p)
 }
-```
 
-Function for barplots for net loads, fixed y-axis scale:
-```{r fun barplot net loads fixed}
+# Function for barplots for net loads, fixed y-axis scale:
 barplot_load_fixed <- function(df) {
    p <- 
     ggplot(
@@ -391,10 +405,8 @@ barplot_load_fixed <- function(df) {
   
   return(p)
 }
-```
 
-Function for boxplots for total and net loads:
-```{r fun boxplot loads}
+# Function for boxplots for total and net loads:
 boxplot_load <- function(df, x_var, y_var, type = c("total", "net")) {
   # evaluate choices for type
   type <- match.arg(type, c("total", "net"))
@@ -443,10 +455,8 @@ boxplot_load <- function(df, x_var, y_var, type = c("total", "net")) {
     
   return(p)
 }
-```
 
-Function for total loads vs. total inflow scatterplots:
-```{r fun total load vs inflow scatterplots}
+# Function for total loads vs. total inflow scatterplots:
 scattplot_tload_flow <- function(df) {
   p <- 
     ggplot(
@@ -472,10 +482,8 @@ scattplot_tload_flow <- function(df) {
   
   return(p)
 }
-```
 
-Function for net loads vs. total inflow scatterplots:
-```{r fun net load vs inflow scatterplots}
+# Function for net loads vs. total inflow scatterplots:
 scattplot_nload_flow <- function(df, param, rsq, pval) {
   p <- 
     ggplot(
@@ -506,10 +514,11 @@ scattplot_nload_flow <- function(df, param, rsq, pval) {
 ```
 
 
-# Create Plots
+## Create Plots
 
-Total Loads:
 ```{r create plots total loads, message = FALSE}
+# Total Loads:
+
 # Barplots and scatterplots- all sampling events, rounded data
 loads_total_plots <- loads_total_clean_r %>% 
   group_nest(AnalyteGroup) %>% 
@@ -540,8 +549,9 @@ loads_total_boxplots <- loads_total_clean17_r %>%
   select(-data)
 ```
 
-Net Loads:
 ```{r create plots net loads, message = FALSE}
+# Net Loads:
+
 # Barplots- all sampling events, rounded data
 loads_net_barplots <- loads_net_clean_r %>% 
   group_nest(AnalyteGroup) %>% 
@@ -601,24 +611,18 @@ loads_net_scatterplots <- loads_net_clean17 %>%
 ```
 
 
-# Plots and Summary Statistics {.tabset .tabset-pills}
+# Plots {.tabset .tabset-pills}
 
-The summary statistics and boxplots for the total and net loads only include the sampling events conducted in 2017. The net load vs inflow scatterplots also include only the 2017 data. The remaining plots include all sampling events conducted throughout the study period (2014-2017).
-
-Join all plots, data tables, and summary statistics together for more efficient code:
-```{r join plots tables summ stats, message = FALSE}
-all_obj <- 
+```{r join plots, message = FALSE}
+# Join all plots together for more efficient code:
+all_plots <- 
   reduce(
     list(
       loads_total_plots,
       loads_total_boxplots,
-      loads_total_table,
-      loads_total_summ,
       loads_net_barplots,
       loads_net_boxplots,
-      loads_net_scatterplots,
-      loads_net_table,
-      loads_net_summ
+      loads_net_scatterplots
     ),
     left_join
   ) 
@@ -627,18 +631,14 @@ all_obj <-
 rm(
   loads_total_plots,
   loads_total_boxplots,
-  loads_total_table,
-  loads_total_summ,
   loads_net_barplots,
   loads_net_boxplots,
-  loads_net_scatterplots,
-  loads_net_table,
-  loads_net_summ
+  loads_net_scatterplots
 )
 ```
 
-Create function to have plotly not add markers for outliers:
 ```{r fun remove plotly markers}
+# Create function to have plotly not add markers for outliers:
 remove_markers <- function(x) {
   if (x$type == "box") {
       x$marker = list(opacity = 0)
@@ -647,15 +647,49 @@ remove_markers <- function(x) {
 }
 ```
 
-```{r, include = FALSE}
-run_analyses <- 
+```{r print plots, include = FALSE}
+produce_plots <- 
   map(
     c("MeHg", "Hg", "Organic Carbon", "Suspended Solids"),
-    .f = ~knit_expand(file = "Net_loads_Analysis_template.Rmd", parameter = .x)
+    .f = ~knit_expand(file = "Net_loads_Analysis_template_plots.Rmd", parameter = .x)
   )
 ```
 
-`r knit(text = unlist(run_analyses))`
+`r knit(text = unlist(produce_plots))`
+
+# Data Tables and Summary Statistics {.tabset .tabset-pills}
+
+```{r join tables and summ stats, message = FALSE}
+# Join all data tables and summary statistics together for more efficient code:
+all_tables <- 
+  reduce(
+    list(
+      loads_total_table,
+      loads_total_summ,
+      loads_net_table,
+      loads_net_summ
+    ),
+    left_join
+  ) 
+
+# Clean up
+rm(
+  loads_total_table,
+  loads_total_summ,
+  loads_net_table,
+  loads_net_summ
+)
+```
+
+```{r print tables and summ stats, include = FALSE}
+produce_tables <- 
+  map(
+    c("MeHg", "Hg", "Organic Carbon", "Suspended Solids"),
+    .f = ~knit_expand(file = "Net_loads_Analysis_template_tables.Rmd", parameter = .x)
+  )
+```
+
+`r knit(text = unlist(produce_tables))`
 
 # Extra Analyses in Technical Appendix
 

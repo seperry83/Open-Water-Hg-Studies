@@ -1,0 +1,83 @@
+---
+title: "Net Loads Analysis template- Plots"
+author: "Dave Bosworth"
+date: "4/18/2020"
+output: html_document
+---
+
+## {{parameter}} {.tabset .tabset-pills}
+
+```{r filter plots {{parameter}}}
+filt_plots <- all_plots %>% filter(AnalyteGroup == "{{parameter}}")
+```
+
+### Total Load Barplots
+
+```{r {{parameter}} total load barplots, fig.height = 6}
+filt_plots %>% pull(t_barplots) %>% chuck(1)
+```
+
+### Total Load Boxplots
+
+Red diamond represents the average
+```{r {{parameter}} total load boxplots, fig.height = 5.5}
+p <- filt_plots %>% 
+  pull(t_boxplots) %>% 
+  chuck(1) %>% 
+  plotly::plotly_build()
+
+# Workaround to have plotly not add markers for outliers
+p$x$data <- map(p$x$data, remove_markers)
+p
+```
+
+### Total Load vs. Inflow Scatterplots
+
+```{r {{parameter}} total load vs flow plots, fig.height = 7, fig.width = 7}
+filt_plots %>% pull(t_scatterplots) %>% chuck(1)
+```
+
+### Net Load Barplots
+
+Free y-axis scale:
+```{r {{parameter}} net load barplots free, fig.height = 6}
+filt_plots %>% pull(n_barplots_free) %>% chuck(1)
+```
+
+Fixed y-axis scale:
+```{r {{parameter}} net load barplots fixed, fig.height = 7}
+filt_plots %>% pull(n_barplots_fixed) %>% chuck(1)
+```
+
+### Net Load Boxplots
+
+Red diamond represents the average
+```{r {{parameter}} net load boxplots, fig.height = 5.5}
+p <- filt_plots %>% 
+  pull(n_boxplots) %>% 
+  chuck(1) %>% 
+  plotly::plotly_build()
+
+# Workaround to have plotly not add markers for outliers
+p$x$data <- map(p$x$data, remove_markers)
+p
+```
+
+### Net Load vs. Inflow Scatterplots
+
+```{r unnest {{parameter}} net load vs flow plots}
+filt_plots_unnest <- filt_plots %>% 
+  pull(n_scatterplots) %>% 
+  chuck(1)
+```
+
+```{r {{parameter}} net load vs flow plots, echo = FALSE, message = FALSE, results = "asis", fig.width = 9, fig.height = 4}
+for (i in 1:nrow(filt_plots_unnest)) {
+  # Create subheadings for each Reach
+  cat("#### ", as.character(filt_plots_unnest$Reach[i]), "\n\n") 
+  # Display grouped plot
+  print(filt_plots_unnest$grouped_plots[[i]])
+  cat("\n\n")
+}
+```
+

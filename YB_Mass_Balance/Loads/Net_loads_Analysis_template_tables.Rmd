@@ -1,0 +1,61 @@
+---
+title: "Net Loads Analysis template- tables"
+author: "Dave Bosworth"
+date: "4/18/2020"
+output: html_document
+---
+
+## {{parameter}} {.tabset .tabset-pills}
+
+```{r filter tables {{parameter}}}
+filt_tables <- all_tables %>% filter(AnalyteGroup == "{{parameter}}")
+```
+
+### Total Load Data Tables
+
+```{r unnest {{parameter}} total load data tables}
+filt_tables_unnest <- filt_tables %>% 
+  pull(t_loads_table) %>% 
+  chuck(1)
+```
+
+```{r {{parameter}} total load data tables, echo = FALSE, message = FALSE, results = "asis"}
+for (i in 1:nrow(filt_tables_unnest)) {
+  # Create subheadings for each LocType
+  cat("#### ", as.character(filt_tables_unnest$LocType[i]), "\n\n") 
+  # Display table of total loads
+  print(filt_tables_unnest$load_table[[i]])
+  cat("\n\n")
+}
+```
+
+### Total Load Summary Statistics
+
+```{r {{parameter}} total load summ stats}
+filt_tables %>% pull(t_loads_summ) %>% chuck(1)
+```
+
+### Net Load Data Tables
+
+```{r unnest {{parameter}} net load data tables}
+filt_tables_unnest <- filt_tables %>% 
+  pull(n_loads_table) %>% 
+  chuck(1)
+```
+
+```{r {{parameter}} net load data tables, echo = FALSE, message = FALSE, results = "asis"}
+for (i in 1:nrow(filt_tables_unnest)) {
+  # Create subheadings for each Reach
+  cat("#### ", as.character(filt_tables_unnest$Reach[i]), "\n\n") 
+  # Display table of net loads
+  print(filt_tables_unnest$load_table[[i]])
+  cat("\n\n")
+}
+```
+
+### Net Load Summary Statistics
+
+```{r {{parameter}} net load summ stats}
+filt_tables %>% pull(n_loads_summ) %>% chuck(1)
+```
+
