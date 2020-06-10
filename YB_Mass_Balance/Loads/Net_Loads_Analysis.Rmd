@@ -5,6 +5,10 @@ date: "4/1/2020"
 output: 
   html_document: 
     code_folding: hide
+    toc: true
+    toc_depth: 2
+    toc_float:
+      collapsed: false
 editor_options: 
   chunk_output_type: console
 ---
