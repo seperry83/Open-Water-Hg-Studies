@@ -87,6 +87,8 @@ se_flows_clean <- flows_inlet_se %>%
 # Create Figure B-4
   # Top Figure
   figure_b_4_top <- se_flows_clean %>% 
+    # Round flow values to 4 significant figures before plotting
+    mutate(Flow = signif(Flow, 4)) %>% 
     ggplot(aes(x = SamplingEvent, y = Flow, fill = StationName)) +
     geom_col() +
     xlab(NULL) +
@@ -652,6 +654,83 @@ rm(list= ls()[!(ls() %in% obj_keep)])
 
 
 # Figure B-10 -------------------------------------------------------------
+# Boxplots showing total inlet, outlet at the Stairsteps, and Below Liberty Island loads
+# Facets for each analyte/parameter
+# Just sampling events collected in 2017
+# Add points to boxplots with jitter, make point representing first event in 2017 a different color (red)
+
+# Bring in total load data
+source("YB_Mass_Balance/Loads/Import_Total_Load_Data.R")
+
+# Prepare data for plotting
+loads_total_clean <- loads_total %>% 
+  # Filter and rename analytes
+  rename_analytes() %>% 
+  filter(
+    !is.na(Analyte),
+    Year == 2017
+  ) %>% 
+  # Apply plotting order
+  conv_fact_analytes() %>% 
+  mutate(
+    LocType = if_else(
+      LocType == "Below Liberty",
+      "BLI",
+      LocType
+    ),
+    LocType = factor(LocType, levels = c("Inlet", "Outlet", "BLI"))
+  ) %>% 
+  # Round total loads to proper number of significant figures
+  mutate(total_load = signif(total_load, digits)) %>% 
+  # Create new variable to indicate first sampling event in 2017
+  mutate(
+    se_type = if_else(
+      SamplingEvent == "Jan 11-12, 2017",
+      "first",
+      "other"
+    )
+  ) %>% 
+  select(LocType, Analyte, se_type, total_load)
+
+# Create Figure B-10
+figure_b_10 <- loads_total_clean %>% 
+  ggplot(aes(x = LocType, y = total_load)) +
+  geom_boxplot(outlier.shape = NA) +
+  geom_jitter(
+    width = 0.25,
+    aes(color = se_type)
+  ) +
+  facet_wrap(
+    vars(Analyte),
+    ncol = 3,
+    scales = "free_y"
+  ) +
+  scale_y_continuous(
+    name = NULL,
+    labels = label_comma()
+  ) +
+  xlab(NULL) +
+  scale_color_manual(
+    guide = "none",
+    values = c("first" = "red", "other" = "black")
+  ) +
+  theme_owhg(x_axis_v = TRUE) 
+
+# Export Figure B-10
+ggsave(
+  "final_report_fig_b-10.jpg", 
+  plot = figure_b_10,
+  dpi = 300,
+  width = 7, 
+  height = 8.25, 
+  units = "in"
+)
+
+# Clean up
+rm(list= ls()[!(ls() %in% obj_keep)])
+
+
+# Figure B-11 -------------------------------------------------------------
 # Barplots showing total inlet, outlet at the Stairsteps, and Below Liberty Island loads
 # Facets for each analyte/parameter
 # All sampling events
@@ -678,8 +757,8 @@ loads_total_clean <- loads_total %>%
   # Round total loads to proper number of significant figures
   mutate(total_load = signif(total_load, digits))
 
-# Create Figure B-10
-figure_b_10 <- loads_total_clean %>% 
+# Create Figure B-11
+figure_b_11 <- loads_total_clean %>% 
   ggplot(aes(x = SamplingEvent, y = total_load, fill = LocType)) +
   geom_col(position = position_dodge2(preserve = "single")) +
   facet_wrap(
@@ -699,10 +778,10 @@ figure_b_10 <- loads_total_clean %>%
     legend.position = c(0.82, -0.1)
   )
 
-# Export Figure B-10
+# Export Figure B-11
 ggsave(
-  "final_report_fig_b-10.jpg", 
-  plot = figure_b_10,
+  "final_report_fig_b-11.jpg", 
+  plot = figure_b_11,
   dpi = 300,
   width = 9.5, 
   height = 6.25, 
@@ -713,8 +792,134 @@ ggsave(
 rm(list= ls()[!(ls() %in% obj_keep)])
 
 
-# Figure B-11 -------------------------------------------------------------
-# Filled barplots showing the percentage of the total input load for each individual inlet
+# Figure B-12 -------------------------------------------------------------
+# Barplots showing loads for each individual inlet stacked on top of each other for each event
+# Facets for each analyte/parameter
+# All sampling events
+
+# Bring in inlet load data
+source("YB_Mass_Balance/Loads/Import_Inlet_Load_Data.R")
+
+# Prepare data for plotting
+loads_inlet_clean <- loads_inlet %>% 
+  # Remove added zeros for events when the weirs weren't spilling
+  anti_join(zero_loads) %>% 
+  # Filter and rename analytes
+  rename_analytes() %>% 
+  filter(!is.na(Analyte)) %>% 
+  # Apply plotting order
+  conv_fact_analytes() %>% 
+  conv_fact_samplingevent() %>% 
+  conv_fact_inlet_names() %>% 
+  # Round total loads to proper number of significant figures
+  mutate(Load = signif(Load, digits)) %>% 
+  select(SamplingEvent, StationName, Analyte, Load)
+
+# Create Figure B-12
+figure_b_12 <- loads_inlet_clean %>% 
+  ggplot(aes(x = SamplingEvent, y = Load, fill = StationName)) +
+  geom_col(position = "stack") +
+  facet_wrap(
+    vars(Analyte),
+    ncol = 3,
+    scales = "free_y"
+  ) +
+  scale_y_continuous(
+    name = NULL,
+    labels = label_comma()
+  ) +
+  xlab(NULL) +
+  add_inlet_color_pal("fill") +
+  theme_owhg(x_axis_v = TRUE) +
+  theme(
+    legend.margin = margin(0, 0, 0, 0),
+    legend.position = c(0.84, 0)
+  ) +
+  guides(fill = guide_legend(keyheight = 0.95))
+
+# Export Figure B-12
+ggsave(
+  "final_report_fig_b-12.jpg", 
+  plot = figure_b_12,
+  dpi = 300,
+  width = 7, 
+  height = 8.75, 
+  units = "in"
+)
+
+# Clean up
+rm(list= ls()[!(ls() %in% obj_keep)])
+
+
+# Figure B-13 -------------------------------------------------------------
+# Barplots of average loads of each inlet with error bars indicating their standard deviations
+# Facets for each analyte/parameter
+# Means and standard deviations only include sampling events collected in 2017
+
+# Bring in inlet load data
+source("YB_Mass_Balance/Loads/Import_Inlet_Load_Data.R")
+
+# Prepare data for plotting
+loads_inlet_clean <- loads_inlet %>% 
+  # Filter and rename analytes
+  rename_analytes() %>% 
+  filter(
+    !is.na(Analyte),
+    Year == 2017
+  ) %>% 
+  # Apply plotting order
+  conv_fact_analytes() %>% 
+  conv_fact_inlet_names() %>% 
+  # Calculate averages and standard deviations of loads for each inlet
+  group_by(StationName, Analyte) %>% 
+  summarize(
+    sign_digits = min(digits, na.rm = TRUE),
+    Mean = signif(mean(Load), sign_digits),
+    StDev = signif(sd(Load), sign_digits)
+  ) %>% 
+  ungroup()
+
+# Create Figure B-13
+figure_b_13 <- loads_inlet_clean %>% 
+  ggplot(aes(x = StationName, y = Mean)) +
+  geom_col(aes(fill = StationName)) +
+  geom_errorbar(
+    aes(
+      ymin = Mean - StDev, 
+      ymax = Mean + StDev, 
+    ),
+    width = 0.25
+  ) +
+  facet_wrap(
+    vars(Analyte),
+    ncol = 3,
+    scales = "free_y"
+  ) +
+  scale_y_continuous(
+    name = NULL,
+    labels = label_comma()
+  ) +
+  xlab(NULL) +
+  add_inlet_color_pal("fill") +
+  theme_owhg(x_axis_v = TRUE) +
+  guides(fill = "none")
+
+# Export Figure B-13
+ggsave(
+  "final_report_fig_b-13.jpg", 
+  plot = figure_b_13,
+  dpi = 300,
+  width = 7, 
+  height = 8.25, 
+  units = "in"
+)
+
+# Clean up
+rm(list= ls()[!(ls() %in% obj_keep)])
+
+
+# Figure B-14 -------------------------------------------------------------
+# Filled barplots showing the percentage of the total inlet load for each individual inlet
 # Facets for each analyte/parameter
 # All sampling events
 
@@ -761,8 +966,8 @@ loads_inlet_clean <- loads_inlet %>%
   ) %>% 
   select(SamplingEvent, StationName, Analyte, Load)
 
-# Create Figure B-11
-figure_b_11 <- loads_inlet_clean %>% 
+# Create Figure B-14
+figure_b_14 <- loads_inlet_clean %>% 
   ggplot(aes(x = SamplingEvent, y = Load, fill = StationName)) +
   geom_col(position = "fill") +
   facet_wrap(
@@ -782,10 +987,10 @@ figure_b_11 <- loads_inlet_clean %>%
   ) +
   guides(fill = guide_legend(keyheight = 0.95))
 
-# Export Figure B-11
+# Export Figure B-14
 ggsave(
-  "final_report_fig_b-11.jpg", 
-  plot = figure_b_11,
+  "final_report_fig_b-14.jpg", 
+  plot = figure_b_14,
   dpi = 300,
   width = 7, 
   height = 8.75, 
@@ -794,4 +999,11 @@ ggsave(
 
 # Clean up
 rm(list= ls()[!(ls() %in% obj_keep)])
+
+
+
+
+
+
+
 
