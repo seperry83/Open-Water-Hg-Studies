@@ -923,7 +923,7 @@ rm(list= ls()[!(ls() %in% obj_keep)])
 # Facets for each analyte/parameter
 # All sampling events
 
-# Bring in total load data
+# Bring in inlet load data
 source("YB_Mass_Balance/Loads/Import_Inlet_Load_Data.R")
 
 # Prepare data for plotting
@@ -1001,9 +1001,244 @@ ggsave(
 rm(list= ls()[!(ls() %in% obj_keep)])
 
 
+# Figure B-15 -------------------------------------------------------------
+# Barplots showing the percent of the total Hg that was in the MeHg fraction
+# Facetted horizontally by each inlet source and vertically by Hg fraction
+# All sampling events
+
+# Bring in inlet load data
+source("YB_Mass_Balance/Loads/Import_Inlet_Load_Data.R")
+
+# Prepare data for plotting
+loads_inlet_perc_mehg <- loads_inlet %>% 
+  # Remove added zeros for events when the weirs weren't spilling
+  anti_join(zero_loads) %>% 
+  # Calculate MeHg/THg ratios
+  filter(str_detect(Analyte, "Hg")) %>%
+  separate(Analyte, into = c("Analyte", "Fraction")) %>% 
+  pivot_wider(
+    id_cols = c(SamplingEvent, StationName, Fraction),
+    names_from = Analyte, 
+    values_from = Load
+  ) %>% 
+  mutate(per_mehg = MeHg/THg) %>% 
+  select(-c(MeHg, THg)) %>% 
+  # Change analyte names and apply plotting order
+  mutate(
+    Fraction = case_when(
+      Fraction == "total" ~ "Unfiltered",
+      Fraction == "filtered" ~ "Filter-passing",
+      TRUE ~ str_to_title(Fraction)
+    ),
+    Fraction = factor(Fraction, levels = c("Unfiltered", "Filter-passing", "Particulate"))
+  ) %>% 
+  conv_fact_samplingevent() %>% 
+  conv_fact_inlet_names() 
+
+# Create Figure B-15
+figure_b_15 <- loads_inlet_perc_mehg %>% 
+  ggplot(aes(x = SamplingEvent, y = per_mehg)) +
+  geom_col() +
+  facet_grid(
+    rows = vars(StationName),
+    cols = vars(Fraction)
+  ) +
+  scale_y_continuous(
+    name = "Percent MeHg of the total Hg",
+    labels = percent_format()
+  ) +
+  xlab(NULL) +
+  theme_owhg(x_axis_v = TRUE)
+
+# Export Figure B-15
+ggsave(
+  "final_report_fig_b-15.jpg", 
+  plot = figure_b_15,
+  dpi = 300,
+  width = 7, 
+  height = 8.75, 
+  units = "in"
+)
+
+# Clean up
+rm(list= ls()[!(ls() %in% obj_keep)])
 
 
+# Figure B-16 -------------------------------------------------------------
+# Filled barplots showing the partitioning of Hg and MeHg into filter-passing and particulate forms
+# Facetted horizontally by each inlet source and vertically by parameter (Hg and MeHg)
+# All sampling events
+
+# Bring in inlet load data
+source("YB_Mass_Balance/Loads/Import_Inlet_Load_Data.R")
+
+# Prepare data for plotting
+loads_inlet_perc_frac <- loads_inlet %>%
+  # Remove added zeros for events when the weirs weren't spilling
+  anti_join(zero_loads) %>%
+  # Restructure Hg and MeHg data to be used with ggplot
+  filter(str_detect(Analyte, "Hg")) %>% 
+  separate(Analyte, into = c("Analyte", "Fraction")) %>% 
+  filter(Fraction != "total") %>% 
+  mutate(
+    Analyte = if_else(Analyte == "THg", "Mercury", "Methylmercury"),
+    Fraction = if_else(Fraction == "filtered", "Filter-passing", str_to_title(Fraction))
+  ) %>% 
+  # Apply plotting order
+  conv_fact_samplingevent() %>% 
+  conv_fact_inlet_names() %>%
+  select(SamplingEvent, StationName, Analyte, Fraction, Load)
+
+# Create Figure B-16
+figure_b_16 <- loads_inlet_perc_frac %>% 
+  ggplot(aes(x = SamplingEvent, y = Load, fill = Fraction)) +
+  geom_col(
+    color = "gray30",
+    position = "fill"
+  ) +
+  facet_grid(
+    rows = vars(StationName),
+    cols = vars(Analyte)
+  ) +
+  scale_y_continuous(
+    name = "Percentage of each Fraction",
+    labels = percent_format()
+  ) +
+  xlab(NULL) +
+  add_gen_color_pal(2, "fill") +
+  theme_owhg(x_axis_v = TRUE)
+
+# Export Figure B-16
+ggsave(
+  "final_report_fig_b-16.jpg", 
+  plot = figure_b_16,
+  dpi = 300,
+  width = 7, 
+  height = 8.75, 
+  units = "in"
+)
+
+# Clean up
+rm(list= ls()[!(ls() %in% obj_keep)])
 
 
+# Figure B-17 -------------------------------------------------------------
+# Barplots showing net internal loads for the Upper and Liberty Island reaches and the entire Yolo Bypass
+# Facets for each analyte/parameter
+# All sampling events
 
+# Bring in net load data
+source("YB_Mass_Balance/Loads/Import_Net_Load_Data.R")
+
+# Prepare data for plotting
+loads_net_clean <- loads_net %>% 
+  # Filter and rename analytes
+  rename_analytes() %>% 
+  filter(!is.na(Analyte)) %>% 
+  # Apply plotting order
+  conv_fact_analytes() %>% 
+  conv_fact_samplingevent() %>% 
+  mutate(
+    Reach = case_when(
+      Reach == "Entire" ~ "Entire Yolo Bypass",
+      Reach == "Liberty" ~ "Liberty Island Reach",
+      Reach == "Upper" ~ "Upper Reach"
+    ),
+    Reach = factor(Reach, levels = c("Upper Reach", "Liberty Island Reach", "Entire Yolo Bypass"))
+  ) %>% 
+  # Round net loads to proper number of significant figures
+  mutate(net_load = signif(net_load, digits)) %>% 
+  select(Reach, SamplingEvent, Analyte, net_load)
+
+# Create Figure B-17
+figure_b_17 <- loads_net_clean %>% 
+  ggplot(aes(x = SamplingEvent, y = net_load, fill = Reach)) +
+  geom_col(position = position_dodge2(preserve = "single")) +
+  facet_wrap(
+    vars(Analyte),
+    ncol = 3,
+    scales = "free_y"
+  ) +
+  scale_y_continuous(
+    name = NULL,
+    labels = label_comma()
+  ) +
+  xlab(NULL) +
+  add_gen_color_pal(num_colors = 3, "fill") +
+  theme_owhg(x_axis_v = TRUE) +
+  theme(
+    legend.margin = margin(0, 0, 0, 0),
+    legend.position = c(0.82, -0.1)
+  )
+
+# Export Figure B-17
+ggsave(
+  "final_report_fig_b-17.jpg", 
+  plot = figure_b_17,
+  dpi = 300,
+  width = 9.5, 
+  height = 6, 
+  units = "in"
+)
+
+# Clean up
+rm(list= ls()[!(ls() %in% obj_keep)])
+
+
+# Figure B-18 -------------------------------------------------------------
+# Barplot showing net fMeHg and pMeHg loads for the Upper reach dodged next to each other
+# 2017 sampling events only
+
+# Bring in net load data
+source("YB_Mass_Balance/Loads/Import_Net_Load_Data.R")
+
+# Prepare data for plotting
+mehg_net_loads <- loads_net %>% 
+  filter(
+    str_detect(Analyte, "^MeHg- f|^MeHg- p"),
+    Year == 2017,
+    Reach == "Upper"
+  ) %>% 
+  # Apply plotting order
+  conv_fact_samplingevent() %>% 
+  # Rename Analytes and round net loads to proper number of significant figures
+  mutate(
+    Analyte = if_else(str_detect(Analyte, "filt"), "Filter-passing", "Particulate"),
+    net_load = signif(net_load, digits)
+  ) %>% 
+  select(SamplingEvent, Analyte, net_load)
+
+# Create Figure B-18
+figure_b_18 <- mehg_net_loads %>% 
+  ggplot(aes(x = SamplingEvent, y = net_load, fill = Analyte)) +
+  geom_col(position = "dodge") +
+  ylab("Net Load (g/day)") +
+  xlab(NULL) +
+  add_gen_color_pal(num_colors = 2, "fill") +
+  theme_owhg(x_axis_v = TRUE)
+
+# Export Figure B-18
+ggsave(
+  "final_report_fig_b-18.jpg", 
+  plot = figure_b_18,
+  dpi = 300,
+  width = 5.5, 
+  height = 4, 
+  units = "in"
+)
+
+# Clean up
+rm(list= ls()[!(ls() %in% obj_keep)])
+
+
+# Figure B-19 -------------------------------------------------------------
+# Barplots showing MeHg concentrations on solids for the three Stairstep locations
+# Facet for each Station
+# 2017 sampling events only
+
+
+# Figure B-20 -------------------------------------------------------------
+# Barplot showing VSS loads for the Upper reach
+# 2017 sampling events only
+# More zoomed in plot of the VSS panel of Figure B-17
 
