@@ -1177,7 +1177,7 @@ ggsave(
   plot = figure_b_17,
   dpi = 300,
   width = 9.5, 
-  height = 6, 
+  height = 6.25, 
   units = "in"
 )
 
@@ -1223,7 +1223,7 @@ ggsave(
   plot = figure_b_18,
   dpi = 300,
   width = 5.5, 
-  height = 4, 
+  height = 3.5, 
   units = "in"
 )
 
@@ -1236,9 +1236,55 @@ rm(list= ls()[!(ls() %in% obj_keep)])
 # Facet for each Station
 # 2017 sampling events only
 
+# Prepare MeHg concentration on solids data for plotting
+mehg_conc_solids_out <- comb_param_calc %>% 
+  filter(
+    year(SampleDate) == 2017,
+    Parameter == "MeHg Concentration on Solids",
+    str_detect(StationName, "^Lib|^Shag|Toe.+[n]$")
+  ) %>% 
+  # Add sampling event variable
+  add_samplingevent() %>% 
+  # Apply plotting order
+  conv_fact_samplingevent() %>% 
+  mutate(
+    StationName = factor(
+      StationName,
+      levels = c(
+        "Shag Slough below Stairsteps",
+        "Liberty Cut below Stairsteps",
+        "Toe Drain at 1/2 Lisbon"
+      )
+    )
+  ) %>% 
+  select(SamplingEvent, StationName, Value)
+
+# Create Figure B-19
+figure_b_19 <- mehg_conc_solids_out %>% 
+  ggplot(aes(x = SamplingEvent, y = Value)) +
+  geom_col() +
+  facet_wrap(vars(StationName)) +
+  ylab("Concentration (ng/g)") +
+  xlab(NULL) +
+  theme_owhg(x_axis_v = TRUE)
+
+# Export Figure B-19
+ggsave(
+  "final_report_fig_b-19.jpg", 
+  plot = figure_b_19,
+  dpi = 300,
+  width = 6.5, 
+  height = 4, 
+  units = "in"
+)
+
+# Clean up
+rm(list= ls()[!(ls() %in% obj_keep)])
 
 # Figure B-20 -------------------------------------------------------------
 # Barplot showing VSS loads for the Upper reach
 # 2017 sampling events only
 # More zoomed in plot of the VSS panel of Figure B-17
+
+
 
