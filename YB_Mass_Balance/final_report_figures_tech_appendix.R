@@ -686,9 +686,10 @@ loads_total_clean <- loads_total %>%
   mutate(
     se_type = if_else(
       SamplingEvent == "Jan 11-12, 2017",
-      "first",
-      "other"
-    )
+      "First sampling event",
+      "All other sampling events"
+    ),
+    se_type = factor(se_type, levels = c("First sampling event", "All other sampling events"))
   ) %>% 
   select(LocType, Analyte, se_type, total_load)
 
@@ -710,11 +711,12 @@ figure_b_10 <- loads_total_clean %>%
     labels = label_comma()
   ) +
   xlab(NULL) +
-  scale_color_manual(
-    guide = "none",
-    values = c("first" = "red", "other" = "black")
-  ) +
-  theme_owhg(x_axis_v = TRUE) 
+  add_gen_color_pal(num_colors = 2, "color") +
+  theme_owhg(x_axis_v = TRUE) +
+  theme(
+    legend.margin = margin(0, 0, 0, 0),
+    legend.position = c(0.82, 0.12)
+  )
 
 # Export Figure B-10
 ggsave(
