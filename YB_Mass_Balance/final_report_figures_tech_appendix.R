@@ -54,10 +54,10 @@ conv_fact_analytes <- function(df) {
 }
 
 # Create a function to format ggplot titles as column titles to be used with patchwork
-format_col_titles <- function(title_size = 14, b_margin = 15) {
+format_col_titles <- function(h_just = 0.5, title_size = 14, b_margin = 15) {
   theme(
     plot.title = element_text(
-      hjust = 0.5,  #Center column titles
+      hjust = h_just,  #Default to center column titles
       size = title_size,  #Make column titles slightly larger
       face = "bold",  #Make column titles bold
       margin = margin(b = b_margin)  #Add more margin space below column titles
@@ -943,7 +943,7 @@ figure <- loads_inlet_clean %>%
   geom_errorbar(
     aes(
       ymin = Mean - StDev, 
-      ymax = Mean + StDev, 
+      ymax = Mean + StDev
     ),
     width = 0.25
   ) +
@@ -1434,4 +1434,209 @@ ggsave(
 rm(list= ls()[!(ls() %in% obj_keep)])
 
 
+# Figure B-23 through B-25 --------------------------------------------------------------
+# Each figure is nine scatterplots showing net loads as a function of tributary inflow
+# The top row of three figures shows the plots for the unfiltered fraction
+# The middle row of three figures shows the plots for the filter-passing fraction
+# The bottom row of three figures shows the plots for the particulate fraction
+# The columns are ordered from left to right by Upper reach, Liberty Island reach, and entire Bypass
+# Figure B-23 is for MeHg 
+# Figure B-24 is for Hg 
+# Figure B-23 is for TSS (only has three panels)
+# 2017 sampling events only
 
+# Define figure numbers for easier updating
+fig_num_mehg <- as.character(23)
+fig_num_hg <- as.character(24)
+fig_num_tss <- as.character(25)
+
+# Bring in net load data
+source("YB_Mass_Balance/Loads/Import_Net_Load_Data.R")
+
+# Prepare flow data to join with net load data
+total_inflows <- daily_flow_data_se %>% 
+  # Only include inlet flows
+  filter(LocType == "Inlet") %>% 
+  # Group by and sum flow data
+  group_by(SamplingEvent) %>% 
+  summarize(total_inflow = sum(Flow)) %>% 
+  ungroup()
+
+# Prepare net load and flow data for plotting
+net_loads_flow <- loads_net %>% 
+  # Filter data
+  filter(
+    str_detect(Analyte, "Hg|TSS"),
+    Year == 2017
+  ) %>%
+  # Join flow data
+  left_join(total_inflows) %>% 
+  # Apply plot order
+  mutate(
+    Analyte = factor(
+      Analyte,
+      levels = c(
+        "MeHg- total", 
+        "MeHg- filtered", 
+        "MeHg- particulate",
+        "THg- total", 
+        "THg- filtered", 
+        "THg- particulate",
+        "TSS"
+      )
+    ),
+    Reach = factor(
+      Reach, 
+      levels = c(
+        "Upper", 
+        "Liberty",
+        "Entire"
+      )
+    ),
+    # Rename Analytes
+    Analyte = recode(
+      Analyte,
+      "MeHg- total" = "Unfiltered MeHg", 
+      "MeHg- filtered" = "Filter-passing MeHg", 
+      "MeHg- particulate" = "Particulate MeHg",
+      "THg- total" = "Unfiltered Hg", 
+      "THg- filtered" = "Filter-passing Hg", 
+      "THg- particulate" = "Particulate Hg",
+      TSS = "TSS"
+    ),
+    # Rename Reaches
+    Reach = recode(
+      Reach,
+      Upper = "Upper Reach",
+      Liberty = "Liberty Island Reach",
+      Entire = "Entire Yolo Bypass"
+    )
+  ) %>% 
+  select(-c(Year, SamplingEvent, digits))
+
+# Create plot function for the Net Load vs Flow scatterplots
+plot_net_load_flow <- function(df, reach, param, rsq, pval) {
+  # Create base plot
+  p <- 
+    ggplot(
+      data = df,
+      aes(
+        x = total_inflow,
+        y = net_load
+      )
+    ) +
+    geom_point() +
+    geom_smooth(
+      method = "lm",
+      formula = y ~ x,
+      se = FALSE
+    ) +
+    labs(subtitle = paste0("R Squared = ", rsq, "%\np-value = ", pval)) +
+    scale_x_continuous(labels = label_comma()) +
+    scale_y_continuous(labels = label_comma()) +
+    theme_owhg()
+  
+  # Format plots differently based upon param
+  if (param == "TSS") {
+    # add title and axis labels to TSS plots
+    p <- p +
+      ggtitle(reach) +  
+      xlab("Total Inflow (cfs)")+
+      ylab(paste0("Net Load (", df$LoadUnits[1], ")")) +
+      format_col_titles(h_just = 0, b_margin = 11/2)
+  } else if (str_detect(param, "^Unf")) {
+    # Add titles but no x-axis labels to plots of the unfiltered fraction
+    p <- p +
+      ggtitle(reach) +
+      format_col_titles() +
+      xlab(NULL)
+  } else if (str_detect(param, "^Part")) {
+    # Add x-axis labels to plots of the particulate fraction
+    p <- p + xlab("Total Inflow (cfs)")
+  } else {
+    # Remove x-axis labels from the filter-passing fraction
+    p <- p + xlab(NULL)
+  }
+  
+  # Only keep y-axis label for first column of plots (Upper Reach), except for TSS plots
+  if (param != "TSS") {
+    if (reach == "Upper Reach") {
+      p <- p + ylab(paste0(param, "\nNet Load (", df$LoadUnits[1], ")"))
+    } else {
+      p <- p + ylab(NULL)
+    }
+  }
+  
+  return(p)
+}
+
+# Create scatterplots for each Reach-Analyte combination
+net_loads_flow_plots <- net_loads_flow %>% 
+  group_nest(Reach, Analyte) %>% 
+  # Run regression analysis and create plots
+  mutate(
+    model = map(data, ~summary(lm(net_load ~ total_inflow, data = .x))),
+    r2 = signif(map_dbl(model, ~glance(.x)$r.squared * 100), 3),
+    p_value = signif(map_dbl(model, ~glance(.x)$p.value), 2),
+    plot = pmap(
+      list(data, Reach, Analyte, r2, p_value),
+      .f = plot_net_load_flow
+    )
+  ) %>% 
+  # Rearrange dataframe for proper order of plots
+  arrange(Analyte, Reach)
+
+# Group scatterplots together
+  # MeHg
+  figure_mehg <- net_loads_flow_plots %>% 
+    filter(str_detect(Analyte, "MeHg$")) %>% 
+    pull(plot) %>% 
+    wrap_plots()
+  
+  # Hg
+  figure_hg <- net_loads_flow_plots %>% 
+    filter(str_detect(Analyte, " Hg$")) %>% 
+    pull(plot) %>% 
+    wrap_plots()
+  
+  # TSS
+  figure_tss <- net_loads_flow_plots %>% 
+    filter(Analyte == "TSS") %>% 
+    pull(plot) %>% 
+    wrap_plots(ncol = 2)
+
+# Export figures
+  # MeHg
+  ggsave(
+    paste0("final_report_fig_b-", fig_num_mehg, ".jpg"),
+    plot = figure_mehg,
+    dpi = 300,
+    width = 9.5, 
+    height = 6.25, 
+    units = "in"
+  )
+  
+  # Hg
+  ggsave(
+    paste0("final_report_fig_b-", fig_num_hg, ".jpg"),
+    plot = figure_hg,
+    dpi = 300,
+    width = 9.5, 
+    height = 6.25, 
+    units = "in"
+  )
+  
+  # TSS
+  ggsave(
+    paste0("final_report_fig_b-", fig_num_tss, ".jpg"),
+    plot = figure_tss,
+    dpi = 300,
+    width = 6.5, 
+    height = 6, 
+    units = "in"
+  )
+
+# Clean up
+rm(list= ls()[!(ls() %in% obj_keep)])
+
+  
