@@ -372,12 +372,10 @@ hydrograph_group <- hydrograph_all %>%
   )
 
 # Export Figures
-hydrograph_group_list <- hydrograph_group %>% pull(group_plots)
-
   # 2014
   ggsave(
     paste0("final_report_fig_b-", fig_num_2014, ".jpg"),
-    plot = hydrograph_group_list[[1]],
+    plot = hydrograph_group$group_plots[[1]],
     dpi = 300,
     width = 7, 
     height = 6.5, 
@@ -387,7 +385,7 @@ hydrograph_group_list <- hydrograph_group %>% pull(group_plots)
   # 2016
   ggsave(
     paste0("final_report_fig_b-", fig_num_2016, ".jpg"),
-    plot = hydrograph_group_list[[2]],
+    plot = hydrograph_group$group_plots[[2]],
     dpi = 300,
     width = 7, 
     height = 8.75, 
@@ -397,7 +395,7 @@ hydrograph_group_list <- hydrograph_group %>% pull(group_plots)
   # 2017
   ggsave(
     paste0("final_report_fig_b-", fig_num_2017, ".jpg"),
-    plot = hydrograph_group_list[[3]],
+    plot = hydrograph_group$group_plots[[3]],
     dpi = 300,
     width = 7, 
     height = 8.75, 
