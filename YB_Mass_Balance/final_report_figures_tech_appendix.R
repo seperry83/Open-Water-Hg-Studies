@@ -808,14 +808,13 @@ plot_total_loads <- function(df) {
   return(p)
 }
 
-# Create a list with the data for the two figures
-loads_total_list <- list(
-  "hg" = filter(loads_total_clean, str_detect(Analyte, "Hg")),
-  "other" = filter(loads_total_clean, !str_detect(Analyte, "Hg"))
-)
-
-# Run function on list to create barplots of total loads
-loads_total_plots <- map(loads_total_list, .f = plot_total_loads)
+# Create a list with the data for the two figures and run function to create barplots of total loads
+loads_total_plots <- 
+  list(
+    "hg" = filter(loads_total_clean, str_detect(Analyte, "Hg")),
+    "other" = filter(loads_total_clean, !str_detect(Analyte, "Hg"))
+  ) %>% 
+  map(.f = plot_total_loads)
 
 # Export Figure of THg and MeHg data
 ggsave(
@@ -1248,14 +1247,13 @@ plot_net_loads <- function(df) {
   return(p)
 }
 
-# Create a list with the data for the two figures
-loads_net_list <- list(
-  "hg" = filter(loads_net_clean, str_detect(Analyte, "Hg")),
-  "other" = filter(loads_net_clean, !str_detect(Analyte, "Hg"))
-)
-
-# Run function on list to create barplots of net loads
-loads_net_plots <- map(loads_net_list, .f = plot_net_loads)
+# Create a list with the data for the two figures and run function to create barplots of net loads
+loads_net_plots <- 
+  list(
+    "hg" = filter(loads_net_clean, str_detect(Analyte, "Hg")),
+    "other" = filter(loads_net_clean, !str_detect(Analyte, "Hg"))
+  ) %>% 
+  map(.f = plot_net_loads)
 
 # Export Figure of THg and MeHg data
 ggsave(
@@ -1586,29 +1584,21 @@ net_loads_flow_plots <- net_loads_flow %>%
   arrange(Analyte, Reach)
 
 # Group scatterplots together
-  # MeHg
-  figure_mehg <- net_loads_flow_plots %>% 
-    filter(str_detect(Analyte, "MeHg$")) %>% 
-    pull(plot) %>% 
-    wrap_plots()
-  
-  # Hg
-  figure_hg <- net_loads_flow_plots %>% 
-    filter(str_detect(Analyte, " Hg$")) %>% 
-    pull(plot) %>% 
-    wrap_plots()
-  
-  # TSS
-  figure_tss <- net_loads_flow_plots %>% 
-    filter(Analyte == "TSS") %>% 
-    pull(plot) %>% 
-    wrap_plots(ncol = 2)
+figures_group <- 
+  list(
+    "mehg" = filter(net_loads_flow_plots, str_detect(Analyte, "MeHg$")),
+    "hg" = filter(net_loads_flow_plots, str_detect(Analyte, " Hg$")),
+    "tss" = filter(net_loads_flow_plots, Analyte == "TSS")
+  ) %>% 
+  map(~pull(.x, plot)) %>% 
+  map_at(c("mehg", "hg"), wrap_plots) %>% 
+  map_at("tss", ~wrap_plots(.x, ncol = 2))
 
 # Export figures
   # MeHg
   ggsave(
     paste0("final_report_fig_b-", fig_num_mehg, ".jpg"),
-    plot = figure_mehg,
+    plot = figures_group$mehg,
     dpi = 300,
     width = 9.5, 
     height = 6.25, 
@@ -1618,7 +1608,7 @@ net_loads_flow_plots <- net_loads_flow %>%
   # Hg
   ggsave(
     paste0("final_report_fig_b-", fig_num_hg, ".jpg"),
-    plot = figure_hg,
+    plot = figures_group$hg,
     dpi = 300,
     width = 9.5, 
     height = 6.25, 
@@ -1628,7 +1618,7 @@ net_loads_flow_plots <- net_loads_flow %>%
   # TSS
   ggsave(
     paste0("final_report_fig_b-", fig_num_tss, ".jpg"),
-    plot = figure_tss,
+    plot = figures_group$tss,
     dpi = 300,
     width = 6.5, 
     height = 6, 
