@@ -1190,6 +1190,7 @@ rm(list= ls()[!(ls() %in% obj_keep)])
 # Barplots showing net internal loads for the Upper and Liberty Island reaches and the entire Yolo Bypass
 # Facets for each analyte/parameter
 # All sampling events
+# B-18 is for MeHg and THg, B-19 is for organic carbon and suspended solids
 
 # Define figure numbers for easier updating
 fig_num_hg <- as.character(18)
@@ -1433,7 +1434,7 @@ rm(list= ls()[!(ls() %in% obj_keep)])
 
 
 # Figure B-23 through B-25 --------------------------------------------------------------
-# Each figure is nine scatterplots showing net loads as a function of tributary inflow
+# Each figure has multiple scatterplots showing net loads as a function of total Bypass inflow
 # The top row of three figures shows the plots for the unfiltered fraction
 # The middle row of three figures shows the plots for the filter-passing fraction
 # The bottom row of three figures shows the plots for the particulate fraction
@@ -1637,4 +1638,114 @@ net_loads_flow_plots <- net_loads_flow %>%
 # Clean up
 rm(list= ls()[!(ls() %in% obj_keep)])
 
-  
+
+# Figure B-26 -------------------------------------------------------------
+# Scatterplots comparing data collected in 2006 by Foe et al. with the data collected from 2014-2017
+# Plots show MeHg loads as a function of total Bypass inflow
+# Each year has a different color
+# Three facets: Inlet loads, Outlet loads at the Stairsteps, and net loads between the two
+
+# Define figure number for easier updating
+fig_num <- as.character(26)
+
+# Bring in total and net load data
+source("YB_Mass_Balance/Loads/Import_Total_Load_Data.R")
+source("YB_Mass_Balance/Loads/Import_Net_Load_Data.R")
+
+# Prepare flow data to join with load data
+total_inflows <- daily_flow_data_se %>% 
+  # Only include inlet flows
+  filter(LocType == "Inlet") %>% 
+  # Group by and sum flow data
+  group_by(SamplingEvent) %>% 
+  summarize(total_inflow = sum(Flow)) %>% 
+  ungroup()
+
+# Prepare total load data to join with net load data
+loads_total_mod <- loads_total %>%
+  filter(LocType != "Below Liberty") %>% 
+  pivot_wider(
+    id_cols = -digits,
+    names_from = LocType,
+    values_from = total_load
+  )
+
+# Join net and total MeHg loads and flow data
+mehg_loads_flow <- loads_net %>% 
+  filter(Reach == "Upper") %>%
+  select(-c(Reach, digits)) %>% 
+  left_join(loads_total_mod) %>% 
+  filter(Analyte == "MeHg- total") %>%
+  left_join(total_inflows) %>% 
+  select(Year, net_load:total_inflow) %>% 
+  rename(
+    Net_Load = net_load,
+    Inlet_Load = Inlet,
+    Outlet_Load = Outlet,
+    Total_Inflow = total_inflow
+  )
+
+# Add load and flow data from 2006 and restructure for plotting
+mehg_loads_flow_all <- loads_flow_cf %>% 
+  select(Year, Inlet_Load:Total_Inflow) %>% 
+  bind_rows(mehg_loads_flow) %>% 
+  pivot_longer(
+    cols = Inlet_Load:Net_Load,
+    names_to = "Load_Type",
+    values_to = "Load"
+  ) %>% 
+  mutate(
+    Year = as.character(Year),
+    Load_Type = factor(Load_Type, levels = c("Inlet_Load", "Outlet_Load", "Net_Load"))
+  )
+
+# Create Figure
+figure <- mehg_loads_flow_all %>% 
+  ggplot(aes(x = Total_Inflow, y = Load, color = Year)) +
+  geom_point() +
+  geom_smooth(
+    method = "lm",
+    formula = y ~ x,
+    se = FALSE
+  ) +
+  facet_wrap(
+    vars(Load_Type),
+    ncol = 2,
+    scales = "free_y",
+    labeller = labeller(
+      Load_Type = c(
+        Inlet_Load = "Inlet Load",
+        Outlet_Load = "Outlet Load",
+        Net_Load = "Net Internal Production"
+      )
+    )
+  ) +
+  scale_x_continuous(
+    name = "Total Inflow (cfs)",
+    labels = label_comma()
+  ) +
+  ylab("MeHg Load (g/day)") +
+  add_gen_color_pal(
+    num_colors = 4,
+    aes_type = "color",
+    legend_title = "Year"
+  ) +
+  theme_owhg() +
+  theme(
+    legend.margin = margin(0, 0, 0, 0),
+    legend.position = c(0.72, 0.22)
+  )
+
+# Export Figure
+ggsave(
+  paste0("final_report_fig_b-", fig_num, ".jpg"),
+  plot = figure,
+  dpi = 300,
+  width = 6.5, 
+  height = 6.5, 
+  units = "in"
+)
+
+# Clean up
+rm(list= ls()[!(ls() %in% obj_keep)])
+
