@@ -7,25 +7,39 @@ library(tidyverse)
 library(lubridate)
 library(openwaterhg)
 
-# Define Analyte order for Tables
-analyte_order <- c(
-  "THg- total",
-  "THg- filtered",
-  "THg- particulate",
-  "MeHg- total",
-  "MeHg- filtered",
-  "MeHg- particulate",
-  "TSS",
-  "VSS",
-  "TOC",
-  "DOC",
-  "POC"
-)
+
+# Functions for script ----------------------------------------------------
+
+# Create a function to apply a plotting order for the analytes
+conv_fact_analytes <- function(df) {
+  analytes_order <- c(
+    "THg- total",
+    "THg- filtered",
+    "THg- particulate",
+    "MeHg- total",
+    "MeHg- filtered",
+    "MeHg- particulate",
+    "TOC",
+    "DOC",
+    "POC",
+    "TSS",
+    "VSS"
+  )
+  
+  df <- df %>% mutate(Analyte = factor(Analyte, levels = analytes_order))
+  
+  return(df)
+}
+
+obj_keep <- c("obj_keep", "conv_fact_analytes")
 
 
 # Table B-6 ---------------------------------------------------------------
 # Water Flows and Water Balances for each sampling event
 # All 11 sampling events
+
+# Define table number for easier updating
+tbl_num <- as.character(6)
 
 # Sum the inlet and outlet flows for each sampling event
 se_flows_sum <- daily_flow_data_se %>% 
@@ -62,15 +76,18 @@ se_water_bal <- se_flows %>%
   conv_fact_samplingevent() %>% 
   arrange(SamplingEvent)
 
-# Export Table B-6
-se_water_bal %>% write_excel_csv("table_b-6.csv", na = "N/A")
+# Export Table
+se_water_bal %>% write_excel_csv(paste0("table_b-", tbl_num, ".csv"), na = "N/A")
 
 # Clean up
-rm(se_flows, se_flows_bli, se_flows_sum, se_water_bal)
+rm(list= ls()[!(ls() %in% obj_keep)])
 
 
 # Table B-7 ---------------------------------------------------------------
 # Summary of Field and Filter Blanks
+
+# Define table number for easier updating
+tbl_num <- as.character(7)
 
 # Filter only Analytes used in the report
 blanks <- qa_field_blanks %>% 
@@ -128,15 +145,18 @@ blanks_summ <-
     Det_Med
   )
 
-# Export Table B-7
-blanks_summ %>% write_excel_csv("table_b-7.csv", na = "")
+# Export Table
+blanks_summ %>% write_excel_csv(paste0("table_b-", tbl_num, ".csv"), na = "")
 
 # Clean up
-rm(blanks, blanks_c_all, blanks_c_det, blanks_summ, det_limits, det_summ)
+rm(list= ls()[!(ls() %in% obj_keep)])
 
 
 # Table B-8 ---------------------------------------------------------------
 # Summary of field duplicates
+
+# Define table number for easier updating
+tbl_num <- as.character(8)
 
 # Filter only Analytes used in the report
 fdups <- qa_field_dups %>% 
@@ -181,16 +201,19 @@ fdups_summ <-
   replace_na(list(N_FV = 0)) %>% 
   mutate(Per_FV = round(N_FV/N_fd, 2))
 
-# Export fdups.summ df
-fdups_summ %>% write_excel_csv("table_b-8.csv")
+# Export Table
+fdups_summ %>% write_excel_csv(paste0("table_b-", tbl_num, ".csv"))
 
 # Clean up
-rm(fdups, fdups_c_all, fdups_clean, fdups_fv, fdups_summ, rpd_summ)
+rm(list= ls()[!(ls() %in% obj_keep)])
 
 
 # Table B-9 ---------------------------------------------------------------
 # Total Water Volumes and Water Balances in the Yolo Bypass 
 # For Flood Events in 2014, 2016, and 2017
+
+# Define table number for easier updating
+tbl_num <- as.character(9)
 
 # Prepare flow data for calculations
 flow_data_clean <- daily_flow_data_all %>% 
@@ -233,71 +256,111 @@ water_bal <- water_vol_total %>%
   # Round total volumes to 3 significant figures
   mutate_at(vars(Inlet, Outlet, bli), signif, digits = 3)
 
-# Export Table B-9
-water_bal %>% write_excel_csv("table_b-9.csv", na = "N/A")
+# Export Table
+water_bal %>% write_excel_csv(paste0("table_b-", tbl_num, ".csv"), na = "N/A")
 
 # Clean up
-rm(flow_data_clean, flow_data_clean_bli, water_vol_total, water_bal)
+rm(list= ls()[!(ls() %in% obj_keep)])
 
 
-# Table B-10 --------------------------------------------------------------
-# Summary statistics for total inlet loads of Hg, MeHg, Organic Carbon and Suspended Solids
-# For just the sampling events in 2017
+# Tables B-10 through B-12 --------------------------------------------------------------
+# MeHg concentrations of each tributary input for the sampling events in 2017
+# Each table provides concentrations for each event and the overall averages, standard deviations, 
+  # and coefficients of variation
+# B-10 is for uMeHg, B-11 is for fMeHg, B-12 is for pMeHg
 
-# Bring in total load data
-source("YB_Mass_Balance/Loads/Import_Total_Load_Data.R")
+# Define table numbers for easier updating
+tbl_num_u <- as.character(10)
+tbl_num_f <- as.character(11)
+tbl_num_p <- as.character(12)
 
-# Filter total inlet load data
-loads_inlet_total <- loads_total %>% 
-  # Filter load data
+# Bring in concentration data
+source("YB_Mass_Balance/Concentrations/Import_Conc_Data.R")
+
+# Only keep MeHg data for the tributary inlets and for 2017
+inlet_mehg_conc <- all_conc %>% 
   filter(
-    LocType == "Inlet",
-    Year == 2017,
-    str_detect(Analyte, "OC$|Hg|SS$"),
+    str_detect(StationName, "^CCSB|^Fre|^Kni|^Put|^Sac"),
+    str_detect(Analyte, "^MeHg"),
+    year(SampleDate) == 2017
+  ) %>% 
+  # Calculate the number of significant digits in the Conc values
+  mutate(
+    digits = case_when(
+      Conc < 0.01 ~ 1,
+      Conc < 0.1 ~ 2,
+      TRUE ~ 3
+    )
+  ) %>% 
+  # Rename stations
+  mutate(
+    StationName = case_when(
+      str_detect(StationName, "^CCSB") ~ "CCSB",
+      str_detect(StationName, "^Fre") ~ "Fremont Weir",
+      str_detect(StationName, "^Kni") ~ "KLRC",
+      str_detect(StationName, "^Put") ~ "Putah Creek",
+      str_detect(StationName, "^Sac") ~ "Sacramento Weir"
+    )
   )
 
-# Calcuate averages and standard deviations on non-rounded data
-loads_inlet_total_summ1 <- loads_inlet_total %>% 
-  group_by(Analyte, LoadUnits) %>% 
+# Pull out data for Fremont Weir and CCSB and calculate averages and stdev of 
+  # the multiple stations representing these inputs
+fre_ccsb_mehg_conc <- inlet_mehg_conc %>% 
+  filter(str_detect(StationName, "^CCSB|^Fre")) %>% 
+  group_by(SampleDate, StationName, Analyte) %>% 
+  summarize(
+    digits = min(digits),
+    Conc = mean(Conc),
+    stdev = sd(Conc)
+  ) %>% 
+  ungroup()
+
+# Add back the averages and standard deviations for Fremont Weir and CCSB to all other data
+# START HERE
+
+# Modify dataframe with average Fremont Weir and CCSB data to bind to all other data in order to
+ # calculate overall summary statistics
+fre_ccsb_mehg_conc_mod <- fre_ccsb_mehg_conc %>% select(-stdev)
+  
+# Calculate averages, stdev, and CV of all sampling events
+mehg_conc_summ <- inlet_mehg_conc %>% 
+  filter(!str_detect(StationName, "^CCSB|^Fre")) %>% 
+  bind_rows(fre_ccsb_mehg_conc_mod) %>% 
+  group_by(StationName, Analyte) %>% 
   summarize(
     sign_digits = min(digits),
-    Mean = signif(mean(total_load), sign_digits),
-    StDev = signif(sd(total_load), sign_digits)
+    avg_conc = mean(Conc),
+    sd_conc = sd(Conc)
+  ) %>% 
+  mutate(
+    coef_var = signif(sd_conc/avg_conc, sign_digits) * 100,
+    avg_conc = signif(avg_conc, sign_digits),
+    sd_conc = signif(sd_conc, sign_digits)
   ) %>% 
   ungroup() %>% 
-  select(-sign_digits)
+  # Restructure dataframe
+  select(-sign_digits) %>% 
+  pivot_longer(
+    cols = avg_conc:coef_var,
+    names_to = "summ_stat_type",
+    values_to = "summ_stat_value"
+  ) %>% 
+  conv_fact_inlet_names() %>% 
+  arrange(StationName) %>% 
+  pivot_wider(names_from = StationName, values_from = summ_stat_value)
 
-# Calculate all other summary statistics on rounded data
-loads_inlet_total_summ2 <- loads_inlet_total %>% 
-  mutate(total_load = signif(total_load, digits)) %>% 
-  summ_stat(total_load, Analyte) %>% 
-  select(-c(Mean, StDev))
-
-# Join Summary Statistics together for Table B-10
-loads_inlet_total_summ <- 
-  left_join(loads_inlet_total_summ1, loads_inlet_total_summ2) %>% 
-  select(Analyte, LoadUnits, Minimum, Maximum, Median, Mean, StDev) %>% 
-  # Define analyte order for table
-  mutate(Analyte = factor(Analyte, levels = analyte_order)) %>%
-  arrange(Analyte)
-
-# Export Table B-10
-loads_inlet_total_summ %>% write_excel_csv("table_b-10.csv")
+# Export Tables
+loads_inlet_total_summ %>% write_excel_csv(paste0("table_b-", tbl_num, ".csv"))
 
 # Clean up
-rm(
-  loads_total,
-  loads_inlet_total,
-  loads_inlet_total_summ,
-  loads_inlet_total_summ1,
-  loads_inlet_total_summ2
-)
+rm(list= ls()[!(ls() %in% obj_keep)])
 
 
-# Table B-11 --------------------------------------------------------------
-# Averages and standard deviations for each inlet's load of Hg, MeHg, 
-  # Organic Carbon and Suspended Solids
-# For just the sampling events in 2017
+# Table B-13 --------------------------------------------------------------
+
+
+# Define table number for easier updating
+tbl_num <- as.character(13)
 
 # Bring in inlet load data
 source("YB_Mass_Balance/Loads/Import_Inlet_Load_Data.R")
@@ -359,25 +422,20 @@ loads_inlet_summ_c <-
     starts_with("Fre"),
   )
 
-# Export Table B-11
-loads_inlet_summ_c %>% write_excel_csv("table_b-11.csv")
+# Export Table
+loads_inlet_summ_c %>% write_excel_csv(paste0("table_b-", tbl_num, ".csv"))
 
 # Clean up
-rm(
-  loads_inlet,
-  loads_inlet_avg,
-  loads_inlet_clean,
-  loads_inlet_stdev,
-  loads_inlet_summ,
-  loads_inlet_summ_c,
-  zero_loads
-)
+rm(list= ls()[!(ls() %in% obj_keep)])
 
 
 # Table B-12 --------------------------------------------------------------
 # Summary statistics for total loads of Hg, MeHg, Organic Carbon and Suspended Solids
 # Totals for the outlet at the Stairsteps and Below Liberty Island
 # For just the sampling events in 2017
+
+# Define table number for easier updating
+tbl_num <- as.character(12)
 
 # Bring in total load data
 source("YB_Mass_Balance/Loads/Import_Total_Load_Data.R")
@@ -416,7 +474,7 @@ loads_total_clean_summ2 <- loads_total_clean %>%
     )
   )
 
-# Join Summary Statistics together for Table B-12
+# Join Summary Statistics together for Table
 loads_total_clean_summ <- 
   left_join(loads_total_clean_summ1, loads_total_clean_summ2) %>% 
   select(LocType, Analyte, LoadUnits, Minimum, Maximum, Median, Mean, StDev) %>% 
@@ -425,35 +483,32 @@ loads_total_clean_summ <-
   arrange(Analyte) %>% 
   group_nest(LocType)
 
-# Export Table B-12
+# Export Table
   # Outlet Loads
   loads_total_clean_summ %>% 
     filter(LocType == "Outlet") %>% 
     pull(data) %>% 
     chuck(1) %>% 
-    write_excel_csv("table_b-12_outlet.csv")
+    write_excel_csv(paste0("table_b-", tbl_num, "_outlet.csv"))
   
   # Below Liberty Island Loads
   loads_total_clean_summ %>% 
     filter(LocType == "Below Liberty") %>% 
     pull(data) %>% 
     chuck(1) %>% 
-    write_excel_csv("table_b-12_bli.csv")
+    write_excel_csv(paste0("table_b-", tbl_num, "_bli.csv"))
   
 # Clean up
-rm(
-  loads_total,
-  loads_total_clean,
-  loads_total_clean_summ,
-  loads_total_clean_summ1,
-  loads_total_clean_summ2
-)
+rm(list= ls()[!(ls() %in% obj_keep)])
 
 
 # Table B-13 --------------------------------------------------------------
 # Averages and standard deviations for net loads of Hg, MeHg, Organic Carbon and Suspended Solids
 # For 3 segments of the Yolo Bypass: upper reach, Liberty Island, and entire Bypass
 # For just the sampling events in 2017
+
+# Define table number for easier updating
+tbl_num <- as.character(13)
 
 # Bring in total load data
 source("YB_Mass_Balance/Loads/Import_Net_Load_Data.R")
@@ -512,16 +567,9 @@ loads_net_summ_c <-
     starts_with("Entire")
   )
 
-# Export Table B-13
-loads_net_summ_c %>% write_excel_csv("table_b-13.csv")
+# Export Table
+loads_net_summ_c %>% write_excel_csv(paste0("table_b-", tbl_num, ".csv"))
 
 # Clean up
-rm(
-  loads_net,
-  loads_net_avg,
-  loads_net_clean,
-  loads_net_clean_summ,
-  loads_net_stdev,
-  loads_net_summ_c
-)
+rm(list= ls()[!(ls() %in% obj_keep)])
 
