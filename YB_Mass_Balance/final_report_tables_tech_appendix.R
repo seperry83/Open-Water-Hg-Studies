@@ -310,44 +310,92 @@ fre_ccsb_mehg_conc <- inlet_mehg_conc %>%
   group_by(SampleDate, StationName, Analyte) %>% 
   summarize(
     digits = min(digits),
-    Conc = mean(Conc),
-    stdev = sd(Conc)
-  ) %>% 
-  ungroup()
-
-# Add back the averages and standard deviations for Fremont Weir and CCSB to all other data
-# START HERE
-
-# Modify dataframe with average Fremont Weir and CCSB data to bind to all other data in order to
- # calculate overall summary statistics
-fre_ccsb_mehg_conc_mod <- fre_ccsb_mehg_conc %>% select(-stdev)
-  
-# Calculate averages, stdev, and CV of all sampling events
-mehg_conc_summ <- inlet_mehg_conc %>% 
-  filter(!str_detect(StationName, "^CCSB|^Fre")) %>% 
-  bind_rows(fre_ccsb_mehg_conc_mod) %>% 
-  group_by(StationName, Analyte) %>% 
-  summarize(
-    sign_digits = min(digits),
     avg_conc = mean(Conc),
     sd_conc = sd(Conc)
   ) %>% 
-  mutate(
-    coef_var = signif(sd_conc/avg_conc, sign_digits) * 100,
-    avg_conc = signif(avg_conc, sign_digits),
-    sd_conc = signif(sd_conc, sign_digits)
-  ) %>% 
   ungroup() %>% 
-  # Restructure dataframe
-  select(-sign_digits) %>% 
-  pivot_longer(
-    cols = avg_conc:coef_var,
-    names_to = "summ_stat_type",
-    values_to = "summ_stat_value"
-  ) %>% 
-  conv_fact_inlet_names() %>% 
-  arrange(StationName) %>% 
-  pivot_wider(names_from = StationName, values_from = summ_stat_value)
+  rename(Conc = avg_conc)
+
+
+# Add back the averages and standard deviations for Fremont Weir and CCSB to all other data
+  
+  # Round averages and std deviations to correct number of significant digits
+  fre_ccsb_mehg_conc_r <- fre_ccsb_mehg_conc %>% 
+    mutate(
+      Conc = signif(Conc, digits),
+      sd_conc = signif(sd_conc, digits)
+    ) %>% 
+    select(-digits)
+  
+  # Pivot concentrations wider
+  fre_ccsb_mehg_conc_w <- fre_ccsb_mehg_conc_r %>% 
+    pivot_wider(
+      id_cols = -sd_conc,
+      names_from = StationName,
+      values_from = Conc
+    ) %>% 
+    rename(Fremont = "Fremont Weir")
+  
+  # Pivot std deviations wider
+  fre_ccsb_mehg_stdev_w <- fre_ccsb_mehg_conc_r %>% 
+    pivot_wider(
+      id_cols = -Conc,
+      names_from = StationName,
+      values_from = sd_conc
+    ) %>% 
+    # only keep values for Fremont Weir
+    select(-CCSB) %>% 
+    # remove two sampling events in March without values for all three sampling locations along the weir
+    filter(month(SampleDate) != 3) %>% 
+    rename(Fremont_sd = "Fremont Weir")
+  
+  # Join dataframes together
+  inlet_mehg_conc_f <- inlet_mehg_conc %>% 
+    filter(!str_detect(StationName, "^CCSB|^Fre")) %>% 
+    select(StationName, SampleDate, Analyte, Conc) %>% 
+    pivot_wider(names_from = StationName, values_from = Conc) %>% 
+    rename(
+      Putah = "Putah Creek",
+      Sac_Weir = "Sacramento Weir"
+    ) %>% 
+    left_join(fre_ccsb_mehg_conc_w) %>% 
+    left_join(fre_ccsb_mehg_stdev_w) %>% 
+    select(SampleDate, Analyte, KLRC, CCSB, Putah, Sac_Weir, Fremont, Fremont_sd) %>% 
+    arrange(SampleDate, Analyte)
+
+  
+# Calculate averages, stdev, and CV of all sampling events
+  
+  # Modify dataframe with average Fremont Weir and CCSB data to bind to all other data in order to
+   # calculate overall summary statistics
+  fre_ccsb_mehg_conc_mod <- fre_ccsb_mehg_conc %>% select(-sd_conc)
+  
+  # Join dataframes together and make calculations
+  mehg_conc_summ <- inlet_mehg_conc %>% 
+    filter(!str_detect(StationName, "^CCSB|^Fre")) %>% 
+    bind_rows(fre_ccsb_mehg_conc_mod) %>% 
+    group_by(StationName, Analyte) %>% 
+    summarize(
+      sign_digits = min(digits),
+      avg_conc = mean(Conc),
+      sd_conc = sd(Conc)
+    ) %>% 
+    mutate(
+      coef_var = signif(sd_conc/avg_conc, sign_digits) * 100,
+      avg_conc = signif(avg_conc, sign_digits),
+      sd_conc = signif(sd_conc, sign_digits)
+    ) %>% 
+    ungroup() %>% 
+    # Restructure dataframe
+    select(-sign_digits) %>% 
+    pivot_longer(
+      cols = avg_conc:coef_var,
+      names_to = "summ_stat_type",
+      values_to = "summ_stat_value"
+    ) %>% 
+    conv_fact_inlet_names() %>% 
+    arrange(StationName) %>% 
+    pivot_wider(names_from = StationName, values_from = summ_stat_value)
 
 # Export Tables
 loads_inlet_total_summ %>% write_excel_csv(paste0("table_b-", tbl_num, ".csv"))
