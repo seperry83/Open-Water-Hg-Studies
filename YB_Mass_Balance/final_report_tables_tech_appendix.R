@@ -263,16 +263,14 @@ water_bal %>% write_excel_csv(paste0("table_b-", tbl_num, ".csv"), na = "N/A")
 rm(list= ls()[!(ls() %in% obj_keep)])
 
 
-# Tables B-10 through B-12 --------------------------------------------------------------
+# Table B-10 --------------------------------------------------------------
 # MeHg concentrations of each tributary input for the sampling events in 2017
-# Each table provides concentrations for each event and the overall averages, standard deviations, 
+# Table provides concentrations for each event and the overall averages, standard deviations, 
   # and coefficients of variation
-# B-10 is for uMeHg, B-11 is for fMeHg, B-12 is for pMeHg
+# Table is divided into three sections for uMeHg, fMeHg, and pMeHg
 
-# Define table numbers for easier updating
-tbl_num_u <- as.character(10)
-tbl_num_f <- as.character(11)
-tbl_num_p <- as.character(12)
+# Define table number for easier updating
+tbl_num <- as.character(10)
 
 # Bring in concentration data
 source("YB_Mass_Balance/Concentrations/Import_Conc_Data.R")
@@ -301,7 +299,9 @@ inlet_mehg_conc <- all_conc %>%
       str_detect(StationName, "^Put") ~ "Putah Creek",
       str_detect(StationName, "^Sac") ~ "Sacramento Weir"
     )
-  )
+  ) %>% 
+  # Define analyte order
+  conv_fact_analytes()
 
 # Pull out data for Fremont Weir and CCSB and calculate averages and stdev of 
   # the multiple stations representing these inputs
@@ -317,7 +317,8 @@ fre_ccsb_mehg_conc <- inlet_mehg_conc %>%
   rename(Conc = avg_conc)
 
 
-# Add back the averages and standard deviations for Fremont Weir and CCSB to all other data
+# Add back the averages and standard deviations for Fremont Weir and CCSB to 
+  # all other data for data tables
   
   # Round averages and std deviations to correct number of significant digits
   fre_ccsb_mehg_conc_r <- fre_ccsb_mehg_conc %>% 
@@ -345,12 +346,12 @@ fre_ccsb_mehg_conc <- inlet_mehg_conc %>%
     ) %>% 
     # only keep values for Fremont Weir
     select(-CCSB) %>% 
-    # remove two sampling events in March without values for all three sampling locations along the weir
+    # remove two sampling events in March without values for all three sampling locations 
     filter(month(SampleDate) != 3) %>% 
     rename(Fremont_sd = "Fremont Weir")
   
-  # Join dataframes together
-  inlet_mehg_conc_f <- inlet_mehg_conc %>% 
+  # Join dataframes together for data tables
+  inlet_mehg_conc_tbl <- inlet_mehg_conc %>% 
     filter(!str_detect(StationName, "^CCSB|^Fre")) %>% 
     select(StationName, SampleDate, Analyte, Conc) %>% 
     pivot_wider(names_from = StationName, values_from = Conc) %>% 
@@ -361,7 +362,7 @@ fre_ccsb_mehg_conc <- inlet_mehg_conc %>%
     left_join(fre_ccsb_mehg_conc_w) %>% 
     left_join(fre_ccsb_mehg_stdev_w) %>% 
     select(SampleDate, Analyte, KLRC, CCSB, Putah, Sac_Weir, Fremont, Fremont_sd) %>% 
-    arrange(SampleDate, Analyte)
+    arrange(Analyte, SampleDate)
 
   
 # Calculate averages, stdev, and CV of all sampling events
@@ -381,7 +382,8 @@ fre_ccsb_mehg_conc <- inlet_mehg_conc %>%
       sd_conc = sd(Conc)
     ) %>% 
     mutate(
-      coef_var = signif(sd_conc/avg_conc, sign_digits) * 100,
+      coef_var = signif(sd_conc/avg_conc, sign_digits),
+      # round averages and std deviations after calculating CV
       avg_conc = signif(avg_conc, sign_digits),
       sd_conc = signif(sd_conc, sign_digits)
     ) %>% 
@@ -398,7 +400,8 @@ fre_ccsb_mehg_conc <- inlet_mehg_conc %>%
     pivot_wider(names_from = StationName, values_from = summ_stat_value)
 
 # Export Tables
-loads_inlet_total_summ %>% write_excel_csv(paste0("table_b-", tbl_num, ".csv"))
+inlet_mehg_conc_tbl %>% write_excel_csv(paste0("table_b-", tbl_num, "_indiv_values.csv"), na = "")
+mehg_conc_summ %>% write_excel_csv(paste0("table_b-", tbl_num, "_summary_values.csv"))
 
 # Clean up
 rm(list= ls()[!(ls() %in% obj_keep)])
