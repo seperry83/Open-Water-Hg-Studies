@@ -324,7 +324,11 @@ fre_ccsb_mehg_conc <- inlet_mehg_conc %>%
   fre_ccsb_mehg_conc_r <- fre_ccsb_mehg_conc %>% 
     mutate(
       Conc = signif(Conc, digits),
-      sd_conc = signif(sd_conc, digits)
+      sd_conc = case_when(
+        digits == 2 & Conc >= 0.1 ~ round(sd_conc, 2),
+        digits == 2 & Conc < 0.1 ~ round(sd_conc, 3),
+        TRUE ~ round(sd_conc, 3)
+      )
     ) %>% 
     select(-digits)
   
@@ -385,7 +389,11 @@ fre_ccsb_mehg_conc <- inlet_mehg_conc %>%
       coef_var = signif(sd_conc/avg_conc, sign_digits),
       # round averages and std deviations after calculating CV
       avg_conc = signif(avg_conc, sign_digits),
-      sd_conc = signif(sd_conc, sign_digits)
+      sd_conc = case_when(
+        sign_digits == 2 & avg_conc >= 0.1 ~ round(sd_conc, 2),
+        sign_digits == 2 & avg_conc < 0.1 ~ round(sd_conc, 3),
+        TRUE ~ round(sd_conc, 3)
+      )
     ) %>% 
     ungroup() %>% 
     # Restructure dataframe
