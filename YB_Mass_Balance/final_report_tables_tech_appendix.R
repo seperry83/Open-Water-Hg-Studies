@@ -10,6 +10,22 @@ library(openwaterhg)
 
 # Functions for script ----------------------------------------------------
 
+# Create a function to rename inlet station names
+rename_inlet_sta <- function(df) {
+  df <- df %>% 
+    mutate(
+      StationName = case_when(
+        str_detect(StationName, "^CCSB") ~ "CCSB",
+        str_detect(StationName, "^Fre") ~ "Fremont",
+        str_detect(StationName, "^Kni") ~ "KLRC",
+        str_detect(StationName, "^Put") ~ "Putah",
+        str_detect(StationName, "^Sac") ~ "Sac_Weir"
+      )
+    ) 
+  
+  return(df)
+}
+
 # Create a function to apply a plotting order for the analytes
 conv_fact_analytes <- function(df) {
   analytes_order <- c(
@@ -31,7 +47,7 @@ conv_fact_analytes <- function(df) {
   return(df)
 }
 
-obj_keep <- c("obj_keep", "conv_fact_analytes")
+obj_keep <- c("obj_keep", "rename_inlet_sta", "conv_fact_analytes")
 
 
 # Table B-6 ---------------------------------------------------------------
@@ -291,15 +307,7 @@ inlet_mehg_conc <- all_conc %>%
     )
   ) %>% 
   # Rename stations
-  mutate(
-    StationName = case_when(
-      str_detect(StationName, "^CCSB") ~ "CCSB",
-      str_detect(StationName, "^Fre") ~ "Fremont Weir",
-      str_detect(StationName, "^Kni") ~ "KLRC",
-      str_detect(StationName, "^Put") ~ "Putah Creek",
-      str_detect(StationName, "^Sac") ~ "Sacramento Weir"
-    )
-  ) %>% 
+  rename_inlet_sta() %>% 
   # Define analyte order
   conv_fact_analytes()
 
@@ -318,7 +326,7 @@ fre_ccsb_mehg_conc <- inlet_mehg_conc %>%
 
 
 # Add back the averages and standard deviations for Fremont Weir and CCSB to 
-  # all other data for data tables
+  # all other data for data table
   
   # Round averages and std deviations to correct number of significant digits
   fre_ccsb_mehg_conc_r <- fre_ccsb_mehg_conc %>% 
@@ -338,33 +346,27 @@ fre_ccsb_mehg_conc <- inlet_mehg_conc %>%
       id_cols = -sd_conc,
       names_from = StationName,
       values_from = Conc
-    ) %>% 
-    rename(Fremont = "Fremont Weir")
+    )
   
-  # Pivot std deviations wider
-  fre_ccsb_mehg_stdev_w <- fre_ccsb_mehg_conc_r %>% 
+  # Pivot std deviations wider- only for Fremont Weir
+  fre_mehg_stdev_w <- fre_ccsb_mehg_conc_r %>% 
     pivot_wider(
       id_cols = -Conc,
       names_from = StationName,
       values_from = sd_conc
     ) %>% 
-    # only keep values for Fremont Weir
     select(-CCSB) %>% 
     # remove two sampling events in March without values for all three sampling locations 
     filter(month(SampleDate) != 3) %>% 
-    rename(Fremont_sd = "Fremont Weir")
+    rename(Fremont_sd = Fremont)
   
-  # Join dataframes together for data tables
+  # Join dataframes together for data table
   inlet_mehg_conc_tbl <- inlet_mehg_conc %>% 
     filter(!str_detect(StationName, "^CCSB|^Fre")) %>% 
     select(StationName, SampleDate, Analyte, Conc) %>% 
     pivot_wider(names_from = StationName, values_from = Conc) %>% 
-    rename(
-      Putah = "Putah Creek",
-      Sac_Weir = "Sacramento Weir"
-    ) %>% 
     left_join(fre_ccsb_mehg_conc_w) %>% 
-    left_join(fre_ccsb_mehg_stdev_w) %>% 
+    left_join(fre_mehg_stdev_w) %>% 
     select(SampleDate, Analyte, KLRC, CCSB, Putah, Sac_Weir, Fremont, Fremont_sd) %>% 
     arrange(Analyte, SampleDate)
 
@@ -385,6 +387,7 @@ fre_ccsb_mehg_conc <- inlet_mehg_conc %>%
       avg_conc = mean(Conc),
       sd_conc = sd(Conc)
     ) %>% 
+    ungroup() %>% 
     mutate(
       coef_var = signif(sd_conc/avg_conc, sign_digits),
       # round averages and std deviations after calculating CV
@@ -395,7 +398,6 @@ fre_ccsb_mehg_conc <- inlet_mehg_conc %>%
         TRUE ~ round(sd_conc, 3)
       )
     ) %>% 
-    ungroup() %>% 
     # Restructure dataframe
     select(-sign_digits) %>% 
     pivot_longer(
@@ -403,9 +405,8 @@ fre_ccsb_mehg_conc <- inlet_mehg_conc %>%
       names_to = "summ_stat_type",
       values_to = "summ_stat_value"
     ) %>% 
-    conv_fact_inlet_names() %>% 
-    arrange(StationName) %>% 
-    pivot_wider(names_from = StationName, values_from = summ_stat_value)
+    pivot_wider(names_from = StationName, values_from = summ_stat_value) %>% 
+    select(Analyte, summ_stat_type, KLRC, CCSB, Putah, Sac_Weir, Fremont)
 
 # Export Tables
 inlet_mehg_conc_tbl %>% write_excel_csv(paste0("table_b-", tbl_num, "_indiv_values.csv"), na = "")
@@ -433,48 +434,99 @@ inlet_mehg_conc <- all_conc %>%
     Analyte %in% c("MeHg- total", "MeHg- particulate"),
     year(SampleDate) == 2017
   ) %>% 
-  # Calculate the number of significant digits in the Conc values
-  mutate(
-    digits = case_when(
-      Conc < 0.01 ~ 1,
-      Conc < 0.1 ~ 2,
-      TRUE ~ 3
-    )
-  ) %>% 
-  select(StationName, SampleDate, Analyte, Conc, digits)
+  select(StationName, SampleDate, Analyte, Conc)
 
 # Calculate the percent of pMeHg for the tributary inlets in 2017
 inlet_perc_pmehg <- inlet_mehg_conc %>% 
-  pivot_wider(
-    id_cols = -digits,
-    names_from = Analyte,
-    values_from = Conc
-  ) %>% 
+  pivot_wider(names_from = Analyte, values_from = Conc) %>% 
   rename(
     uMeHg = "MeHg- total",
     pMeHg = "MeHg- particulate"
   ) %>% 
-  mutate(perc_pmehg = pMeHg/uMeHg)
+  mutate(perc_pmehg = pMeHg/uMeHg) %>% 
+  rename_inlet_sta() %>% 
+  select(-c(uMeHg, pMeHg))
 
-# Calculate the minimum number of significant digits to assign to each percentage value
-inlet_mehg_sig_dig <- inlet_mehg_conc %>% 
-  group_by(StationName, SampleDate) %>% 
-  summarize(sign_digits = min(digits)) %>% 
-  ungroup()
+# Pull out data for Fremont Weir and CCSB and calculate averages and stdev of 
+  # the multiple stations representing these inputs
+fre_ccsb_perc_pmehg <- inlet_perc_pmehg %>% 
+  filter(str_detect(StationName, "^CCSB|^Fre")) %>% 
+  group_by(SampleDate, StationName) %>% 
+  summarize(
+    avg_perc_pmehg = mean(perc_pmehg),
+    sd_perc_pmehg = sd(perc_pmehg)
+  ) %>% 
+  ungroup() %>% 
+  rename(perc_pmehg = avg_perc_pmehg)
 
-# Rename stations
-mutate(
-  StationName = case_when(
-    str_detect(StationName, "^CCSB") ~ "CCSB",
-    str_detect(StationName, "^Fre") ~ "Fremont Weir",
-    str_detect(StationName, "^Kni") ~ "KLRC",
-    str_detect(StationName, "^Put") ~ "Putah Creek",
-    str_detect(StationName, "^Sac") ~ "Sacramento Weir"
-  )
-) %>% 
 
-# Export Table
-loads_inlet_summ_c %>% write_excel_csv(paste0("table_b-", tbl_num, ".csv"))
+# Add back the averages and standard deviations for Fremont Weir and CCSB to 
+  # all other data for data table
+
+  # Pivot average percentages wider
+  fre_ccsb_perc_pmehg_w <- fre_ccsb_perc_pmehg %>% 
+    pivot_wider(
+      id_cols = -sd_perc_pmehg,
+      names_from = StationName,
+      values_from = perc_pmehg
+    )
+  
+  # Pivot std deviations wider- only for Fremont Weir
+  fre_stdev_w <- fre_ccsb_perc_pmehg %>% 
+    pivot_wider(
+      id_cols = -perc_pmehg,
+      names_from = StationName,
+      values_from = sd_perc_pmehg
+    ) %>% 
+    select(-CCSB) %>% 
+    # remove two sampling events in March without values for all three sampling locations 
+    filter(month(SampleDate) != 3) %>% 
+    rename(Fremont_sd = Fremont)
+  
+  # Join dataframes together for data table
+  inlet_perc_pmehg_tbl <- inlet_perc_pmehg %>% 
+    filter(!str_detect(StationName, "^CCSB|^Fre")) %>% 
+    pivot_wider(names_from = StationName, values_from = perc_pmehg) %>% 
+    left_join(fre_ccsb_perc_pmehg_w) %>% 
+    left_join(fre_stdev_w) %>% 
+    # Round all values to two significant figures
+    mutate_at(vars(-SampleDate), ~signif(.x, 2)) %>% 
+    select(SampleDate, KLRC, CCSB, Putah, Sac_Weir, Fremont, Fremont_sd) %>% 
+    arrange(SampleDate)
+
+# Calculate averages, stdev, and CV of all sampling events
+  
+  # Modify dataframe with average Fremont Weir and CCSB data to bind to all other data in order to
+    # calculate overall summary statistics
+  fre_ccsb_perc_pmehg_mod <- fre_ccsb_perc_pmehg %>% select(-sd_perc_pmehg)
+  
+  # Join dataframes together and make calculations
+  perc_pmehg_summ <- inlet_perc_pmehg %>% 
+    filter(!str_detect(StationName, "^CCSB|^Fre")) %>% 
+    bind_rows(fre_ccsb_perc_pmehg_mod) %>% 
+    group_by(StationName) %>% 
+    summarize(
+      avg_perc_pmehg = mean(perc_pmehg),
+      sd_perc_pmehg = sd(perc_pmehg)
+    ) %>% 
+    mutate(
+      coef_var = signif(sd_perc_pmehg/avg_perc_pmehg, 2),
+      # round averages and std deviations after calculating CV
+      avg_perc_pmehg = signif(avg_perc_pmehg, 2),
+      sd_perc_pmehg = signif(sd_perc_pmehg, 2)
+    ) %>% 
+    # Restructure dataframe
+    pivot_longer(
+      cols = avg_perc_pmehg:coef_var,
+      names_to = "summ_stat_type",
+      values_to = "summ_stat_value"
+    ) %>% 
+    pivot_wider(names_from = StationName, values_from = summ_stat_value) %>% 
+    select(summ_stat_type, KLRC, CCSB, Putah, Sac_Weir, Fremont)
+
+# Export Tables
+inlet_perc_pmehg_tbl %>% write_excel_csv(paste0("table_b-", tbl_num, "_indiv_values.csv"), na = "")
+perc_pmehg_summ %>% write_excel_csv(paste0("table_b-", tbl_num, "_summary_values.csv"))
 
 # Clean up
 rm(list= ls()[!(ls() %in% obj_keep)])
