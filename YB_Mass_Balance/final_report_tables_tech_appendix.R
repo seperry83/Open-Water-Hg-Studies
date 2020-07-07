@@ -415,71 +415,63 @@ mehg_conc_summ %>% write_excel_csv(paste0("table_b-", tbl_num, "_summary_values.
 rm(list= ls()[!(ls() %in% obj_keep)])
 
 
-# Table B-13 --------------------------------------------------------------
-
+# Table B-11 --------------------------------------------------------------
+# Percent of particulate MeHg in tributary inputs for the sampling events in 2017
+# Table provides percentages for each event and the overall averages, standard deviations, 
+  # and coefficients of variation
 
 # Define table number for easier updating
-tbl_num <- as.character(13)
+tbl_num <- as.character(11)
 
-# Bring in inlet load data
-source("YB_Mass_Balance/Loads/Import_Inlet_Load_Data.R")
+# Bring in concentration data
+source("YB_Mass_Balance/Concentrations/Import_Conc_Data.R")
 
-# Filter Inlet Load data
-loads_inlet_clean <- loads_inlet %>% 
+# Only keep uMeHg and pMeHg data for the tributary inlets and for 2017
+inlet_mehg_conc <- all_conc %>% 
   filter(
-    Year == 2017,
-    str_detect(Analyte, "OC$|Hg|SS$"),
+    str_detect(StationName, "^CCSB|^Fre|^Kni|^Put|^Sac"),
+    Analyte %in% c("MeHg- total", "MeHg- particulate"),
+    year(SampleDate) == 2017
   ) %>% 
-  # apply factor order to Inlets
-  conv_fact_inlet_names()
-
-# Summarize inlet load data for Table B-11
-loads_inlet_summ <- loads_inlet_clean %>% 
-  # Calculate averages and standard deviations of loads for each inlet
-  group_by(StationName, Analyte, LoadUnits) %>% 
-  summarize(
-    sign_digits = min(digits, na.rm = TRUE),
-    Mean = signif(mean(Load), sign_digits),
-    StDev = signif(sd(Load), sign_digits)
+  # Calculate the number of significant digits in the Conc values
+  mutate(
+    digits = case_when(
+      Conc < 0.01 ~ 1,
+      Conc < 0.1 ~ 2,
+      TRUE ~ 3
+    )
   ) %>% 
-  ungroup() %>% 
-  select(-sign_digits)
+  select(StationName, SampleDate, Analyte, Conc, digits)
 
-# Pivot the averages
-loads_inlet_avg <- loads_inlet_summ %>% 
+# Calculate the percent of pMeHg for the tributary inlets in 2017
+inlet_perc_pmehg <- inlet_mehg_conc %>% 
   pivot_wider(
-    id_cols = -StDev,
-    names_from = StationName,
-    values_from = Mean
-  )
-
-# Pivot the standard deviations
-loads_inlet_stdev <- loads_inlet_summ %>% 
-  pivot_wider(
-    id_cols = -Mean,
-    names_from = StationName,
-    values_from = StDev
+    id_cols = -digits,
+    names_from = Analyte,
+    values_from = Conc
   ) %>% 
-  select(-LoadUnits)
-
-# Join averages and standard deviations together into one df
-loads_inlet_summ_c <- 
-  left_join(
-    loads_inlet_avg, loads_inlet_stdev,
-    by = c("Analyte"),
-    suffix = c("_avg", "_stdev")
+  rename(
+    uMeHg = "MeHg- total",
+    pMeHg = "MeHg- particulate"
   ) %>% 
-  mutate(Analyte = factor(Analyte, levels = analyte_order)) %>% 
-  arrange(Analyte) %>% 
-  select(
-    Analyte,
-    LoadUnits,
-    starts_with("KLRC"),
-    starts_with("CCSB"),
-    starts_with("Putah"),
-    starts_with("Sac"),
-    starts_with("Fre"),
+  mutate(perc_pmehg = pMeHg/uMeHg)
+
+# Calculate the minimum number of significant digits to assign to each percentage value
+inlet_mehg_sig_dig <- inlet_mehg_conc %>% 
+  group_by(StationName, SampleDate) %>% 
+  summarize(sign_digits = min(digits)) %>% 
+  ungroup()
+
+# Rename stations
+mutate(
+  StationName = case_when(
+    str_detect(StationName, "^CCSB") ~ "CCSB",
+    str_detect(StationName, "^Fre") ~ "Fremont Weir",
+    str_detect(StationName, "^Kni") ~ "KLRC",
+    str_detect(StationName, "^Put") ~ "Putah Creek",
+    str_detect(StationName, "^Sac") ~ "Sacramento Weir"
   )
+) %>% 
 
 # Export Table
 loads_inlet_summ_c %>% write_excel_csv(paste0("table_b-", tbl_num, ".csv"))
