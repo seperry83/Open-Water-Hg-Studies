@@ -533,145 +533,174 @@ rm(list= ls()[!(ls() %in% obj_keep)])
 
 
 # Table B-12 --------------------------------------------------------------
-# Summary statistics for total loads of Hg, MeHg, Organic Carbon and Suspended Solids
-# Totals for the outlet at the Stairsteps and Below Liberty Island
-# For just the sampling events in 2017
+# Comparison of the percentage increase of Hg and MeHg with several biogoechemical parameters 
+  # between the Fremont Weir tributary input and export at Liberty Island
 
 # Define table number for easier updating
 tbl_num <- as.character(12)
 
-# Bring in total load data
-source("YB_Mass_Balance/Loads/Import_Total_Load_Data.R")
-
-# Filter total load data
-loads_total_clean <- loads_total %>% 
-  # Filter load data
-  filter(
-    LocType != "Inlet",
-    Year == 2017,
-    str_detect(Analyte, "OC$|Hg|SS$"),
-  )
-
-# Calcuate averages and standard deviations on non-rounded data
-loads_total_clean_summ1 <- loads_total_clean %>%
-  group_by(LocType, Analyte, LoadUnits) %>% 
-  summarize(
-    sign_digits = min(digits),
-    Mean = signif(mean(total_load), sign_digits),
-    StDev = signif(sd(total_load), sign_digits)
-  ) %>% 
-  ungroup() %>% 
-  select(-sign_digits)
-
-# Calculate all other summary statistics on rounded data
-loads_total_clean_summ2 <- loads_total_clean %>% 
-  mutate(total_load = signif(total_load, digits)) %>%
-  summ_stat(total_load, LocType, Analyte) %>% 
-  select(-c(Mean, StDev)) %>% 
-  # Round some medians to appropriate number of significant digits
-  mutate(
-    Median = case_when(
-      LocType == "Below Liberty" & Analyte %in% c("MeHg- particulate", "TSS", "DOC") ~ signif(Median, 2),
-      LocType == "Below Liberty" & Analyte == "VSS" ~ signif(Median, 1),
-      TRUE ~ Median
-    )
-  )
-
-# Join Summary Statistics together for Table
-loads_total_clean_summ <- 
-  left_join(loads_total_clean_summ1, loads_total_clean_summ2) %>% 
-  select(LocType, Analyte, LoadUnits, Minimum, Maximum, Median, Mean, StDev) %>% 
-  # Define analyte order for table
-  mutate(Analyte = factor(Analyte, levels = analyte_order)) %>%
-  arrange(Analyte) %>% 
-  group_nest(LocType)
-
-# Export Table
-  # Outlet Loads
-  loads_total_clean_summ %>% 
-    filter(LocType == "Outlet") %>% 
-    pull(data) %>% 
-    chuck(1) %>% 
-    write_excel_csv(paste0("table_b-", tbl_num, "_outlet.csv"))
-  
-  # Below Liberty Island Loads
-  loads_total_clean_summ %>% 
-    filter(LocType == "Below Liberty") %>% 
-    pull(data) %>% 
-    chuck(1) %>% 
-    write_excel_csv(paste0("table_b-", tbl_num, "_bli.csv"))
   
 # Clean up
 rm(list= ls()[!(ls() %in% obj_keep)])
 
 
-# Table B-13 --------------------------------------------------------------
-# Averages and standard deviations for net loads of Hg, MeHg, Organic Carbon and Suspended Solids
-# For 3 segments of the Yolo Bypass: upper reach, Liberty Island, and entire Bypass
+# Tables B-13 through B-15 --------------------------------------------------------------
+# Averages and standard deviations for inlet, outlet, and net loads of Hg, MeHg, 
+  # Organic Carbon and Suspended Solids
+# Tables also provides the percent differences of the net loads
 # For just the sampling events in 2017
+# B-13 is for the entire Bypass, B-14 is for the Upper Reach, B-15 is for the Liberty Island Reach
 
-# Define table number for easier updating
-tbl_num <- as.character(13)
+# Define table numbers for easier updating
+tbl_num_entire <- as.character(13)
+tbl_num_upper <- as.character(14)
+tbl_num_lib <- as.character(15)
 
-# Bring in total load data
+# Bring in load data
+source("YB_Mass_Balance/Loads/Import_Total_Load_Data.R")
 source("YB_Mass_Balance/Loads/Import_Net_Load_Data.R")
 
-# Filter net load data
-loads_net_clean <- loads_net %>% 
-  # Filter load data
-  filter(
-    Year == 2017,
-    str_detect(Analyte, "OC$|Hg|SS$"),
-  )
-
-# Summarize net load data for each reach for Table B-13
-loads_net_clean_summ <- loads_net_clean %>% 
-  # Calculate averages and standard deviations of net loads for each reach
-  group_by(Reach, Analyte, LoadUnits) %>% 
-  summarize(
-    sign_digits = min(digits),
-    Mean = signif(mean(net_load), sign_digits),
-    StDev = signif(sd(net_load), sign_digits)
-  ) %>% 
-  ungroup() %>% 
-  select(-sign_digits)
-
-# Pivot the averages
-loads_net_avg <- loads_net_clean_summ %>% 
-  pivot_wider(
-    id_cols = -StDev,
-    names_from = Reach,
-    values_from = Mean
-  )
-
-# Pivot the standard deviations
-loads_net_stdev <- loads_net_clean_summ %>% 
-  pivot_wider(
-    id_cols = -Mean,
-    names_from = Reach,
-    values_from = StDev
-  ) %>% 
+# Prepare total load data to be combined with the net load data
+loads_total_mod <- loads_total %>% 
+  mutate(LocType = if_else(str_detect(LocType, "^Bel"), "BLI", LocType)) %>% 
   select(-LoadUnits)
 
-# Join averages and standard deviations together into one df
-loads_net_summ_c <- 
-  left_join(
-    loads_net_avg, loads_net_stdev,
-    by = c("Analyte"),
-    suffix = c("_avg", "_stdev")
-  ) %>% 
-  mutate(Analyte = factor(Analyte, levels = analyte_order)) %>% 
-  arrange(Analyte) %>% 
-  select(
-    Analyte,
-    LoadUnits,
-    starts_with("Upper"),
-    starts_with("Liberty"),
-    starts_with("Entire")
+loads_total_val <- loads_total_mod %>% 
+  pivot_wider(
+    id_cols = -digits,
+    names_from = LocType,
+    values_from = total_load,
+    names_prefix = "val_"
   )
 
-# Export Table
-loads_net_summ_c %>% write_excel_csv(paste0("table_b-", tbl_num, ".csv"))
+loads_total_dig <- loads_total_mod %>% 
+  pivot_wider(
+    id_cols = -total_load,
+    names_from = LocType,
+    values_from = digits,
+    names_prefix = "digits_"
+  )
+
+# Prepare net load data to be combined with the total load data
+loads_net_val <- loads_net %>% 
+  pivot_wider(
+    id_cols = -c(LoadUnits, digits),
+    names_from = Reach,
+    values_from = net_load,
+    names_prefix = "val_"
+  )
+
+loads_net_dig <- loads_net %>% 
+  pivot_wider(
+    id_cols = -c(LoadUnits, net_load),
+    names_from = Reach,
+    values_from = digits,
+    names_prefix = "digits_"
+  )
+
+# Combine total and net load data and only include data for 2017 for specific analytes
+loads_c <- 
+  reduce(
+    list(
+      loads_total_val,
+      loads_total_dig,
+      loads_net_val,
+      loads_net_dig
+    ),
+    .f = left_join
+  ) %>% 
+  filter(
+    Year == 2017,
+    str_detect(Analyte, "OC$|Hg|SS$")
+  ) %>% 
+  # Apply order for analytes in the data tables
+  conv_fact_analytes()
+
+# Create three dataframes with load data for each Reach (Entire, Upper, and Liberty)
+loads_c_entire <- loads_c %>% 
+  select(
+    SamplingEvent,
+    Analyte,
+    ends_with("Inlet"),
+    ends_with("BLI"),
+    ends_with("Entire")
+  )
+
+loads_c_upper <- loads_c %>% 
+  select(
+    SamplingEvent,
+    Analyte,
+    ends_with("Inlet"),
+    ends_with("Outlet"),
+    ends_with("Upper")
+  )
+
+loads_c_liberty <- loads_c %>% 
+  select(
+    SamplingEvent,
+    Analyte,
+    ends_with("Outlet"),
+    ends_with("BLI"),
+    ends_with("Liberty")
+  )
+
+# Make variable names consistent in the dataframes for each reach in order to summarize later
+names(loads_c_entire) <- str_replace_all(names(loads_c_entire), "Inlet", "in")
+names(loads_c_entire) <- str_replace_all(names(loads_c_entire), "BLI", "out")
+names(loads_c_entire) <- str_replace_all(names(loads_c_entire), "Entire", "net")
+
+names(loads_c_upper) <- str_replace_all(names(loads_c_upper), "Inlet", "in")
+names(loads_c_upper) <- str_replace_all(names(loads_c_upper), "Outlet", "out")
+names(loads_c_upper) <- str_replace_all(names(loads_c_upper), "Upper", "net")
+
+names(loads_c_liberty) <- str_replace_all(names(loads_c_liberty), "Outlet", "in")
+names(loads_c_liberty) <- str_replace_all(names(loads_c_liberty), "BLI", "out")
+names(loads_c_liberty) <- str_replace_all(names(loads_c_liberty), "Liberty", "net")
+
+# Combine three dataframes for each reach into a list to run functions on each
+loads_list_reach <- 
+  list(
+    "entire" = loads_c_entire,
+    "upper" = loads_c_upper,
+    "liberty" = loads_c_liberty
+  )
+
+# Create summary tables of load data for each reach
+loads_list_summ <- loads_list_reach %>% 
+  # Remove April 11-12 sampling event for the Entire Bypass and Liberty reach
+  map_at(
+    c("entire", "liberty"), 
+    ~filter(.x, str_detect(SamplingEvent, "^Apr 11", negate = TRUE))
+  ) %>% 
+  # Calculate averages and standard deviations
+  map(~group_by(.x, Analyte)) %>% 
+  map(
+    ~summarize(
+      .x,
+      avg_in = mean(val_in),
+      sd_in = sd(val_in),
+      signdig_in = min(digits_in),
+      avg_out = mean(val_out),
+      sd_out = sd(val_out),
+      signdig_out = min(digits_out),
+      avg_net = mean(val_net),
+      sd_net = sd(val_net),
+      signdig_net = min(digits_net),
+    ) 
+  ) %>% 
+  # Calculate percent differences 
+  map(~mutate(.x, perc_diff = signif(avg_net/avg_in, 2))) %>% 
+  # Round loads to proper number of significant figures
+  map(~mutate_at(.x, c("avg_in", "sd_in"), ~signif(.x, signdig_in))) %>% 
+  map(~mutate_at(.x, c("avg_out", "sd_out"), ~signif(.x, signdig_out))) %>% 
+  map(~mutate_at(.x, c("avg_net", "sd_net"), ~signif(.x, signdig_net))) %>% 
+  # Clean up data to be exported
+  map(~select(.x, !starts_with("sign")))
+
+# Export Tables
+loads_list_summ$entire %>% write_excel_csv(paste0("table_b-", tbl_num_entire, ".csv"))
+loads_list_summ$upper %>% write_excel_csv(paste0("table_b-", tbl_num_upper, ".csv"))
+loads_list_summ$liberty %>% write_excel_csv(paste0("table_b-", tbl_num_lib, ".csv"))
 
 # Clean up
 rm(list= ls()[!(ls() %in% obj_keep)])
