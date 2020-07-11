@@ -544,26 +544,174 @@ tbl_num <- as.character(12)
 rm(list= ls()[!(ls() %in% obj_keep)])
 
 
-# Tables B-13 through B-15 --------------------------------------------------------------
-# Averages and standard deviations for inlet, outlet, and net loads of Hg, MeHg, 
+# Table B-13 --------------------------------------------------------------
+# Averages and standard deviations for inlet, outlet, and Below Liberty Island loads of Hg, MeHg, 
   # Organic Carbon and Suspended Solids
+# For just the sampling events in 2017
+
+# Define table number for easier updating
+tbl_num <- as.character(13)
+
+# Bring in total load data
+source("YB_Mass_Balance/Loads/Import_Total_Load_Data.R")
+
+# Calculate averages and standard deviations of the inlet, outlet, and BLI loads
+loads_total_summ <- loads_total %>% 
+  filter(
+    Year == 2017,
+    str_detect(Analyte, "OC$|Hg|SS$")
+  ) %>% 
+  # Apply order for analytes in the table
+  conv_fact_analytes() %>% 
+  # Rename Below Liberty Island
+  mutate(LocType = if_else(str_detect(LocType, "^Bel"), "BLI", LocType)) %>% 
+  group_by(LocType, Analyte) %>% 
+  summarize(
+    sign_digits = min(digits),
+    avg_load = signif(mean(total_load), sign_digits),
+    sd_load = signif(sd(total_load), sign_digits)
+  ) %>% 
+  ungroup() %>% 
+  select(-sign_digits)
+
+# Pivot the averages by LocType
+loads_total_avg <- loads_total_summ %>% 
+  pivot_wider(
+    id_cols = -sd_load,
+    names_from = LocType,
+    values_from = avg_load,
+    names_prefix = "avg_load_"
+  ) 
+
+# Pivot the standard deviations by LocType
+loads_total_sd <- loads_total_summ %>% 
+  pivot_wider(
+    id_cols = -avg_load,
+    names_from = LocType,
+    values_from = sd_load,
+    names_prefix = "sd_load_"
+  ) 
+
+# Join averages and standard deviations together for table
+loads_total_summ_f <- 
+  left_join(loads_total_avg, loads_total_sd) %>% 
+  select(
+    Analyte,
+    ends_with("Inlet"),
+    ends_with("Outlet"),
+    ends_with("BLI")
+  )
+
+# Export Tables
+loads_total_summ_f %>% write_excel_csv(paste0("table_b-", tbl_num, ".csv"))
+
+# Clean up
+rm(list= ls()[!(ls() %in% obj_keep)])
+
+
+# Table B-14 --------------------------------------------------------------
+# Averages and standard deviations for the net loads within the Upper and Liberty Island reaches 
+  # and for the entire Yolo Bypass of Hg, MeHg,Organic Carbon and Suspended Solids
 # Tables also provides the percent differences of the net loads
 # For just the sampling events in 2017
-# B-13 is for the entire Bypass, B-14 is for the Upper Reach, B-15 is for the Liberty Island Reach
 
-# Define table numbers for easier updating
-tbl_num_entire <- as.character(13)
-tbl_num_upper <- as.character(14)
-tbl_num_lib <- as.character(15)
+# Define table number for easier updating
+tbl_num <- as.character(14)
 
 # Bring in load data
 source("YB_Mass_Balance/Loads/Import_Total_Load_Data.R")
 source("YB_Mass_Balance/Loads/Import_Net_Load_Data.R")
 
-# Prepare total load data to be combined with the net load data
-loads_total_mod <- loads_total %>% 
-  mutate(LocType = if_else(str_detect(LocType, "^Bel"), "BLI", LocType)) %>% 
-  select(-LoadUnits)
+# Only include total and net load data for 2017 for specific analytes
+loads_all <- 
+  list(
+    total = loads_total,
+    net = loads_net
+  ) %>% 
+  map(~filter(.x, Year == 2017, str_detect(Analyte, "OC$|Hg|SS$")))
+
+# Calculate averages of the inlet loads for all 9 events in 2017
+loads_inlet_avg9 <- loads_all$total %>% 
+  filter(LocType == "Inlet") %>% 
+  group_by(Analyte) %>% 
+  summarize(inlet_load9 = mean(total_load))
+  
+# Calculate averages of the inlet and outlet loads for 8 events in 2017 to be comparable to 
+  # net loads for Liberty Island and the entire Bypass
+loads_total_avg8 <- loads_all$total %>% 
+  filter(
+    LocType != "Below Liberty",
+    SamplingEvent != "Apr 11-12, 2017"
+  ) %>% 
+  group_by(Analyte, LocType) %>% 
+  summarize(avg_load = mean(total_load)) %>% 
+  ungroup() %>% 
+  pivot_wider(names_from = LocType, values_from = avg_load) %>% 
+  rename(
+    inlet_load8 = Inlet,
+    outlet_load8 = Outlet 
+  )
+
+# Calculate averages and standard deviations of the net loads for each reach
+loads_net_summ <- loads_all$net %>% 
+  group_by(Reach, Analyte) %>% 
+  summarize(
+    sign_digits = min(digits),
+    avg_net_load = mean(net_load),
+    sd_net_load = sd(net_load)
+  ) %>% 
+  ungroup()
+
+# Calculate percent differences for the net loads
+# START HERE
+
+# Prepare net load data to be combined with the total load data
+loads_net_val <- loads_net %>% 
+  pivot_wider(
+    id_cols = -c(LoadUnits, digits),
+    names_from = Reach,
+    values_from = net_load,
+    names_prefix = "val_"
+  )
+
+loads_net_dig <- loads_net %>% 
+  pivot_wider(
+    id_cols = -c(LoadUnits, net_load),
+    names_from = Reach,
+    values_from = digits,
+    names_prefix = "digits_"
+  )
+
+# Combine total and net load data and only include data for 2017 for specific analytes
+loads_c <- 
+  reduce(
+    list(
+      loads_total_mod,
+      loads_net_val,
+      loads_net_dig
+    ),
+    .f = left_join
+  ) %>% 
+  filter(
+    Year == 2017,
+    str_detect(Analyte, "OC$|Hg|SS$")
+  ) %>% 
+  # Apply order for analytes in the data tables
+  conv_fact_analytes()
+
+
+# Table B-15 --------------------------------------------------------------
+# Averages and standard deviations of MeHg for all reaches and import and export locations
+# For just the 8 comparable sampling events in 2017
+
+# Define table number for easier updating
+tbl_num <- as.character(15)
+
+# Bring in load data
+source("YB_Mass_Balance/Loads/Import_Total_Load_Data.R")
+source("YB_Mass_Balance/Loads/Import_Net_Load_Data.R")
+
+
 
 loads_total_val <- loads_total_mod %>% 
   pivot_wider(
@@ -704,4 +852,9 @@ loads_list_summ$liberty %>% write_excel_csv(paste0("table_b-", tbl_num_lib, ".cs
 
 # Clean up
 rm(list= ls()[!(ls() %in% obj_keep)])
+
+
+# Table B-16 --------------------------------------------------------------
+
+
 
