@@ -822,7 +822,7 @@ ggsave(
   plot = loads_total_plots$hg,
   dpi = 300,
   width = 9.5, 
-  height = 6.5, 
+  height = 6.25, 
   units = "in"
 )
 
@@ -832,7 +832,7 @@ ggsave(
   plot = loads_total_plots$other,
   dpi = 300,
   width = 9.5, 
-  height = 6.5, 
+  height = 6.25, 
   units = "in"
 )
 
