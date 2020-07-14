@@ -602,7 +602,7 @@ loads_total_summ_f <-
     ends_with("BLI")
   )
 
-# Export Tables
+# Export Table
 loads_total_summ_f %>% write_excel_csv(paste0("table_b-", tbl_num, ".csv"))
 
 # Clean up
@@ -628,7 +628,8 @@ loads_all <-
     total = loads_total,
     net = loads_net
   ) %>% 
-  map(~filter(.x, Year == 2017, str_detect(Analyte, "OC$|Hg|SS$")))
+  map(~filter(.x, Year == 2017, str_detect(Analyte, "OC$|Hg|SS$"))) %>% 
+  map(conv_fact_analytes)
 
 # Calculate averages of the inlet loads for all 9 events in 2017
 loads_inlet_avg9 <- loads_all$total %>% 
@@ -663,41 +664,64 @@ loads_net_summ <- loads_all$net %>%
   ungroup()
 
 # Calculate percent differences for the net loads
-# START HERE
-
-# Prepare net load data to be combined with the total load data
-loads_net_val <- loads_net %>% 
+loads_perc_diff <- loads_net_summ %>% 
   pivot_wider(
-    id_cols = -c(LoadUnits, digits),
+    id_cols = -c(sign_digits, sd_net_load),
     names_from = Reach,
-    values_from = net_load,
-    names_prefix = "val_"
+    values_from = avg_net_load
+  ) %>% 
+  left_join(loads_inlet_avg9) %>% 
+  left_join(loads_total_avg8) %>% 
+  mutate(
+    pd_Entire = Entire/inlet_load8,
+    pd_Upper = Upper/inlet_load9,
+    pd_Liberty = Liberty/outlet_load8
+  ) %>% 
+  select(-c(Entire:outlet_load8))
+
+# Round the net load averages and standard deviations to the proper number of significant figures
+loads_net_summ_r <- loads_net_summ %>% 
+  mutate_at(vars(ends_with("load")), ~signif(.x, sign_digits))
+
+# Restructure net load summary data to be combined with the percent differences
+loads_net_avg <- loads_net_summ_r %>% 
+  pivot_wider(
+    id_cols = -c(sign_digits, sd_net_load),
+    names_from = Reach,
+    values_from = avg_net_load,
+    names_prefix = "avg_"
   )
 
-loads_net_dig <- loads_net %>% 
+loads_net_sd <- loads_net_summ_r %>% 
   pivot_wider(
-    id_cols = -c(LoadUnits, net_load),
+    id_cols = -c(sign_digits, avg_net_load),
     names_from = Reach,
-    values_from = digits,
-    names_prefix = "digits_"
+    values_from = sd_net_load,
+    names_prefix = "sd_"
   )
 
-# Combine total and net load data and only include data for 2017 for specific analytes
-loads_c <- 
+# Combine net load summary data with the calculated percent differences for table
+loads_summ_c <- 
   reduce(
     list(
-      loads_total_mod,
-      loads_net_val,
-      loads_net_dig
+      loads_net_avg,
+      loads_net_sd,
+      loads_perc_diff
     ),
     .f = left_join
   ) %>% 
-  filter(
-    Year == 2017,
-    str_detect(Analyte, "OC$|Hg|SS$")
-  ) %>% 
-  # Apply order for analytes in the data tables
-  conv_fact_analytes()
+  select(
+    Analyte,
+    ends_with("Upper"),
+    ends_with("Liberty"),
+    ends_with("Entire")
+  )
+
+# Export Table
+loads_summ_c %>% write_excel_csv(paste0("table_b-", tbl_num, ".csv"))
+
+# Clean up
+rm(list= ls()[!(ls() %in% obj_keep)])
 
 
 # Table B-15 --------------------------------------------------------------
@@ -711,150 +735,76 @@ tbl_num <- as.character(15)
 source("YB_Mass_Balance/Loads/Import_Total_Load_Data.R")
 source("YB_Mass_Balance/Loads/Import_Net_Load_Data.R")
 
-
-
-loads_total_val <- loads_total_mod %>% 
-  pivot_wider(
-    id_cols = -digits,
-    names_from = LocType,
-    values_from = total_load,
-    names_prefix = "val_"
+# Rename some variables in total and net load dataframes to be able to bind them together
+loads_total_mod <- loads_total %>% 
+  rename(
+    Loc_Reach = LocType,
+    load = total_load
   )
 
-loads_total_dig <- loads_total_mod %>% 
-  pivot_wider(
-    id_cols = -total_load,
-    names_from = LocType,
-    values_from = digits,
-    names_prefix = "digits_"
+loads_net_mod <- loads_net %>% 
+  rename(
+    Loc_Reach = Reach,
+    load = net_load
   )
 
-# Prepare net load data to be combined with the total load data
-loads_net_val <- loads_net %>% 
-  pivot_wider(
-    id_cols = -c(LoadUnits, digits),
-    names_from = Reach,
-    values_from = net_load,
-    names_prefix = "val_"
-  )
-
-loads_net_dig <- loads_net %>% 
-  pivot_wider(
-    id_cols = -c(LoadUnits, net_load),
-    names_from = Reach,
-    values_from = digits,
-    names_prefix = "digits_"
-  )
-
-# Combine total and net load data and only include data for 2017 for specific analytes
-loads_c <- 
-  reduce(
-    list(
-      loads_total_val,
-      loads_total_dig,
-      loads_net_val,
-      loads_net_dig
-    ),
-    .f = left_join
-  ) %>% 
+# Bind data together and only include load data for 8 comparable events in 2017 for MeHg
+loads_mehg_all <- 
+  bind_rows(loads_total_mod, loads_net_mod) %>% 
   filter(
-    Year == 2017,
-    str_detect(Analyte, "OC$|Hg|SS$")
+    Year == 2017, 
+    str_detect(Analyte, "^MeHg"), 
+    !str_detect(SamplingEvent, "^Apr 11")
   ) %>% 
-  # Apply order for analytes in the data tables
-  conv_fact_analytes()
-
-# Create three dataframes with load data for each Reach (Entire, Upper, and Liberty)
-loads_c_entire <- loads_c %>% 
-  select(
-    SamplingEvent,
-    Analyte,
-    ends_with("Inlet"),
-    ends_with("BLI"),
-    ends_with("Entire")
+  # Rename Analytes to make them easier to work with
+  mutate(
+    Analyte = recode(
+      Analyte,
+      "MeHg- total" = "uMeHg",
+      "MeHg- filtered" = "fMeHg",
+      "MeHg- particulate" = "pMeHg"
+    )
   )
 
-loads_c_upper <- loads_c %>% 
-  select(
-    SamplingEvent,
-    Analyte,
-    ends_with("Inlet"),
-    ends_with("Outlet"),
-    ends_with("Upper")
-  )
-
-loads_c_liberty <- loads_c %>% 
-  select(
-    SamplingEvent,
-    Analyte,
-    ends_with("Outlet"),
-    ends_with("BLI"),
-    ends_with("Liberty")
-  )
-
-# Make variable names consistent in the dataframes for each reach in order to summarize later
-names(loads_c_entire) <- str_replace_all(names(loads_c_entire), "Inlet", "in")
-names(loads_c_entire) <- str_replace_all(names(loads_c_entire), "BLI", "out")
-names(loads_c_entire) <- str_replace_all(names(loads_c_entire), "Entire", "net")
-
-names(loads_c_upper) <- str_replace_all(names(loads_c_upper), "Inlet", "in")
-names(loads_c_upper) <- str_replace_all(names(loads_c_upper), "Outlet", "out")
-names(loads_c_upper) <- str_replace_all(names(loads_c_upper), "Upper", "net")
-
-names(loads_c_liberty) <- str_replace_all(names(loads_c_liberty), "Outlet", "in")
-names(loads_c_liberty) <- str_replace_all(names(loads_c_liberty), "BLI", "out")
-names(loads_c_liberty) <- str_replace_all(names(loads_c_liberty), "Liberty", "net")
-
-# Combine three dataframes for each reach into a list to run functions on each
-loads_list_reach <- 
-  list(
-    "entire" = loads_c_entire,
-    "upper" = loads_c_upper,
-    "liberty" = loads_c_liberty
-  )
-
-# Create summary tables of load data for each reach
-loads_list_summ <- loads_list_reach %>% 
-  # Remove April 11-12 sampling event for the Entire Bypass and Liberty reach
-  map_at(
-    c("entire", "liberty"), 
-    ~filter(.x, str_detect(SamplingEvent, "^Apr 11", negate = TRUE))
+# Calculate averages and standard deviations of loads for each Loc_Reach
+loads_mehg_summ <- loads_mehg_all %>% 
+  group_by(Loc_Reach, Analyte) %>% 
+  summarize(
+    sign_digits = min(digits),
+    avg_load = signif(mean(load), sign_digits),
+    sd_load = signif(sd(load), sign_digits)
   ) %>% 
-  # Calculate averages and standard deviations
-  map(~group_by(.x, Analyte)) %>% 
-  map(
-    ~summarize(
-      .x,
-      avg_in = mean(val_in),
-      sd_in = sd(val_in),
-      signdig_in = min(digits_in),
-      avg_out = mean(val_out),
-      sd_out = sd(val_out),
-      signdig_out = min(digits_out),
-      avg_net = mean(val_net),
-      sd_net = sd(val_net),
-      signdig_net = min(digits_net),
-    ) 
+  ungroup() %>% 
+  # Restructure load summary data for table
+  pivot_wider(
+    id_cols = -sign_digits,
+    names_from = Analyte,
+    values_from = c(avg_load, sd_load)
   ) %>% 
-  # Calculate percent differences 
-  map(~mutate(.x, perc_diff = signif(avg_net/avg_in, 2))) %>% 
-  # Round loads to proper number of significant figures
-  map(~mutate_at(.x, c("avg_in", "sd_in"), ~signif(.x, signdig_in))) %>% 
-  map(~mutate_at(.x, c("avg_out", "sd_out"), ~signif(.x, signdig_out))) %>% 
-  map(~mutate_at(.x, c("avg_net", "sd_net"), ~signif(.x, signdig_net))) %>% 
-  # Clean up data to be exported
-  map(~select(.x, !starts_with("sign")))
+  mutate(
+    Loc_Reach = factor(
+      Loc_Reach, 
+      levels = c(
+        "Inlet", 
+        "Outlet", 
+        "Below Liberty",
+        "Upper",
+        "Liberty",
+        "Entire"
+      )
+    )
+  ) %>% 
+  arrange(Loc_Reach) %>% 
+  select(
+    Loc_Reach,
+    ends_with("uMeHg"),
+    ends_with("fMeHg"),
+    ends_with("pMeHg")
+  )
 
-# Export Tables
-loads_list_summ$entire %>% write_excel_csv(paste0("table_b-", tbl_num_entire, ".csv"))
-loads_list_summ$upper %>% write_excel_csv(paste0("table_b-", tbl_num_upper, ".csv"))
-loads_list_summ$liberty %>% write_excel_csv(paste0("table_b-", tbl_num_lib, ".csv"))
+# Export Table
+loads_mehg_summ %>% write_excel_csv(paste0("table_b-", tbl_num, ".csv"))
 
 # Clean up
 rm(list= ls()[!(ls() %in% obj_keep)])
-
-
-# Table B-16 --------------------------------------------------------------
-
-
 
