@@ -12,7 +12,7 @@ library(openwaterhg)
 
 # Create a function to rename inlet station names
 rename_inlet_sta <- function(df) {
-  df <- df %>% 
+  df1 <- df %>% 
     mutate(
       StationName = case_when(
         str_detect(StationName, "^CCSB") ~ "CCSB",
@@ -23,7 +23,7 @@ rename_inlet_sta <- function(df) {
       )
     ) 
   
-  return(df)
+  return(df1)
 }
 
 # Create a function to apply a plotting order for the analytes
@@ -42,9 +42,9 @@ conv_fact_analytes <- function(df) {
     "VSS"
   )
   
-  df <- df %>% mutate(Analyte = factor(Analyte, levels = analytes_order))
+  df1 <- df %>% mutate(Analyte = factor(Analyte, levels = analytes_order))
   
-  return(df)
+  return(df1)
 }
 
 obj_keep <- c("obj_keep", "rename_inlet_sta", "conv_fact_analytes")
@@ -313,7 +313,7 @@ inlet_mehg_conc <- all_conc %>%
 
 # Pull out data for Fremont Weir and CCSB and calculate averages and stdev of 
   # the multiple stations representing these inputs
-fre_ccsb_mehg_conc <- inlet_mehg_conc %>% 
+fre_ccsb_mehg_summ <- inlet_mehg_conc %>% 
   filter(str_detect(StationName, "^CCSB|^Fre")) %>% 
   group_by(SampleDate, StationName, Analyte) %>% 
   summarize(
@@ -329,7 +329,7 @@ fre_ccsb_mehg_conc <- inlet_mehg_conc %>%
   # all other data for data table
   
   # Round averages and std deviations to correct number of significant digits
-  fre_ccsb_mehg_conc_r <- fre_ccsb_mehg_conc %>% 
+  fre_ccsb_mehg_summ_r <- fre_ccsb_mehg_summ %>% 
     mutate(
       Conc = signif(Conc, digits),
       sd_conc = case_when(
@@ -340,33 +340,27 @@ fre_ccsb_mehg_conc <- inlet_mehg_conc %>%
     ) %>% 
     select(-digits)
   
-  # Pivot concentrations wider
-  fre_ccsb_mehg_conc_w <- fre_ccsb_mehg_conc_r %>% 
-    pivot_wider(
-      id_cols = -sd_conc,
-      names_from = StationName,
-      values_from = Conc
-    )
-  
-  # Pivot std deviations wider- only for Fremont Weir
-  fre_mehg_stdev_w <- fre_ccsb_mehg_conc_r %>% 
-    pivot_wider(
-      id_cols = -Conc,
-      names_from = StationName,
-      values_from = sd_conc
+  # Pivot concentrations and standard deviations wider
+  fre_ccsb_mehg_summ_w <- fre_ccsb_mehg_summ_r %>% 
+    pivot_wider(names_from = StationName, values_from = c(Conc, sd_conc)) %>% 
+    # remove standard deviation for CCSB
+    select(-sd_conc_CCSB) %>% 
+    # rename some variables
+    rename(
+      CCSB = Conc_CCSB,
+      Fremont = Conc_Fremont,
+      Fremont_sd = sd_conc_Fremont
     ) %>% 
-    select(-CCSB) %>% 
-    # remove two sampling events in March without values for all three sampling locations 
-    filter(month(SampleDate) != 3) %>% 
-    rename(Fremont_sd = Fremont)
+    # remove std deviations for two sampling events in March without values for 
+    # all three sampling locations at Fremont Weir
+    mutate(Fremont_sd = if_else(month(SampleDate) == 3, NA_real_, Fremont_sd))
   
   # Join dataframes together for data table
   inlet_mehg_conc_tbl <- inlet_mehg_conc %>% 
     filter(!str_detect(StationName, "^CCSB|^Fre")) %>% 
     select(StationName, SampleDate, Analyte, Conc) %>% 
     pivot_wider(names_from = StationName, values_from = Conc) %>% 
-    left_join(fre_ccsb_mehg_conc_w) %>% 
-    left_join(fre_mehg_stdev_w) %>% 
+    left_join(fre_ccsb_mehg_summ_w) %>% 
     select(SampleDate, Analyte, KLRC, CCSB, Putah, Sac_Weir, Fremont, Fremont_sd) %>% 
     arrange(Analyte, SampleDate)
 
@@ -375,12 +369,12 @@ fre_ccsb_mehg_conc <- inlet_mehg_conc %>%
   
   # Modify dataframe with average Fremont Weir and CCSB data to bind to all other data in order to
    # calculate overall summary statistics
-  fre_ccsb_mehg_conc_mod <- fre_ccsb_mehg_conc %>% select(-sd_conc)
+  fre_ccsb_mehg_summ_mod <- fre_ccsb_mehg_summ %>% select(-sd_conc)
   
   # Join dataframes together and make calculations
   mehg_conc_summ <- inlet_mehg_conc %>% 
     filter(!str_detect(StationName, "^CCSB|^Fre")) %>% 
-    bind_rows(fre_ccsb_mehg_conc_mod) %>% 
+    bind_rows(fre_ccsb_mehg_summ_mod) %>% 
     group_by(StationName, Analyte) %>% 
     summarize(
       sign_digits = min(digits),
@@ -463,32 +457,26 @@ fre_ccsb_perc_pmehg <- inlet_perc_pmehg %>%
 # Add back the averages and standard deviations for Fremont Weir and CCSB to 
   # all other data for data table
 
-  # Pivot average percentages wider
+  # Pivot average percentages and standard deviations wider
   fre_ccsb_perc_pmehg_w <- fre_ccsb_perc_pmehg %>% 
-    pivot_wider(
-      id_cols = -sd_perc_pmehg,
-      names_from = StationName,
-      values_from = perc_pmehg
-    )
-  
-  # Pivot std deviations wider- only for Fremont Weir
-  fre_stdev_w <- fre_ccsb_perc_pmehg %>% 
-    pivot_wider(
-      id_cols = -perc_pmehg,
-      names_from = StationName,
-      values_from = sd_perc_pmehg
+    pivot_wider(names_from = StationName, values_from = c(perc_pmehg, sd_perc_pmehg)) %>% 
+    # remove standard deviation for CCSB
+    select(-sd_perc_pmehg_CCSB) %>% 
+    # rename some variables
+    rename(
+      CCSB = perc_pmehg_CCSB,
+      Fremont = perc_pmehg_Fremont,
+      Fremont_sd = sd_perc_pmehg_Fremont
     ) %>% 
-    select(-CCSB) %>% 
-    # remove two sampling events in March without values for all three sampling locations 
-    filter(month(SampleDate) != 3) %>% 
-    rename(Fremont_sd = Fremont)
+    # remove std deviations for two sampling events in March without values for 
+    # all three sampling locations at Fremont Weir
+    mutate(Fremont_sd = if_else(month(SampleDate) == 3, NA_real_, Fremont_sd))
   
   # Join dataframes together for data table
   inlet_perc_pmehg_tbl <- inlet_perc_pmehg %>% 
     filter(!str_detect(StationName, "^CCSB|^Fre")) %>% 
     pivot_wider(names_from = StationName, values_from = perc_pmehg) %>% 
     left_join(fre_ccsb_perc_pmehg_w) %>% 
-    left_join(fre_stdev_w) %>% 
     # Round all values to two significant figures
     mutate_at(vars(-SampleDate), ~signif(.x, 2)) %>% 
     select(SampleDate, KLRC, CCSB, Putah, Sac_Weir, Fremont, Fremont_sd) %>% 
@@ -574,27 +562,9 @@ loads_total_summ <- loads_total %>%
   ungroup() %>% 
   select(-sign_digits)
 
-# Pivot the averages by LocType
-loads_total_avg <- loads_total_summ %>% 
-  pivot_wider(
-    id_cols = -sd_load,
-    names_from = LocType,
-    values_from = avg_load,
-    names_prefix = "avg_load_"
-  ) 
-
-# Pivot the standard deviations by LocType
-loads_total_sd <- loads_total_summ %>% 
-  pivot_wider(
-    id_cols = -avg_load,
-    names_from = LocType,
-    values_from = sd_load,
-    names_prefix = "sd_load_"
-  ) 
-
-# Join averages and standard deviations together for table
-loads_total_summ_f <- 
-  left_join(loads_total_avg, loads_total_sd) %>% 
+# Restructure load summary data for table
+loads_total_summ_f <- loads_total_summ %>% 
+  pivot_wider(names_from = LocType, values_from = c(avg_load, sd_load)) %>% 
   select(
     Analyte,
     ends_with("Inlet"),
@@ -677,39 +647,30 @@ loads_perc_diff <- loads_net_summ %>%
     pd_Upper = Upper/inlet_load9,
     pd_Liberty = Liberty/outlet_load8
   ) %>% 
-  select(-c(Entire:outlet_load8))
-
-# Round the net load averages and standard deviations to the proper number of significant figures
-loads_net_summ_r <- loads_net_summ %>% 
-  mutate_at(vars(ends_with("load")), ~signif(.x, sign_digits))
-
-# Restructure net load summary data to be combined with the percent differences
-loads_net_avg <- loads_net_summ_r %>% 
-  pivot_wider(
-    id_cols = -c(sign_digits, sd_net_load),
-    names_from = Reach,
-    values_from = avg_net_load,
-    names_prefix = "avg_"
+  select(-c(Entire:outlet_load8)) %>% 
+  mutate_if(
+    is.numeric, 
+    ~case_when(
+      abs(.x) < 0.01 ~ signif(.x, 1),
+      abs(.x) < 1 ~ signif(.x, 2), 
+      TRUE ~ signif(.x, 3)
+    )
   )
 
-loads_net_sd <- loads_net_summ_r %>% 
+# Prepare net load summary data to be combined with the percent differences
+loads_net_summ_r <- loads_net_summ %>% 
+  # Round the net load averages and standard deviations to the proper number of significant figures
+  mutate_at(vars(ends_with("load")), ~signif(.x, sign_digits)) %>% 
+  # Restructure data
   pivot_wider(
-    id_cols = -c(sign_digits, avg_net_load),
-    names_from = Reach,
-    values_from = sd_net_load,
-    names_prefix = "sd_"
+    id_cols = -sign_digits,
+    names_from = Reach, 
+    values_from = c(avg_net_load, sd_net_load)
   )
 
 # Combine net load summary data with the calculated percent differences for table
 loads_summ_c <- 
-  reduce(
-    list(
-      loads_net_avg,
-      loads_net_sd,
-      loads_perc_diff
-    ),
-    .f = left_join
-  ) %>% 
+  left_join(loads_net_summ_r, loads_perc_diff) %>% 
   select(
     Analyte,
     ends_with("Upper"),
