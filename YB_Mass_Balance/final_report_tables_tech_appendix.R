@@ -478,7 +478,7 @@ fre_ccsb_perc_pmehg <- inlet_perc_pmehg %>%
     pivot_wider(names_from = StationName, values_from = perc_pmehg) %>% 
     left_join(fre_ccsb_perc_pmehg_w) %>% 
     # Round all values to two significant figures
-    mutate_at(vars(-SampleDate), ~signif(.x, 2)) %>% 
+    mutate_if(is.numeric, signif, digits = 2) %>% 
     select(SampleDate, KLRC, CCSB, Putah, Sac_Weir, Fremont, Fremont_sd) %>% 
     arrange(SampleDate)
 
