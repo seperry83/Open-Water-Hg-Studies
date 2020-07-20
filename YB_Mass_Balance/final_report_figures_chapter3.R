@@ -45,12 +45,17 @@ rename_ana <- function(df) {
   return(df)
 }
 
+obj_keep <- c("obj_keep", "rename_ana")
+
 
 # Figure 3-5 --------------------------------------------------------------
 # Line plot showing daily average flow in cfs for the Fremont Weir and the CCSB
 # Red markers indicate the sampling events
 # Hydrographs arranged horizontally
 # 2017 flood event only
+
+# Define figure number for easier updating
+fig_num <- as.character(5)
 
 # Bring in daily flow data for the inlets
 source("YB_Mass_Balance/Flows/Import_Inlet_Flow_Data_all.R")
@@ -81,8 +86,8 @@ se_dates <- tibble(
 # Join se_dates df to daily_flow_clean to pull out data for just the sampling events
 se_flows <- inner_join(daily_flow_clean, se_dates)
 
-# Create Figure 3-5
-figure_3_5 <- daily_flow_clean %>% 
+# Create Figure
+figure <- daily_flow_clean %>% 
   ggplot(aes(x = Date, y = Flow)) +
   geom_line() +
   geom_point(
@@ -109,10 +114,10 @@ figure_3_5 <- daily_flow_clean %>%
   ) +
   theme_owhg()
 
-# Export figure 3-5
+# Export Figure
 ggsave(
-  "Ch3_final_report_fig3-5.jpg", 
-  plot = figure_3_5,
+  paste0("Ch3_final_report_fig3-", fig_num, ".jpg"), 
+  plot = figure,
   dpi = 300,
   width = 6.5, 
   height = 3.5, 
@@ -120,12 +125,15 @@ ggsave(
 )
   
 # Clean up 
-rm(daily_flow_clean, figure_3_5, flows_inlet_all, se_dates, se_flows)
+rm(list= ls()[!(ls() %in% obj_keep)])
 
 
 # Figure 3-6 --------------------------------------------------------------
 # Filled bar plot showing percentage of total inflow for each inlet
 # 2017 sampling events only
+
+# Define figure number for easier updating
+fig_num <- as.character(6)
 
 # Bring in daily flow data for the inlets for just sampling events
 source("YB_Mass_Balance/Flows/Import_Inlet_Flow_Data_SE.R")
@@ -139,8 +147,8 @@ se_flow_clean <- flows_inlet_se %>%
   conv_fact_samplingevent() %>% 
   select(SamplingEvent, StationName, Flow)
 
-# Create Figure 3-6
-figure_3_6 <- se_flow_clean %>% 
+# Create Figure
+figure <- se_flow_clean %>% 
   ggplot(aes(x = SamplingEvent, y = Flow, fill = StationName)) +
   geom_col(position = "fill") +
   labs(
@@ -151,10 +159,10 @@ figure_3_6 <- se_flow_clean %>%
   theme_owhg(x_axis_v = TRUE) +
   scale_y_continuous(labels = percent_format())
 
-# Export figure 3-6
+# Export Figure
 ggsave(
-  "Ch3_final_report_fig3-6.jpg", 
-  plot = figure_3_6,
+  paste0("Ch3_final_report_fig3-", fig_num, ".jpg"), 
+  plot = figure,
   dpi = 300,
   width = 5.5, 
   height = 4, 
@@ -162,18 +170,26 @@ ggsave(
 )
 
 # Clean up
-rm(figure_3_6, flows_inlet_se, se_flow_clean)
+rm(list= ls()[!(ls() %in% obj_keep)])
 
 
 # Figure 3-7 --------------------------------------------------------------
-# Bar plots showing total input loads
+# Same as Figure B-9 in Technical Appendix
+
+
+# Figure 3-8 --------------------------------------------------------------
+# Bar plots showing total input loads with each individual inlet stacked on top of each other 
+  # for each event
 # Facets for each analyte/parameter
 # 2017 sampling events only
+
+# Define figure number for easier updating
+fig_num <- as.character(8)
 
 # Bring in total load data
 source("YB_Mass_Balance/Loads/Import_Total_Load_Data.R")
 
-# Prepare total load data for figure 3-7
+# Prepare total load data for figure
 loads_total_inlet <- loads_total %>% 
   # Filter data to only include inlet loads, 2017 data, and necessary parameters
   filter(
@@ -188,8 +204,8 @@ loads_total_inlet <- loads_total %>%
   # Round total loads to proper number of significant figures
   mutate(total_load = signif(total_load, digits))
 
-# Create Figure 3-7
-figure_3_7 <- loads_total_inlet %>% 
+# Create Figure
+figure <- loads_total_inlet %>% 
   ggplot(aes(x = SamplingEvent, y = total_load)) +
   geom_col() +
   facet_wrap(
@@ -203,10 +219,10 @@ figure_3_7 <- loads_total_inlet %>%
   ) +
   theme_owhg(x_axis_v = TRUE)
 
-# Export figure 3-7
+# Export Figure
 ggsave(
-  "Ch3_final_report_fig3-7.jpg", 
-  plot = figure_3_7,
+  paste0("Ch3_final_report_fig3-", fig_num, ".jpg"), 
+  plot = figure,
   dpi = 300,
   width = 6.5,
   height = 6.5,
@@ -214,15 +230,21 @@ ggsave(
 )
 
 # Clean up
-rm(figure_3_7, loads_total, loads_total_inlet)
+rm(list= ls()[!(ls() %in% obj_keep)])
 
 
-# Process Inlet Load data for Figures 3-8 to 3-10 -------------------------
+# Figure 3-9 --------------------------------------------------------------
+# Filled bar plot showing percentage of total input load for each inlet
+# Facets for each Analyte
+# 2017 sampling events only
+
+# Define figure number for easier updating
+fig_num <- as.character(9)
 
 # Bring in inlet load data
 source("YB_Mass_Balance/Loads/Import_Inlet_Load_Data.R")
 
-# Prepare inlet load data for figures
+# Prepare inlet load data for figure
 loads_inlet_clean <- loads_inlet %>% 
   # Remove added zeros for events when the weirs weren't spilling
   anti_join(zero_loads) %>% 
@@ -237,16 +259,8 @@ loads_inlet_clean <- loads_inlet %>%
   conv_fact_samplingevent() %>% 
   conv_fact_inlet_names()
 
-rm(loads_inlet, zero_loads)
-
-
-# Figure 3-8 --------------------------------------------------------------
-# Filled bar plot showing percentage of total input load for each inlet
-# Facets for each Analyte
-# 2017 sampling events only
-
-# Create Figure 3-8
-figure_3_8 <- loads_inlet_clean %>% 
+# Create Figure
+figure <- loads_inlet_clean %>% 
   ggplot(aes(x = SamplingEvent, y = Load, fill = StationName)) +
   geom_col(position = "fill") +
   facet_wrap(
@@ -266,10 +280,10 @@ figure_3_8 <- loads_inlet_clean %>%
   guides(fill = guide_legend(keyheight = 0.95)) +
   scale_y_continuous(labels = percent_format())
 
-# Export figure 3-8
+# Export Figure
 ggsave(
-  "Ch3_final_report_fig3-8.jpg", 
-  plot = figure_3_8,
+  paste0("Ch3_final_report_fig3-", fig_num, ".jpg"), 
+  plot = figure,
   dpi = 300,
   width = 5.75, 
   height = 6.5, 
@@ -277,17 +291,39 @@ ggsave(
 )
 
 # Clean up
-rm(figure_3_8)
+rm(list= ls()[!(ls() %in% obj_keep)])
 
 
 # Figures 3-9 and 3-10 -------------------------------------------------------------
 # Filled bar plots showing percentage of filtered and particulate fractions of:
-  # Hg - Figure 3-9
-  # MeHg - Figure 3-10
+  # Hg - Figure 3-10
+  # MeHg - Figure 3-11
 # Facets for each inlet
 # 2017 sampling events only
 
-# Prepare inlet load data for figures 3-9 and 3-10
+# Define figure numbers for easier updating
+fig_num_hg <- as.character(10)
+fig_num_mehg <- as.character(11)
+
+# Bring in inlet load data
+source("YB_Mass_Balance/Loads/Import_Inlet_Load_Data.R")
+
+# Prepare inlet load data for figures
+loads_inlet_clean <- loads_inlet %>% 
+  # Remove added zeros for events when the weirs weren't spilling
+  anti_join(zero_loads) %>% 
+  # Filter load data to only include 2017 data and necessary parameters
+  filter(
+    Year == 2017,
+    str_detect(Analyte, "^MeHg|^THg|OC$|^TSS")
+  ) %>% 
+  # Rename analytes
+  rename_ana() %>% 
+  # Convert variables to factor to apply plot order
+  conv_fact_samplingevent() %>% 
+  conv_fact_inlet_names()
+
+# Prepare inlet load data for figures
 loads_inlet_hg_frac <- loads_inlet_clean %>% 
   # Pull out just Hg and MeHg
   filter(str_detect(Analyte, "Hg")) %>% 
@@ -306,7 +342,7 @@ loads_inlet_hg_frac <- loads_inlet_clean %>%
   # nest df based on Analyte variable
   group_nest(Analyte)
 
-# Create function for figures 3-9 and 3-10
+# Create function for filled barplots
 plot_per_frac <- function(df, param) { 
   p <- 
     ggplot(
@@ -340,13 +376,13 @@ plot_per_frac <- function(df, param) {
   return(p)  
 }
 
-# Create Figures 3-9 and 3-10
+# Create Figures
 in_loads_clean_hg_figs <- loads_inlet_hg_frac %>% 
   mutate(figures = map2(data, Analyte, .f = plot_per_frac))
 
-# Export figure 3-9
+# Export Figure for THg
 ggsave(
-  "Ch3_final_report_fig3-9.jpg", 
+  paste0("Ch3_final_report_fig3-", fig_num_hg, ".jpg"),
   plot = in_loads_clean_hg_figs$figures[[1]],
   dpi = 300,
   width = 5.75, 
@@ -354,9 +390,9 @@ ggsave(
   units = "in"
 )
 
-# Export figure 3-10
+# Export Figure for MeHg
 ggsave(
-  "Ch3_final_report_fig3-10.jpg", 
+  paste0("Ch3_final_report_fig3-", fig_num_mehg, ".jpg"),
   plot = in_loads_clean_hg_figs$figures[[2]],
   dpi = 300,
   width = 5.75, 
@@ -365,7 +401,7 @@ ggsave(
 )
 
 # Clean up
-rm(in_loads_clean_hg_figs, loads_inlet_clean, loads_inlet_hg_frac, plot_per_frac)
+rm(list= ls()[!(ls() %in% obj_keep)])
 
 
 # Figure 3-12 -------------------------------------------------------------
@@ -373,10 +409,13 @@ rm(in_loads_clean_hg_figs, loads_inlet_clean, loads_inlet_hg_frac, plot_per_frac
 # Facets for each analyte/parameter
 # 2017 sampling events only
 
+# Define figure number for easier updating
+fig_num <- as.character(12)
+
 # Bring in total load data
 source("YB_Mass_Balance/Loads/Import_Total_Load_Data.R")
 
-# Prepare total load data for figure 3-12
+# Prepare total load data for figure
 loads_total_out <- loads_total %>% 
   # Filter data to only include outlet loads, 2017 data, and necessary parameters
   filter(
@@ -391,8 +430,8 @@ loads_total_out <- loads_total %>%
   # Round total loads to proper number of significant figures
   mutate(total_load = signif(total_load, digits))
 
-# Create Figure 3-12
-figure_3_12 <- loads_total_out %>% 
+# Create Figure
+figure <- loads_total_out %>% 
   ggplot(aes(x = SamplingEvent, y = total_load)) +
   geom_col() +
   facet_wrap(
@@ -406,10 +445,10 @@ figure_3_12 <- loads_total_out %>%
   ) +
   theme_owhg(x_axis_v = TRUE)
 
-# Export figure 3-12
+# Export Figure
 ggsave(
-  "Ch3_final_report_fig3-12.jpg", 
-  plot = figure_3_12,
+  paste0("Ch3_final_report_fig3-", fig_num, ".jpg"), 
+  plot = figure,
   dpi = 300,
   width = 6.5,
   height = 6.5,
@@ -417,20 +456,47 @@ ggsave(
 )
 
 # Clean up
-rm(figure_3_12, loads_total, loads_total_out)
+rm(list= ls()[!(ls() %in% obj_keep)])
   
 
 # Figure 3-13 -------------------------------------------------------------
+# Same as Figure B-20 in Technical Appendix
+
+
+# Figure 3-14 -------------------------------------------------------------
+# Same as Figure B-21 in Technical Appendix
+
+
+# Figure 3-15 -------------------------------------------------------------
+# Same as Figure B-22 in Technical Appendix
+
+
+# Figure 3-16 -------------------------------------------------------------
+# Seven scatterplots showing net loads for the Upper reach as a function of total Bypass inflow
+# The top row of three figures shows the plots for each fraction of Hg
+# The middle row of three figures shows the plots for each fraction of MeHg
+# The bottom row shows the plot for TSS
+# 2017 sampling events only
+
+
+# Figure 3-17 -------------------------------------------------------------
+# Same as Figure B-26 in Technical Appendix
+
+
+# Figure 3-19 -------------------------------------------------------------
 # Bar plots showing net loads of the upper reach and the entire Yolo Bypass
 # Upper reach is between the inlets to the Stairsteps
 # Entire Bypass is between the inlets and Below Liberty Island
 # Facets for each analyte/parameter
 # 2017 sampling events only
 
+# Define figure number for easier updating
+fig_num <- as.character(19)
+
 # Bring in net load data
 source("YB_Mass_Balance/Loads/Import_Net_Load_Data.R")
 
-# Prepare net load data for figure 3-13
+# Prepare net load data for figure
 loads_net_clean <- loads_net %>% 
   # Filter load data to only include the upper and entire reaches,
   # 2017 data, and necessary parameters
@@ -455,8 +521,8 @@ loads_net_clean <- loads_net %>%
   # Round net loads to proper number of significant figures
   mutate(net_load = signif(net_load, digits))
 
-# Create Figure 3-13
-figure_3_13 <- loads_net_clean %>% 
+# Create Figure
+figure <- loads_net_clean %>% 
   ggplot(aes(x = SamplingEvent, y = net_load, fill = Reach)) +
   geom_col(position = position_dodge2(preserve = "single")) +
   facet_wrap(
@@ -475,10 +541,10 @@ figure_3_13 <- loads_net_clean %>%
     legend.position = c(0.53, -0.07)
   )
 
-# Export figure 3-13
+# Export Figure
 ggsave(
-  "Ch3_final_report_fig3-13.jpg", 
-  plot = figure_3_13,
+  paste0("Ch3_final_report_fig3-", fig_num, ".jpg"), 
+  plot = figure,
   dpi = 300,
   width = 6.3,
   height = 6.3,
@@ -486,5 +552,5 @@ ggsave(
 )
 
 # Clean up
-rm(figure_3_13, loads_net, loads_net_clean)
+rm(list= ls()[!(ls() %in% obj_keep)])
 
