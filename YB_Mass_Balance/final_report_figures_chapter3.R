@@ -568,7 +568,7 @@ plot_net_load_flow <- function(df, param, rsq, pval) {
   # Format plots differently based upon param
     # Only add y-axis labels to first column of plots (uHg, uMeHg, and TSS)
     if (str_detect(param, "^Unf|^TSS")) {
-      p <- p + ylab(paste0("Net Load\n(", df$LoadUnits[1], ")")) 
+      p <- p + ylab(paste0("Net Load (", df$LoadUnits[1], ")")) 
     } else {
       p <- p + ylab(NULL)
     }
@@ -607,8 +607,8 @@ ggsave(
   paste0("Ch3_final_report_fig3-", fig_num, ".jpg"),
   plot = figure_group,
   dpi = 300,
-  width = 9, 
-  height = 5.75, 
+  width = 9.5, 
+  height = 6.25, 
   units = "in"
 )
 
