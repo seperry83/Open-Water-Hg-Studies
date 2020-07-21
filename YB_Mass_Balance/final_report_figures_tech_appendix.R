@@ -739,7 +739,7 @@ ggsave(
   plot = figure,
   dpi = 300,
   width = 7, 
-  height = 8.25, 
+  height = 8.2, 
   units = "in"
 )
 
