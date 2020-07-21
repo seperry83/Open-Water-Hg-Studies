@@ -480,15 +480,15 @@ rm(list= ls()[!(ls() %in% obj_keep)])
   
 
 # Figure 3-13 -------------------------------------------------------------
-# Same as Figure B-20 in Technical Appendix
+# Same as Figure B-19 in Technical Appendix
 
 
 # Figure 3-14 -------------------------------------------------------------
-# Same as Figure B-21 in Technical Appendix
+# Same as Figure B-20 in Technical Appendix
 
 
 # Figure 3-15 -------------------------------------------------------------
-# Same as Figure B-22 in Technical Appendix
+# Same as Figure B-21 in Technical Appendix
 
 
 # Figure 3-16 -------------------------------------------------------------
@@ -617,7 +617,7 @@ rm(list= ls()[!(ls() %in% obj_keep)])
 
 
 # Figure 3-17 -------------------------------------------------------------
-# Same as Figure B-26 in Technical Appendix
+# Same as Figure B-25 in Technical Appendix
 
 
 # Figure 3-19 -------------------------------------------------------------
