@@ -6,46 +6,52 @@
 library(tidyverse)
 library(lubridate)
 library(scales)
+library(patchwork)
+library(broom)
 library(openwaterhg)
 
 
 # Functions for script ----------------------------------------------------
 
 # Create a function to rename Analytes for figures of load data
-rename_ana <- function(df) {
-  # define plot order for the analytes
-  analytes_order <- c(
-    "fHg (g/day)",
-    "pHg (g/day)",
-    "uHg (g/day)",
-    "fMeHg (g/day)",
-    "pMeHg (g/day)",
-    "uMeHg (g/day)",
-    "DOC (1,000 kg/day)",
-    "POC (1,000 kg/day)",
-    "TOC (1,000 kg/day)",
-    "TSS (1,000 kg/day)"
-  )
-  
-  # rename analytes and convert to factor to apply plot order
+rename_analytes <- function(df) {
   df <- df %>% 
     mutate(
       Analyte = case_when(
-        str_detect(Analyte, "OC$|^TSS") ~ paste0(Analyte, " (", LoadUnits, ")"),
+        str_detect(Analyte, "OC$|SS$") ~ paste0(Analyte, " (", LoadUnits, ")"),
         Analyte == "MeHg- filtered" ~ paste0("fMeHg (", LoadUnits, ")"),
         Analyte == "MeHg- particulate" ~ paste0("pMeHg (", LoadUnits, ")"),
         Analyte == "MeHg- total" ~ paste0("uMeHg (", LoadUnits, ")"),
         Analyte == "THg- filtered" ~ paste0("fHg (", LoadUnits, ")"),
         Analyte == "THg- particulate" ~ paste0("pHg (", LoadUnits, ")"),
         Analyte == "THg- total" ~ paste0("uHg (", LoadUnits, ")")
-      ),
-      Analyte = factor(Analyte, levels = analytes_order)
+      )
     )
   
   return(df)
 }
 
-obj_keep <- c("obj_keep", "rename_ana")
+# Create a function to apply a plotting order for the analytes
+conv_fact_analytes <- function(df) {
+  analytes_order <- c(
+    "uHg (g/day)",
+    "fHg (g/day)",
+    "pHg (g/day)",
+    "uMeHg (g/day)",
+    "fMeHg (g/day)",
+    "pMeHg (g/day)",
+    "TOC (1,000 kg/day)",
+    "DOC (1,000 kg/day)",
+    "POC (1,000 kg/day)",
+    "TSS (1,000 kg/day)"
+  )
+  
+  df <- df %>% mutate(Analyte = factor(Analyte, levels = analytes_order))
+  
+  return(df)
+}
+
+obj_keep <- c("obj_keep", "rename_analytes", "conv_fact_analytes")
 
 
 # Figure 3-5 --------------------------------------------------------------
@@ -186,38 +192,49 @@ rm(list= ls()[!(ls() %in% obj_keep)])
 # Define figure number for easier updating
 fig_num <- as.character(8)
 
-# Bring in total load data
-source("YB_Mass_Balance/Loads/Import_Total_Load_Data.R")
+# Bring in inlet load data
+source("YB_Mass_Balance/Loads/Import_Inlet_Load_Data.R")
 
-# Prepare total load data for figure
-loads_total_inlet <- loads_total %>% 
-  # Filter data to only include inlet loads, 2017 data, and necessary parameters
+# Prepare data for plotting
+loads_inlet_clean <- loads_inlet %>% 
+  # Remove added zeros for events when the weirs weren't spilling
+  anti_join(zero_loads) %>% 
+  # Filter data to only include 2017 data and necessary parameters
   filter(
     Year == 2017,
-    str_detect(Analyte, "^MeHg|^THg|OC$|^TSS"),
-    LocType == "Inlet"
+    str_detect(Analyte, "^MeHg|^THg|OC$|^TSS")
   ) %>% 
   # Rename analytes
-  rename_ana() %>% 
-  # Convert SamplingEvent to factor to apply plot order
+  rename_analytes() %>% 
+  # Convert variables to factor to apply plot order
+  conv_fact_analytes() %>% 
   conv_fact_samplingevent() %>% 
+  conv_fact_inlet_names() %>% 
   # Round total loads to proper number of significant figures
-  mutate(total_load = signif(total_load, digits))
+  mutate(Load = signif(Load, digits)) %>% 
+  select(SamplingEvent, StationName, Analyte, Load)
 
 # Create Figure
-figure <- loads_total_inlet %>% 
-  ggplot(aes(x = SamplingEvent, y = total_load)) +
-  geom_col() +
+figure <- loads_inlet_clean %>% 
+  ggplot(aes(x = SamplingEvent, y = Load, fill = StationName)) +
+  geom_col(position = "stack") +
   facet_wrap(
     vars(Analyte),
     ncol = 3,
     scales = "free_y"
   ) +
-  labs(
-    x = NULL,
-    y = NULL
+  scale_y_continuous(
+    name = NULL,
+    labels = label_comma()
   ) +
-  theme_owhg(x_axis_v = TRUE)
+  xlab(NULL) +
+  add_inlet_color_pal("fill") +
+  theme_owhg(x_axis_v = TRUE) +
+  theme(
+    legend.margin = margin(0, 0, 0, 0),
+    legend.position = c(0.55, -0.04)
+  ) +
+  guides(fill = guide_legend(keyheight = 0.95))
 
 # Export Figure
 ggsave(
@@ -225,7 +242,7 @@ ggsave(
   plot = figure,
   dpi = 300,
   width = 6.5,
-  height = 6.5,
+  height = 8,
   units = "in"
 )
 
@@ -254,8 +271,9 @@ loads_inlet_clean <- loads_inlet %>%
     str_detect(Analyte, "^MeHg|^THg|OC$|^TSS")
   ) %>% 
   # Rename analytes
-  rename_ana() %>% 
+  rename_analytes() %>% 
   # Convert variables to factor to apply plot order
+  conv_fact_analytes() %>% 
   conv_fact_samplingevent() %>% 
   conv_fact_inlet_names()
 
@@ -294,7 +312,7 @@ ggsave(
 rm(list= ls()[!(ls() %in% obj_keep)])
 
 
-# Figures 3-9 and 3-10 -------------------------------------------------------------
+# Figures 3-10 and 3-11 -------------------------------------------------------------
 # Filled bar plots showing percentage of filtered and particulate fractions of:
   # Hg - Figure 3-10
   # MeHg - Figure 3-11
@@ -309,36 +327,24 @@ fig_num_mehg <- as.character(11)
 source("YB_Mass_Balance/Loads/Import_Inlet_Load_Data.R")
 
 # Prepare inlet load data for figures
-loads_inlet_clean <- loads_inlet %>% 
+loads_inlet_hg_frac <- loads_inlet %>% 
   # Remove added zeros for events when the weirs weren't spilling
   anti_join(zero_loads) %>% 
   # Filter load data to only include 2017 data and necessary parameters
   filter(
     Year == 2017,
-    str_detect(Analyte, "^MeHg|^THg|OC$|^TSS")
+    str_detect(Analyte, "Hg")
   ) %>% 
-  # Rename analytes
-  rename_ana() %>% 
+  # Create new variables for Fraction and Analyte
+  separate(Analyte, into = c("Analyte", "Fraction"), sep = "- ") %>% 
+  mutate(Fraction = str_to_title(Fraction)) %>% 
+  # Rename THg to Hg
+  mutate(Analyte = if_else(Analyte == "THg", "Hg", Analyte)) %>% 
+  # remove Unfiltered data
+  filter(Fraction != "Total") %>%
   # Convert variables to factor to apply plot order
   conv_fact_samplingevent() %>% 
-  conv_fact_inlet_names()
-
-# Prepare inlet load data for figures
-loads_inlet_hg_frac <- loads_inlet_clean %>% 
-  # Pull out just Hg and MeHg
-  filter(str_detect(Analyte, "Hg")) %>% 
-  # create new variables
-  mutate(
-    Analyte = as.character(Analyte),
-    Fraction = case_when(
-      str_detect(Analyte, "^f") ~ "Filtered",
-      str_detect(Analyte, "^p") ~ "Particulate",
-      str_detect(Analyte, "^u") ~ "Unfiltered"
-    ),
-    Analyte = if_else(str_detect(Analyte, "MeHg"), "MeHg", "Hg")
-  ) %>% 
-  # remove Unfiltered data
-  filter(Fraction != "Unfiltered") %>% 
+  conv_fact_inlet_names() %>% 
   # nest df based on Analyte variable
   group_nest(Analyte)
 
@@ -377,13 +383,13 @@ plot_per_frac <- function(df, param) {
 }
 
 # Create Figures
-in_loads_clean_hg_figs <- loads_inlet_hg_frac %>% 
+loads_inlet_hg_frac_figs <- loads_inlet_hg_frac %>% 
   mutate(figures = map2(data, Analyte, .f = plot_per_frac))
 
 # Export Figure for THg
 ggsave(
   paste0("Ch3_final_report_fig3-", fig_num_hg, ".jpg"),
-  plot = in_loads_clean_hg_figs$figures[[1]],
+  plot = loads_inlet_hg_frac_figs$figures[[1]],
   dpi = 300,
   width = 5.75, 
   height = 4, 
@@ -393,7 +399,7 @@ ggsave(
 # Export Figure for MeHg
 ggsave(
   paste0("Ch3_final_report_fig3-", fig_num_mehg, ".jpg"),
-  plot = in_loads_clean_hg_figs$figures[[2]],
+  plot = loads_inlet_hg_frac_figs$figures[[2]],
   dpi = 300,
   width = 5.75, 
   height = 4, 
@@ -424,8 +430,9 @@ loads_total_out <- loads_total %>%
     LocType == "Outlet"
   ) %>% 
   # Rename analytes
-  rename_ana() %>% 
-  # Convert SamplingEvent to factor to apply plot order
+  rename_analytes() %>% 
+  # Convert variables to factor to apply plot order
+  conv_fact_analytes() %>% 
   conv_fact_samplingevent() %>% 
   # Round total loads to proper number of significant figures
   mutate(total_load = signif(total_load, digits))
@@ -478,6 +485,121 @@ rm(list= ls()[!(ls() %in% obj_keep)])
 # The bottom row shows the plot for TSS
 # 2017 sampling events only
 
+# Define figure number for easier updating
+fig_num <- as.character(16)
+
+# Bring in net load data
+source("YB_Mass_Balance/Loads/Import_Net_Load_Data.R")
+
+# Prepare flow data to join with net load data
+total_inflows <- daily_flow_data_se %>% 
+  # Only include inlet flows
+  filter(LocType == "Inlet") %>% 
+  # Group by and sum flow data
+  group_by(SamplingEvent) %>% 
+  summarize(total_inflow = sum(Flow)) %>% 
+  ungroup()
+
+# Prepare net load and flow data for plotting
+net_loads_flow <- loads_net %>% 
+  # Filter data
+  filter(
+    str_detect(Analyte, "Hg|TSS"),
+    Reach == "Upper",
+    Year == 2017
+  ) %>%
+  # Join flow data
+  left_join(total_inflows) %>% 
+  # Rename analytes and convert variable to factor to apply plot order
+  mutate(
+    Analyte = recode_factor(
+      Analyte,
+      "THg- total" = "Unfiltered Hg",
+      "THg- filtered" = "Filter-passing Hg",
+      "THg- particulate" = "Particulate Hg",
+      "MeHg- total" = "Unfiltered MeHg",
+      "MeHg- filtered" = "Filter-passing MeHg",
+      "MeHg- particulate" = "Particulate MeHg",
+      TSS = "TSS"
+    )
+  ) %>% 
+  select(Analyte, LoadUnits, net_load, total_inflow)
+
+# Create plot function for the Net Load vs Flow scatterplots
+plot_net_load_flow <- function(df, param, rsq, pval) {
+  # Create base plot
+  p <- 
+    ggplot(
+      data = df,
+      aes(
+        x = total_inflow,
+        y = net_load
+      )
+    ) +
+    geom_point() +
+    geom_smooth(
+      method = "lm",
+      formula = y ~ x,
+      se = FALSE
+    ) +
+    labs(
+      title = param,
+      subtitle = paste0("R Squared = ", rsq, "%\np-value = ", pval)
+    ) +
+    scale_x_continuous(labels = label_comma()) +
+    scale_y_continuous(labels = label_comma()) +
+    theme_owhg()
+  
+  # Format plots differently based upon param
+    # Only add y-axis labels to first column of plots (uHg, uMeHg, and TSS)
+    if (str_detect(param, "^Unf|^TSS")) {
+      p <- p + ylab(paste0("Net Load\n(", df$LoadUnits[1], ")")) 
+    } else {
+      p <- p + ylab(NULL)
+    }
+
+    # Only add x-axis labels to bottom plots (TSS, fMeHg, and pMeHg)
+    if (param %in% c("Filter-passing MeHg", "Particulate MeHg", "TSS")) {
+      p <- p + xlab("Total Inflow (cfs)")
+    } else {
+      p <- p + xlab(NULL)
+    }
+  
+  return(p)
+}
+
+# Create scatterplots for each Analyte
+net_loads_flow_plots <- net_loads_flow %>% 
+  group_nest(Analyte) %>% 
+  # Run regression analysis and create plots
+  mutate(
+    model = map(data, ~summary(lm(net_load ~ total_inflow, data = .x))),
+    r2 = signif(map_dbl(model, ~glance(.x)$r.squared * 100), 3),
+    p_value = signif(map_dbl(model, ~glance(.x)$p.value), 2),
+    plot = pmap(
+      list(data, Analyte, r2, p_value),
+      .f = plot_net_load_flow
+    )
+  )
+
+# Group scatterplots together into one figure
+figure_group <- net_loads_flow_plots %>% 
+  pull(plot) %>% 
+  wrap_plots()
+
+# Export figure
+ggsave(
+  paste0("Ch3_final_report_fig3-", fig_num, ".jpg"),
+  plot = figure_group,
+  dpi = 300,
+  width = 9, 
+  height = 5.75, 
+  units = "in"
+)
+
+# Clean up
+rm(list= ls()[!(ls() %in% obj_keep)])
+
 
 # Figure 3-17 -------------------------------------------------------------
 # Same as Figure B-26 in Technical Appendix
@@ -506,7 +628,7 @@ loads_net_clean <- loads_net %>%
     Reach %in% c("Entire", "Upper")
   ) %>% 
   # Rename analytes
-  rename_ana() %>% 
+  rename_analytes() %>% 
   # Rename Reaches
   mutate(
     Reach = case_when(
@@ -516,7 +638,8 @@ loads_net_clean <- loads_net %>%
     # Convert Reach to a factor to apply plot order
     Reach = factor(Reach, levels = c("Inlets to Stairsteps", "Inlets to Below Liberty Island"))
   ) %>% 
-  # Convert SamplingEvent to factor to apply plot order
+  # Convert SamplingEvent and Analyte variables to factor to apply plot order
+  conv_fact_analytes() %>% 
   conv_fact_samplingevent() %>% 
   # Round net loads to proper number of significant figures
   mutate(net_load = signif(net_load, digits))
