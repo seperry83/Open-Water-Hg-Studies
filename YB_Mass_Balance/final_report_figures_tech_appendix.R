@@ -19,7 +19,7 @@ rename_analytes <- function(df) {
   df <- df %>% 
     mutate(
       Analyte = case_when(
-        str_detect(Analyte, "OC$|SS$") ~ paste0(Analyte, " (", LoadUnits, ")"),
+        str_detect(Analyte, "OC$|SS$") ~ paste0(Analyte, " (Mg/day)"),
         Analyte == "MeHg- filtered" ~ paste0("fMeHg (", LoadUnits, ")"),
         Analyte == "MeHg- particulate" ~ paste0("pMeHg (", LoadUnits, ")"),
         Analyte == "MeHg- total" ~ paste0("uMeHg (", LoadUnits, ")"),
@@ -41,11 +41,11 @@ conv_fact_analytes <- function(df) {
     "uMeHg (g/day)",
     "fMeHg (g/day)",
     "pMeHg (g/day)",
-    "TOC (1,000 kg/day)",
-    "DOC (1,000 kg/day)",
-    "POC (1,000 kg/day)",
-    "TSS (1,000 kg/day)",
-    "VSS (1,000 kg/day)"
+    "TOC (Mg/day)",
+    "DOC (Mg/day)",
+    "POC (Mg/day)",
+    "TSS (Mg/day)",
+    "VSS (Mg/day)"
   )
   
   df <- df %>% mutate(Analyte = factor(Analyte, levels = analytes_order))
@@ -1341,7 +1341,7 @@ figure <- vss_net_loads %>%
   ggplot(aes(x = SamplingEvent, y = net_load)) +
   geom_col() +
   scale_y_continuous(
-    name = "Net Load (1,000 kg/day)",
+    name = "Net Load (Mg/day)",
     labels = label_comma()
   ) +
   xlab(NULL) +
@@ -1469,7 +1469,7 @@ plot_net_load_flow <- function(df, reach, param, rsq, pval) {
     p <- p +
       ggtitle(reach) +  
       xlab("Total Inflow (cfs)")+
-      ylab(paste0("Net Load (", df$LoadUnits[1], ")")) +
+      ylab("Net Load (Mg/day)") +
       format_col_titles(h_just = 0, b_margin = 11/2)
   } else if (str_detect(param, "^Unf")) {
     # Add titles but no x-axis labels to plots of the unfiltered fraction
