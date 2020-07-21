@@ -657,7 +657,7 @@ ggsave(
   plot = figure,
   dpi = 300,
   width = 9.5, 
-  height = 6, 
+  height = 5.75, 
   units = "in"
 )
 
@@ -894,7 +894,7 @@ ggsave(
   plot = figure,
   dpi = 300,
   width = 7, 
-  height = 9, 
+  height = 8.75, 
   units = "in"
 )
 
