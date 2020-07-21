@@ -18,7 +18,7 @@ rename_analytes <- function(df) {
   df <- df %>% 
     mutate(
       Analyte = case_when(
-        str_detect(Analyte, "OC$|SS$") ~ paste0(Analyte, " (", LoadUnits, ")"),
+        str_detect(Analyte, "OC$|SS$") ~ paste0(Analyte, " (Mg/day)"),
         Analyte == "MeHg- filtered" ~ paste0("fMeHg (", LoadUnits, ")"),
         Analyte == "MeHg- particulate" ~ paste0("pMeHg (", LoadUnits, ")"),
         Analyte == "MeHg- total" ~ paste0("uMeHg (", LoadUnits, ")"),
@@ -40,10 +40,10 @@ conv_fact_analytes <- function(df) {
     "uMeHg (g/day)",
     "fMeHg (g/day)",
     "pMeHg (g/day)",
-    "TOC (1,000 kg/day)",
-    "DOC (1,000 kg/day)",
-    "POC (1,000 kg/day)",
-    "TSS (1,000 kg/day)"
+    "TOC (Mg/day)",
+    "DOC (Mg/day)",
+    "POC (Mg/day)",
+    "TSS (Mg/day)"
   )
   
   df <- df %>% mutate(Analyte = factor(Analyte, levels = analytes_order))
@@ -521,7 +521,9 @@ net_loads_flow <- loads_net %>%
       "MeHg- filtered" = "Filter-passing MeHg",
       "MeHg- particulate" = "Particulate MeHg",
       TSS = "TSS"
-    )
+    ),
+    # Change LoadUnits for TSS to Mg/day
+    LoadUnits = if_else(Analyte == "TSS", "Mg/day", LoadUnits)
   ) %>% 
   select(Analyte, LoadUnits, net_load, total_inflow)
 
