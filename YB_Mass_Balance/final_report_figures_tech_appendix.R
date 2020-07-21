@@ -903,82 +903,12 @@ rm(list= ls()[!(ls() %in% obj_keep)])
 
 
 # Figure B-14 -------------------------------------------------------------
-# Barplots of average loads of each inlet with error bars indicating their standard deviations
-# Facets for each analyte/parameter
-# Means and standard deviations only include sampling events collected in 2017
-
-# Define figure number for easier updating
-fig_num <- as.character(14)
-
-# Bring in inlet load data
-source("YB_Mass_Balance/Loads/Import_Inlet_Load_Data.R")
-
-# Prepare data for plotting
-loads_inlet_clean <- loads_inlet %>% 
-  # Filter and rename analytes
-  rename_analytes() %>% 
-  filter(
-    !is.na(Analyte),
-    Year == 2017
-  ) %>% 
-  # Apply plotting order
-  conv_fact_analytes() %>% 
-  conv_fact_inlet_names() %>% 
-  # Calculate averages and standard deviations of loads for each inlet
-  group_by(StationName, Analyte) %>% 
-  summarize(
-    sign_digits = min(digits, na.rm = TRUE),
-    Mean = signif(mean(Load), sign_digits),
-    StDev = signif(sd(Load), sign_digits)
-  ) %>% 
-  ungroup()
-
-# Create Figure
-figure <- loads_inlet_clean %>% 
-  ggplot(aes(x = StationName, y = Mean)) +
-  geom_col(aes(fill = StationName)) +
-  geom_errorbar(
-    aes(
-      ymin = Mean - StDev, 
-      ymax = Mean + StDev
-    ),
-    width = 0.25
-  ) +
-  facet_wrap(
-    vars(Analyte),
-    ncol = 3,
-    scales = "free_y"
-  ) +
-  scale_y_continuous(
-    name = NULL,
-    labels = label_comma()
-  ) +
-  xlab(NULL) +
-  add_inlet_color_pal("fill") +
-  theme_owhg(x_axis_v = TRUE) +
-  guides(fill = "none")
-
-# Export Figure
-ggsave(
-  paste0("final_report_fig_b-", fig_num, ".jpg"),
-  plot = figure,
-  dpi = 300,
-  width = 7, 
-  height = 8.25, 
-  units = "in"
-)
-
-# Clean up
-rm(list= ls()[!(ls() %in% obj_keep)])
-
-
-# Figure B-15 -------------------------------------------------------------
 # Filled barplots showing the percentage of the total inlet load for each individual inlet
 # Facets for each analyte/parameter
 # All sampling events
 
 # Define figure number for easier updating
-fig_num <- as.character(15)
+fig_num <- as.character(14)
 
 # Bring in inlet load data
 source("YB_Mass_Balance/Loads/Import_Inlet_Load_Data.R")
@@ -1058,13 +988,13 @@ ggsave(
 rm(list= ls()[!(ls() %in% obj_keep)])
 
 
-# Figure B-16 -------------------------------------------------------------
+# Figure B-15 -------------------------------------------------------------
 # Barplots showing the percent of the total Hg that was in the MeHg fraction
 # Facetted horizontally by each inlet source and vertically by Hg fraction
 # All sampling events
 
 # Define figure number for easier updating
-fig_num <- as.character(16)
+fig_num <- as.character(15)
 
 # Bring in inlet load data
 source("YB_Mass_Balance/Loads/Import_Inlet_Load_Data.R")
@@ -1124,13 +1054,13 @@ ggsave(
 rm(list= ls()[!(ls() %in% obj_keep)])
 
 
-# Figure B-17 -------------------------------------------------------------
+# Figure B-16 -------------------------------------------------------------
 # Filled barplots showing the partitioning of Hg and MeHg into filter-passing and particulate forms
 # Facetted horizontally by each inlet source and vertically by parameter (Hg and MeHg)
 # All sampling events
 
 # Define figure number for easier updating
-fig_num <- as.character(17)
+fig_num <- as.character(16)
 
 # Bring in inlet load data
 source("YB_Mass_Balance/Loads/Import_Inlet_Load_Data.R")
@@ -1185,15 +1115,15 @@ ggsave(
 rm(list= ls()[!(ls() %in% obj_keep)])
 
 
-# Figures B-18 and B-19  -------------------------------------------------------------
+# Figures B-17 and B-18  -------------------------------------------------------------
 # Barplots showing net internal loads for the Upper and Liberty Island reaches and the entire Yolo Bypass
 # Facets for each analyte/parameter
 # All sampling events
-# B-18 is for MeHg and THg, B-19 is for organic carbon and suspended solids
+# B-17 is for MeHg and THg, B-18 is for organic carbon and suspended solids
 
 # Define figure numbers for easier updating
-fig_num_hg <- as.character(18)
-fig_num_other <- as.character(19)
+fig_num_hg <- as.character(17)
+fig_num_other <- as.character(18)
 
 # Bring in net load data
 source("YB_Mass_Balance/Loads/Import_Net_Load_Data.R")
@@ -1279,12 +1209,12 @@ ggsave(
 rm(list= ls()[!(ls() %in% obj_keep)])
 
 
-# Figure B-20 -------------------------------------------------------------
+# Figure B-19 -------------------------------------------------------------
 # Barplot showing net fMeHg and pMeHg loads for the Upper reach dodged next to each other
 # 2017 sampling events only
 
 # Define figure number for easier updating
-fig_num <- as.character(20)
+fig_num <- as.character(19)
 
 # Bring in net load data
 source("YB_Mass_Balance/Loads/Import_Net_Load_Data.R")
@@ -1328,13 +1258,13 @@ ggsave(
 rm(list= ls()[!(ls() %in% obj_keep)])
 
 
-# Figure B-21 -------------------------------------------------------------
+# Figure B-20 -------------------------------------------------------------
 # Barplots showing MeHg concentrations on solids for the three Stairstep locations
 # Facet for each Station
 # 2017 sampling events only
 
 # Define figure number for easier updating
-fig_num <- as.character(21)
+fig_num <- as.character(20)
 
 # Prepare MeHg concentration on solids data for plotting
 mehg_conc_solids_out <- comb_param_calc %>% 
@@ -1382,13 +1312,13 @@ ggsave(
 rm(list= ls()[!(ls() %in% obj_keep)])
 
 
-# Figure B-22 -------------------------------------------------------------
+# Figure B-21 -------------------------------------------------------------
 # Barplot showing net VSS loads for the Upper reach
 # 2017 sampling events only
 # More zoomed in plot of the VSS panel of Figure B-19
 
 # Define figure number for easier updating
-fig_num <- as.character(22)
+fig_num <- as.character(21)
 
 # Bring in net load data
 source("YB_Mass_Balance/Loads/Import_Net_Load_Data.R")
@@ -1431,21 +1361,21 @@ ggsave(
 rm(list= ls()[!(ls() %in% obj_keep)])
 
 
-# Figure B-23 through B-25 --------------------------------------------------------------
+# Figure B-22 through B-24 --------------------------------------------------------------
 # Each figure has multiple scatterplots showing net loads as a function of total Bypass inflow
 # The top row of three figures shows the plots for the unfiltered fraction
 # The middle row of three figures shows the plots for the filter-passing fraction
 # The bottom row of three figures shows the plots for the particulate fraction
 # The columns are ordered from left to right by Upper reach, Liberty Island reach, and entire Bypass
-# Figure B-23 is for MeHg 
-# Figure B-24 is for Hg 
-# Figure B-23 is for TSS (only has three panels)
+# Figure B-22 is for MeHg 
+# Figure B-23 is for Hg 
+# Figure B-24 is for TSS (only has three panels)
 # 2017 sampling events only
 
 # Define figure numbers for easier updating
-fig_num_mehg <- as.character(23)
-fig_num_hg <- as.character(24)
-fig_num_tss <- as.character(25)
+fig_num_mehg <- as.character(22)
+fig_num_hg <- as.character(23)
+fig_num_tss <- as.character(24)
 
 # Bring in net load data
 source("YB_Mass_Balance/Loads/Import_Net_Load_Data.R")
@@ -1629,14 +1559,14 @@ figures_group <-
 rm(list= ls()[!(ls() %in% obj_keep)])
 
 
-# Figure B-26 -------------------------------------------------------------
+# Figure B-25 -------------------------------------------------------------
 # Scatterplots comparing data collected in 2006 by Foe et al. with the data collected from 2014-2017
 # Plots show MeHg loads as a function of total Bypass inflow
 # Each year has a different color
 # Three facets: Inlet loads, Outlet loads at the Stairsteps, and net loads between the two
 
 # Define figure number for easier updating
-fig_num <- as.character(26)
+fig_num <- as.character(25)
 
 # Bring in total and net load data
 source("YB_Mass_Balance/Loads/Import_Total_Load_Data.R")
