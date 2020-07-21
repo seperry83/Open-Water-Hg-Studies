@@ -270,12 +270,25 @@ loads_inlet_clean <- loads_inlet %>%
     Year == 2017,
     str_detect(Analyte, "^MeHg|^THg|OC$|^TSS")
   ) %>% 
-  # Rename analytes
-  rename_analytes() %>% 
+  # Rename analytes and convert variable to factor to apply plot order
+  mutate(
+    Analyte = recode_factor(
+      Analyte,
+      "THg- total" = "uHg",
+      "THg- filtered" = "fHg",
+      "THg- particulate" = "pHg",
+      "MeHg- total" = "uMeHg",
+      "MeHg- filtered" = "fMeHg",
+      "MeHg- particulate" = "pMeHg",
+      TOC = "TOC",
+      DOC = "DOC",
+      POC = "POC",
+      TSS = "TSS"
+    )
+  ) %>% 
   # Convert variables to factor to apply plot order
-  conv_fact_analytes() %>% 
   conv_fact_samplingevent() %>% 
-  conv_fact_inlet_names()
+  conv_fact_inlet_names() 
 
 # Create Figure
 figure <- loads_inlet_clean %>% 
