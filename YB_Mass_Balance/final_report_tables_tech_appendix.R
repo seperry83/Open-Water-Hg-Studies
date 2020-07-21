@@ -580,13 +580,72 @@ rm(list= ls()[!(ls() %in% obj_keep)])
 
 
 # Table B-14 --------------------------------------------------------------
+# Averages and standard deviations for each inlet's load of Hg, MeHg, 
+  # Organic Carbon and Suspended Solids
+# For just the sampling events in 2017
+
+# Define table number for easier updating
+tbl_num <- as.character(14)
+
+# Bring in inlet load data
+source("YB_Mass_Balance/Loads/Import_Inlet_Load_Data.R")
+
+# Clean and Prepare Inlet Load data
+loads_inlet_clean <- loads_inlet %>% 
+  filter(
+    Year == 2017,
+    str_detect(Analyte, "OC$|Hg|SS$")
+  ) %>% 
+  # Apply order for analytes in the table
+  conv_fact_analytes() %>% 
+  # Rename a few stations
+  mutate(
+    StationName = case_when(
+      str_detect(StationName, "^Fre") ~ "Fremont",
+      str_detect(StationName, "^Put") ~ "Putah",
+      str_detect(StationName, "^Sac") ~ "Sac_Weir",
+      TRUE ~ StationName
+    )
+  ) 
+
+# Calculate averages and standard deviations of loads for each inlet
+loads_inlet_summ <- loads_inlet_clean %>% 
+  group_by(StationName, Analyte) %>% 
+  summarize(
+    sign_digits = min(digits, na.rm = TRUE),
+    avg_load = signif(mean(Load), sign_digits),
+    sd_load = signif(sd(Load), sign_digits)
+  ) %>% 
+  ungroup() %>% 
+  select(-sign_digits)
+
+# Restructure load summary data for table
+loads_inlet_summ_f <- loads_inlet_summ %>% 
+  pivot_wider(names_from = StationName, values_from = c(avg_load, sd_load)) %>% 
+  select(
+    Analyte,
+    ends_with("KLRC"),
+    ends_with("CCSB"),
+    ends_with("Putah"),
+    ends_with("Sac_Weir"),
+    ends_with("Fremont")
+  )
+
+# Export Table
+loads_inlet_summ_f %>% write_excel_csv(paste0("table_b-", tbl_num, ".csv"))
+
+# Clean up
+rm(list= ls()[!(ls() %in% obj_keep)])
+  
+
+# Table B-15 --------------------------------------------------------------
 # Averages and standard deviations for the net loads within the Upper and Liberty Island reaches 
   # and for the entire Yolo Bypass of Hg, MeHg,Organic Carbon and Suspended Solids
 # Tables also provides the percent differences of the net loads
 # For just the sampling events in 2017
 
 # Define table number for easier updating
-tbl_num <- as.character(14)
+tbl_num <- as.character(15)
 
 # Bring in load data
 source("YB_Mass_Balance/Loads/Import_Total_Load_Data.R")
@@ -685,12 +744,12 @@ loads_summ_c %>% write_excel_csv(paste0("table_b-", tbl_num, ".csv"))
 rm(list= ls()[!(ls() %in% obj_keep)])
 
 
-# Table B-15 --------------------------------------------------------------
+# Table B-16 --------------------------------------------------------------
 # Averages and standard deviations of MeHg for all reaches and import and export locations
 # For just the 8 comparable sampling events in 2017
 
 # Define table number for easier updating
-tbl_num <- as.character(15)
+tbl_num <- as.character(16)
 
 # Bring in load data
 source("YB_Mass_Balance/Loads/Import_Total_Load_Data.R")
