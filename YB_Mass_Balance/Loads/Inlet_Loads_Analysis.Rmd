@@ -1099,7 +1099,7 @@ sac_weir17 <- loads_inlet_perc %>%
   summarize(avg_perc_load = round(mean(percent_load) * 100))
 ```
 
-During these three sampling events, the Sacramento Weir provided averages of 19% of the total inflow to the Bypass, and `r sac_weir17 %>% filter(Analyte == "THg- total") %>% pull(avg_perc_load)`, `r sac_weir17 %>% filter(Analyte == "MeHg- total") %>% pull(avg_perc_load)`, and `r sac_weir17 %>% filter(Analyte == "TSS") %>% pull(avg_perc_load)`% of the total input load of uHg, uMeHg, and TSS, respectively
+During these three sampling events, the Sacramento Weir provided averages of 19% of the total inflow to the Bypass, and `r sac_weir17 %>% filter(Analyte == "THg- total") %>% pull(avg_perc_load)`, `r sac_weir17 %>% filter(Analyte == "MeHg- total") %>% pull(avg_perc_load)`, `r sac_weir17 %>% filter(Analyte == "TSS") %>% pull(avg_perc_load)`, and `r sac_weir17 %>% filter(Analyte == "TOC") %>% pull(avg_perc_load)`% of the total input load of uHg, uMeHg, TSS, and TOC, respectively
 
 ***
 
