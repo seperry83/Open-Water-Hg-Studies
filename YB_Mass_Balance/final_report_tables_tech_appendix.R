@@ -527,6 +527,117 @@ rm(list= ls()[!(ls() %in% obj_keep)])
 # Define table number for easier updating
 tbl_num <- as.character(12)
 
+# Bring in concentration data
+source("YB_Mass_Balance/Concentrations/Import_Conc_Data.R")
+
+# Only include necessary analytes for the concentration data
+all_conc_mod <- all_conc %>% filter(str_detect(Analyte, "^Chl|Hg|^TSS|[^P]OC$"))
+
+# Modify Specific Conductance data to bind with concentration and derived parameter data
+spcond <- field_data %>% 
+  mutate(Analyte = "SpCond") %>% 
+  rename(Conc = SpCond) %>% 
+  select(StationName, SampleDate, Analyte, Conc)
+  
+# Modify derived parameter data to combine with concentration and SpCond data
+comb_param_calc_mod <- comb_param_calc %>% 
+  rename(
+    Analyte = Parameter,
+    Conc = Value
+  ) %>% 
+  filter(str_detect(Analyte, "^MeHg C|^TOC")) %>% 
+  select(StationName, SampleDate, Analyte, Conc, Units)
+
+# Combine Specific Conductance, concentration, and derived parameters together
+all_val <- bind_rows(all_conc_mod, spcond, comb_param_calc_mod)
+
+# Modify all_val_clean dataframe
+all_val_clean <- all_val %>% 
+  # only keep data from 2017 and a subset of stations
+  filter(
+    str_detect(StationName, "^Fre|^Lib|Toe.+[n]$"),
+    year(SampleDate) == 2017
+  ) %>% 
+  mutate(
+    # Convert TOC/TSS to a proportion
+    Conc = if_else(str_detect(Analyte, "TOC C"), Conc/1000, Conc),
+    # Add variable for Fremont and export stations
+    Loc = if_else(str_detect(StationName, "^Fre"), "Fremont", "Export")
+  ) %>% 
+  # Add SamplingEvent variable
+  add_samplingevent() %>% 
+  select(SamplingEvent, StationName, Loc, Analyte, Conc)
+
+# Average all Analytes by Loc variable for each sampling event
+all_val_avg <- all_val_clean %>% 
+  group_by(SamplingEvent, Loc, Analyte) %>% 
+  summarize(avg_val = mean(Conc)) %>% 
+  ungroup()
+
+# Pull out Specific Conductance values and find sampling events when the export values
+  # were within 15% of the values observed at the Fremont Weir
+similar_spcond <- all_val_avg %>% 
+  filter(Analyte == "SpCond") %>% 
+  pivot_wider(
+    id_cols = -Analyte,
+    names_from = Loc,
+    values_from = avg_val
+  ) %>% 
+  mutate(perc_diff = Export/Fremont) %>% 
+  filter(perc_diff >= 0.85 & perc_diff <= 1.15)
+
+# Calculate overall averages for the Fremont and export locations of each analyte 
+  # for the six sampling events with similar Specific Conductance values
+similar_val_summ <- similar_spcond %>% 
+  select(SamplingEvent) %>% 
+  inner_join(all_val_avg) %>% 
+  group_by(Loc, Analyte) %>% 
+  summarize(value = mean(avg_val)) %>% 
+  ungroup() %>% 
+  pivot_wider(names_from = Loc, values_from = value)
+
+# Calculate the percent increase in the Export concentration and restructure table for report
+similar_val_summ_f <- similar_val_summ %>% 
+  mutate(
+    perc_incr = (Export-Fremont)/Fremont,
+    perc_incr = if_else(abs(perc_incr) < 0.1, round(perc_incr, 3), round(perc_incr, 2))
+  ) %>% 
+  # Round average concentration values
+  mutate_at(
+    c("Export", "Fremont"),
+    ~case_when(
+      str_detect(Analyte, "^MeHg-|^TOC C") ~ round(.x, 3),
+      str_detect(Analyte, "^MeHg C") ~ round(.x, 2),
+      str_detect(Analyte, "^SpC|^TSS") ~ round(.x),
+      TRUE ~ round(.x, 1)
+    )
+  ) %>% 
+  # Reorder rows and columns
+  mutate(
+    Analyte = factor(
+      Analyte,
+      levels = c(
+        "SpCond",
+        "Chloride- filtered",
+        "THg- total",
+        "THg- filtered",
+        "THg- particulate",
+        "MeHg- total",
+        "MeHg- filtered",
+        "MeHg- particulate",
+        "TOC",
+        "DOC",
+        "TSS",
+        "MeHg Concentration on Solids",
+        "TOC Concentration on Solids"
+      )
+    )
+  ) %>% 
+  arrange(Analyte) %>% 
+  select(Analyte, Fremont, Export, perc_incr)
+
+# Export Table
+similar_val_summ_f %>% write_excel_csv(paste0("table_b-", tbl_num, ".csv"))
   
 # Clean up
 rm(list= ls()[!(ls() %in% obj_keep)])
