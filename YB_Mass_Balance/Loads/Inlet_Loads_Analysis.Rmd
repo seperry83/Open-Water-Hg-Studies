@@ -1079,7 +1079,7 @@ loads_total_ff <- loads_total_clean %>%
   mutate(perc_lower = round((jan11 - feb14)/jan11 * 100))
 ```
 
-February 14th, approximately a month later, was the sampling event with the largest inflow at 188,700 cfs, but the total inlet loads were not as large as the January 11th event.  This largest inflow event had uHg, uMeHg, and TSS loads that were `r loads_total_ff %>% filter(Analyte == "THg- total") %>% pull(perc_lower)`, `r loads_total_ff %>% filter(Analyte == "MeHg- total") %>% pull(perc_lower)`, and `r loads_total_ff %>% filter(Analyte == "TSS") %>% pull(perc_lower)`% lower than the January 11th event, respectively.
+February 14th, approximately a month later, was the sampling event with the largest inflow at 188,700 cfs, but the total inlet loads were not as large as the January 11th event.  This largest inflow event had uHg, uMeHg, TSS, and TOC loads that were `r loads_total_ff %>% filter(Analyte == "THg- total") %>% pull(perc_lower)`, `r loads_total_ff %>% filter(Analyte == "MeHg- total") %>% pull(perc_lower)`, `r loads_total_ff %>% filter(Analyte == "TSS") %>% pull(perc_lower)`, and `r loads_total_ff %>% filter(Analyte == "TOC") %>% pull(perc_lower)`% lower than the January 11th event, respectively.
 
 ***
 
