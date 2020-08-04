@@ -762,62 +762,89 @@ tbl_num <- as.character(15)
 source("YB_Mass_Balance/Loads/Import_Total_Load_Data.R")
 source("YB_Mass_Balance/Loads/Import_Net_Load_Data.R")
 
-# Only include total and net load data for 2017 for specific analytes
-loads_all <- 
-  list(
-    total = loads_total,
-    net = loads_net
-  ) %>% 
-  map(~filter(.x, Year == 2017, str_detect(Analyte, "OC$|Hg|SS$"))) %>% 
-  map(conv_fact_analytes)
-
-# Calculate averages of the inlet loads for all 9 events in 2017
-loads_inlet_avg9 <- loads_all$total %>% 
-  filter(LocType == "Inlet") %>% 
-  group_by(Analyte) %>% 
-  summarize(inlet_load9 = mean(total_load))
-  
-# Calculate averages of the inlet and outlet loads for 8 events in 2017 to be comparable to 
-  # net loads for Liberty Island and the entire Bypass
-loads_total_avg8 <- loads_all$total %>% 
-  filter(
-    LocType != "Below Liberty",
-    SamplingEvent != "Apr 11-12, 2017"
-  ) %>% 
-  group_by(Analyte, LocType) %>% 
-  summarize(avg_load = mean(total_load)) %>% 
-  ungroup() %>% 
-  pivot_wider(names_from = LocType, values_from = avg_load) %>% 
-  rename(
-    inlet_load8 = Inlet,
-    outlet_load8 = Outlet 
+# Combine total and net loads
+loads_total_w <- loads_total %>% 
+  mutate(LocType = if_else(str_detect(LocType, "^Bel"), "BLI", LocType)) %>% 
+  pivot_wider(
+    id_cols = -LoadUnits, 
+    names_from = LocType,
+    values_from = c(total_load, digits)
   )
 
-# Calculate averages and standard deviations of the net loads for each reach
-loads_net_summ <- loads_all$net %>% 
-  group_by(Reach, Analyte) %>% 
-  summarize(
-    sign_digits = min(digits),
-    avg_net_load = mean(net_load),
-    sd_net_load = sd(net_load)
-  ) %>% 
-  ungroup()
-
-# Calculate percent differences for the net loads
-loads_perc_diff <- loads_net_summ %>% 
+loads_net_w <- loads_net %>% 
   pivot_wider(
-    id_cols = -c(sign_digits, sd_net_load),
+    id_cols = -LoadUnits,
     names_from = Reach,
-    values_from = avg_net_load
+    values_from = c(net_load, digits)
+  )
+
+loads_total_net_c <- left_join(loads_total_w, loads_net_w)
+
+# Only include 2017 data and specific analytes
+loads_total_net_17 <- loads_total_net_c %>% 
+  filter(
+    Year == 2017, 
+    str_detect(Analyte, "OC$|Hg|SS$")
   ) %>% 
-  left_join(loads_inlet_avg9) %>% 
-  left_join(loads_total_avg8) %>% 
+  conv_fact_analytes() %>% 
+  select(-Year)
+
+# Calculate percent differences for individual net loads
+loads_net_pd <- loads_total_net_17 %>% 
   mutate(
-    pd_Entire = Entire/inlet_load8,
-    pd_Upper = Upper/inlet_load9,
-    pd_Liberty = Liberty/outlet_load8
+    perc_diff_Upper = net_load_Upper/((total_load_Inlet + total_load_Outlet)/2),
+    perc_diff_Liberty = net_load_Liberty/((total_load_Outlet + total_load_BLI)/2),
+    perc_diff_Entire = net_load_Entire/((total_load_Inlet + total_load_BLI)/2)
   ) %>% 
-  select(-c(Entire:outlet_load8)) %>% 
+  select(-matches("Inlet|Outlet|BLI")) 
+
+# Calculate averages and standard deviations of net loads and percent differences
+loads_net_pd_summ <- loads_net_pd %>% 
+  group_by(Analyte) %>% 
+  summarize_at(
+    vars(matches("load|diff")),
+    list(
+      avg = ~mean(.x, na.rm = TRUE),
+      stdev = ~sd(.x, na.rm = TRUE)
+    )
+  )
+
+# Calculate the minimum number of significant digits to round the averages and standard deviations 
+  # of the net loads
+loads_sign_digits <- loads_net_pd %>% 
+  group_by(Analyte) %>% 
+  summarize_at(vars(starts_with("digits")), min, na.rm = TRUE) %>% 
+  rename_if(is.numeric, ~str_sub(.x, start = 8)) %>% 
+  pivot_longer(
+    cols = -Analyte,
+    names_to = "Reach",
+    values_to = "digits"
+  )
+
+# Join loads_sign_digits to loads_summ and round averages and standard deviations of net loads 
+  # to proper number of significant figures
+loads_net_summ_r <- loads_net_pd_summ %>% 
+  select(Analyte, starts_with("net")) %>% 
+  rename_if(is.numeric, ~str_sub(.x, start = 10)) %>% 
+  pivot_longer(
+    cols = -Analyte,
+    names_to = "parameter",
+    values_to = "value"
+  ) %>% 
+  separate(parameter, into = c("Reach", "summary_stat")) %>% 
+  pivot_wider(names_from = summary_stat, values_from = value) %>% 
+  left_join(loads_sign_digits) %>% 
+  mutate_at(c("avg", "stdev"), ~signif(.x, digits)) %>% 
+  pivot_wider(
+    id_cols = -digits,
+    names_from = Reach,
+    values_from = c(avg, stdev)
+  )
+
+# Round the averages and standard deviations of the percent differences and join to summary stats
+  # for the net loads
+loads_summ_c <- loads_net_pd_summ %>% 
+  select(Analyte, starts_with("perc")) %>% 
   mutate_if(
     is.numeric, 
     ~case_when(
@@ -825,28 +852,10 @@ loads_perc_diff <- loads_net_summ %>%
       abs(.x) < 1 ~ signif(.x, 2), 
       TRUE ~ signif(.x, 3)
     )
-  )
-
-# Prepare net load summary data to be combined with the percent differences
-loads_net_summ_r <- loads_net_summ %>% 
-  # Round the net load averages and standard deviations to the proper number of significant figures
-  mutate_at(vars(ends_with("load")), ~signif(.x, sign_digits)) %>% 
-  # Restructure data
-  pivot_wider(
-    id_cols = -sign_digits,
-    names_from = Reach, 
-    values_from = c(avg_net_load, sd_net_load)
-  )
-
-# Combine net load summary data with the calculated percent differences for table
-loads_summ_c <- 
-  left_join(loads_net_summ_r, loads_perc_diff) %>% 
-  select(
-    Analyte,
-    ends_with("Upper"),
-    ends_with("Liberty"),
-    ends_with("Entire")
-  )
+  ) %>% 
+  left_join(loads_net_summ_r) %>% 
+  select(Analyte, starts_with("avg"), starts_with("stdev"), starts_with("perc")) %>% 
+  select(Analyte, contains("Upper"), contains("Liberty"), contains("Entire"))
 
 # Export Table
 loads_summ_c %>% write_excel_csv(paste0("table_b-", tbl_num, ".csv"))
