@@ -751,7 +751,7 @@ rm(list= ls()[!(ls() %in% obj_keep)])
 
 # Table B-15 --------------------------------------------------------------
 # Averages and standard deviations for the net loads within the Upper and Liberty Island reaches 
-  # and for the entire Yolo Bypass of Hg, MeHg,Organic Carbon and Suspended Solids
+  # and for the entire Yolo Bypass of Hg, MeHg, Organic Carbon and Suspended Solids
 # Tables also provides the percent differences of the net loads
 # For just the sampling events in 2017
 
@@ -817,7 +817,7 @@ loads_perc_diff <- loads_net_summ %>%
     pd_Upper = Upper/inlet_load9,
     pd_Liberty = Liberty/outlet_load8
   ) %>% 
-  select(-c(Entire:outlet_load8)) %>% 
+  select(Analyte, starts_with("pd")) %>% 
   mutate_if(
     is.numeric, 
     ~case_when(
